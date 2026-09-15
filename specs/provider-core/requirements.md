@@ -2,7 +2,7 @@
 autonomy: auto
 ci: wait
 branch: feat/asset-consistency
-delivery: in-review
+delivery: merged
 pr: 4
 ---
 
