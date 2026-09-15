@@ -183,7 +183,11 @@ def run_recipe(
             carried[step.name] = {
                 "files": state.files,
                 "ids": state.ids,
-                "images": [Path(path).read_bytes() for path in state.files if Path(path).is_file()],
+                "images": [
+                    runner.workspace.read_inside(path)
+                    for path in state.files
+                    if Path(path).is_file()
+                ],
             }
             continue
         if step.wanted is not None and not step.wanted(carried):

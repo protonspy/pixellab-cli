@@ -102,6 +102,53 @@ class TestTheWorkspaceRefusesToWriteOutsideItself:
         assert workspace.read_inside(written) == b"pixels"
 
 
+class TestTheReadItselfIsGuarded:
+    """`run_recipe` is called with a `completed` map, and must not trust it.
+
+    `_resume` validates every path before calling in, which is what closes the
+    CLI-reachable hole. But a second caller that forgot to would reopen it silently,
+    so the check belongs at the read as well as in front of it — the same rule the
+    redaction pass already follows.
+    """
+
+    def test_a_completed_step_naming_a_file_outside_the_workspace_is_refused(self, tmp_path):
+        from pixellab_cli.ledger import Ledger
+        from pixellab_cli.recipe import DONE, StepState, run_recipe
+        from pixellab_cli.recipes import build
+        from pixellab_cli.run import Runner
+
+        workspace = Workspace(root=tmp_path / "out")
+        secret = tmp_path / "id_rsa"
+        secret.write_bytes(b"-----BEGIN OPENSSH PRIVATE KEY-----")
+        runner = Runner(workspace=workspace, ledger=Ledger(path=workspace.ledger_path))
+
+        calls = []
+
+        class Recording:
+            def call(self, *args, **kwargs):
+                calls.append(args)
+                raise AssertionError("a paid call was made with a file from outside")
+
+            def generate(self, *args, **kwargs):
+                calls.append(args)
+                raise AssertionError("a paid call was made with a file from outside")
+
+        completed = {
+            "concept": StepState(name="concept", state=DONE, route="concept", files=[str(secret)])
+        }
+
+        with pytest.raises(ValidationError):
+            run_recipe(
+                build("sprite", "a knight"),
+                runner=runner,
+                clients={"pixellab": Recording(), "fal": Recording()},
+                description="a knight",
+                completed=completed,
+            )
+
+        assert calls == []
+
+
 class TestNameOptionsAreContained:
     @respx.mock
     def test_a_traversing_name_does_not_write_outside_the_workspace(self, tmp_path, monkeypatch):
@@ -187,6 +234,27 @@ class TestAResumedManifestIsUntrusted:
 
         assert result.exit_code != 0
         assert not elsewhere.exists()
+
+    def test_a_malformed_manifest_reads_as_a_bad_document_not_a_traceback(
+        self, tmp_path, monkeypatch
+    ):
+        monkeypatch.setenv(PIXELLAB_SECRET_VAR, "pl-test-token")
+        manifest_path = self._manifest(tmp_path)
+        manifest_path.write_text(json.dumps({"steps": [{"no_name": True}]}), encoding="utf-8")
+
+        result = invoke(["recipe", "resume", str(manifest_path)], tmp_path)
+
+        assert result.exit_code == 2
+        assert "Traceback" not in result.output
+
+    def test_a_manifest_with_no_steps_is_refused_cleanly(self, tmp_path, monkeypatch):
+        monkeypatch.setenv(PIXELLAB_SECRET_VAR, "pl-test-token")
+        manifest_path = self._manifest(tmp_path)
+        manifest_path.write_text(json.dumps({"recipe": "sprite", "steps": None}), encoding="utf-8")
+
+        result = invoke(["recipe", "resume", str(manifest_path)], tmp_path)
+
+        assert "Traceback" not in result.output
 
     def test_the_refusal_says_what_was_wrong_without_a_traceback(self, tmp_path, monkeypatch):
         monkeypatch.setenv(PIXELLAB_SECRET_VAR, "pl-test-token")

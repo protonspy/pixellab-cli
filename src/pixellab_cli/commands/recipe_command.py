@@ -119,17 +119,23 @@ def _resume(context, manifest_path, actions) -> None:
     # is inside the workspace before anything is read or written through it.
     directory = app_context.workspace.inside(manifest.get("directory") or manifest_path.parent)
 
-    states = {
-        entry["name"]: StepState(
-            name=entry["name"],
-            state=entry.get("state", "pending"),
-            route=entry.get("route", ""),
-            files=entry.get("files") or [],
-            ids=entry.get("ids") or {},
-            error=entry.get("error"),
-        )
-        for entry in manifest.get("steps", [])
-    }
+    try:
+        states = {
+            entry["name"]: StepState(
+                name=entry["name"],
+                state=entry.get("state", "pending"),
+                route=entry.get("route", ""),
+                files=[str(path) for path in entry.get("files") or []],
+                ids=entry.get("ids") or {},
+                error=entry.get("error"),
+            )
+            for entry in manifest.get("steps") or []
+        }
+    except (AttributeError, KeyError, TypeError) as failure:
+        raise ValidationError(
+            f"{manifest_path} is not a recipe manifest this tool wrote: {failure}",
+            context={"path": str(manifest_path)},
+        ) from None
     finished = {name: state for name, state in states.items() if state.state == DONE}
 
     description = manifest.get("description") or directory.name
