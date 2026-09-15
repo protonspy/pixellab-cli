@@ -141,3 +141,32 @@ class TestTheStyleReferenceRoute:
 
     def test_no_size_named_falls_back_to_the_default_on_a_base_route(self):
         assert choose_image_route(None).name == "create-image-pixflux"
+
+
+class TestAnExplicitRouteWinsOverTheStyleCount:
+    """`--route` is a way to reach a route, not a hint. R1.3, and a price if ignored."""
+
+    def test_a_named_cheap_route_is_not_replaced_by_the_style_count(self):
+        with pytest.raises(ValidationError) as raised:
+            choose_image_route(None, style_images=2, route_name="create-image-pixflux")
+
+        message = str(raised.value)
+        assert "create-image-pixflux" in message
+        assert "generate-with-style-v2" in message
+
+    def test_the_style_route_can_be_named_with_one_style_image(self):
+        route = choose_image_route(None, style_images=1, route_name="generate-with-style-v2")
+
+        assert route.name == "generate-with-style-v2"
+
+    def test_the_named_style_route_still_refuses_a_size(self):
+        with pytest.raises(ValidationError):
+            choose_image_route(
+                {"width": 64, "height": 64}, style_images=2, route_name="generate-with-style-v2"
+            )
+
+    def test_the_style_route_is_named_among_the_image_routes_in_a_refusal(self):
+        with pytest.raises(ValidationError) as raised:
+            choose_image_route(None, route_name="make-art")
+
+        assert "generate-with-style-v2" in str(raised.value)

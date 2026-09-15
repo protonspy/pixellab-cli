@@ -70,12 +70,16 @@ def ordered_rotations(urls: dict[str, str]) -> list[tuple[str, str]]:
 
 def fetch_rotations(
     client: PixelLabClient, character_id: str
-) -> tuple[list[bytes], list[str], dict[str, str]]:
-    """Read a character and download every rotation it has.
+) -> tuple[list[bytes], list[str], dict[str, str], dict[str, Any]]:
+    """Read a character, download every rotation it has, and keep what it said.
 
     Creating a character is three steps rather than one: the completed job says the
     work is done, it does not hand back eight PNGs. The rotations are URLs on
     `GET /characters/{id}`.
+
+    The whole detail comes back with them because it carries what the submit response
+    does not — `group_id` above all, which is how a state finds its way back to the
+    character it came from and is a field in its own right rather than the source id.
     """
     detail = client.call("character", character_id=character_id)
     urls = detail.raw.get("rotation_urls") or {}
@@ -84,6 +88,7 @@ def fetch_rotations(
         [client.download(url) for _, url in rotations],
         [name for name, _ in rotations],
         urls,
+        detail.raw,
     )
 
 
@@ -152,7 +157,7 @@ def _new(context, description, reference, size, view, template, name, seed) -> N
                 context={"response": result.raw},
                 secrets=app_context.credentials.secrets,
             )
-        frames, directions, urls = fetch_rotations(client, character_id)
+        frames, directions, urls, _ = fetch_rotations(client, character_id)
         result.images = frames
         result.raw = {**result.raw, "rotation_urls": urls}
         roles.extend(directions)
@@ -239,10 +244,16 @@ def _state(context, character_id, edit, state_name, size, palette, seed) -> None
                 context={"response": result.raw},
                 secrets=app_context.credentials.secrets,
             )
-        frames, directions, urls = fetch_rotations(client, new_id)
+        frames, directions, urls, detail = fetch_rotations(client, new_id)
         result.images = frames
         result.raw = {**result.raw, "rotation_urls": urls, "source_character_id": character_id}
+        # `group_id` is PixelLab's own, and is not the source id: a source that already
+        # belongs to a group keeps that group, and a state of a state joins it too.
+        # Recording the id the caller typed instead would be a guess that reads as a fact.
         result.ids = {**result.ids, "source_character_id": character_id}
+        group_id = detail.get("group_id")
+        if group_id:
+            result.ids["group_id"] = group_id
         roles.extend(directions)
         return result
 

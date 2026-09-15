@@ -1,8 +1,8 @@
 ---
 autonomy: auto
 ci: wait
-branch: feat/foundation
-delivery: in-review
+branch: feat/asset-consistency
+delivery: in-progress
 pr: 1
 ---
 

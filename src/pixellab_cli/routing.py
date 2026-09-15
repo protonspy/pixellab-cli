@@ -58,10 +58,13 @@ def choose_image_route(
     style reference route refuses one, because it reads the output size off the
     style images it was given.
     """
+    # An explicit route is first, always. R1.3 makes `--route` a way to reach a route
+    # rather than a hint, and a count of style images preempting it would silently
+    # move a one-generation call onto a thirty-generation one.
+    if route_name is not None:
+        return _named(route_name, size, style_images)
     if style_images > 1:
         return _style_reference(size, style_images)
-    if route_name is not None:
-        return _named(route_name, _or_default(size))
     if style_images == 1:
         return _with_style(_or_default(size))
     size = _or_default(size)
@@ -94,14 +97,25 @@ def _style_reference(size: dict[str, int] | None, style_images: int) -> Route:
     return catalog.route(STYLE_REFERENCE_ROUTE)
 
 
-def _named(route_name: str, size: dict[str, int]) -> Route:
+def _named(route_name: str, size: dict[str, int] | None, style_images: int) -> Route:
+    """The route the caller named, held to its own limits — never quietly replaced."""
+    if route_name == STYLE_REFERENCE_ROUTE:
+        return _style_reference(size, max(style_images, 1))
     if route_name not in IMAGE_ROUTES:
         raise ValidationError(
             f"{route_name!r} is not an image route. The image routes are: "
-            f"{', '.join(IMAGE_ROUTES)}.",
+            f"{', '.join((*IMAGE_ROUTES, STYLE_REFERENCE_ROUTE))}.",
             context={"route": route_name},
         )
+    if style_images > 1:
+        raise ValidationError(
+            f"{route_name} takes one style image, and {style_images} were given. "
+            f"Drop the extra ones, or name {STYLE_REFERENCE_ROUTE}, which takes up to "
+            f"{STYLE_REFERENCE_MAX}.",
+            context={"route": route_name, "style_images": style_images},
+        )
     route = catalog.route(route_name)
+    size = _or_default(size)
     if not _fits(route, size):
         raise ValidationError(
             f"{route_name} cannot make a {_describe(size)} image — {_ceiling(route)}.",

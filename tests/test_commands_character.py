@@ -462,7 +462,7 @@ class TestLooseImages:
         assert result.exit_code == 2
 
 
-def mock_state(character_id="char-9", state_id="char-10", directions=DIRECTIONS):
+def mock_state(character_id="char-9", state_id="char-10", group_id="grp-3", directions=DIRECTIONS):
     """A state is a second character: submit, poll, then read the new id's rotations."""
     respx.post(f"{PIXELLAB_BASE_URL}/create-character-state").respond(
         json={
@@ -480,6 +480,7 @@ def mock_state(character_id="char-9", state_id="char-10", directions=DIRECTIONS)
             "id": state_id,
             "name": "a knight in a red cloak",
             "status": "completed",
+            "group_id": group_id,
             "rotation_urls": rotation_urls(directions),
             "animations": [],
         }
@@ -641,3 +642,27 @@ class TestLongFormAnimation:
 
         assert result.exit_code == 2
         assert "40" in result.output
+
+    @respx.mock
+    def test_the_group_recorded_is_the_one_pixellab_returned(self, tmp_path, monkeypatch):
+        # Not the source id: a character already in a group keeps that group, so the
+        # two are different facts and only one of them is PixelLab's.
+        mock_state(character_id="char-9", state_id="char-10", group_id="grp-3")
+
+        invoke(["character", "state", "char-9", "-p", "wearing a red cloak"], tmp_path, monkeypatch)
+
+        manifest = json.loads(
+            next((tmp_path / "out").glob("*/*.manifest.json")).read_text(encoding="utf-8")
+        )
+        assert manifest["ids"]["group_id"] == "grp-3"
+
+    @respx.mock
+    def test_a_state_with_no_group_records_no_group_rather_than_a_null(self, tmp_path, monkeypatch):
+        mock_state(group_id=None)
+
+        invoke(["character", "state", "char-9", "-p", "wearing a red cloak"], tmp_path, monkeypatch)
+
+        manifest = json.loads(
+            next((tmp_path / "out").glob("*/*.manifest.json")).read_text(encoding="utf-8")
+        )
+        assert "group_id" not in manifest["ids"]

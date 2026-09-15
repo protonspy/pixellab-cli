@@ -17,7 +17,12 @@ from pixellab_cli.context import AppContext
 from pixellab_cli.errors import PixellabCliError, ValidationError
 from pixellab_cli.ledger import Cost
 from pixellab_cli.routes import DETAIL, DIRECTION, OUTLINE, SHADING, VIEW
-from pixellab_cli.routing import DEFAULT_SIZE, choose_image_route, parse_size
+from pixellab_cli.routing import (
+    DEFAULT_SIZE,
+    STYLE_REFERENCE_ROUTE,
+    choose_image_route,
+    parse_size,
+)
 from pixellab_cli.run import from_pixellab
 from pixellab_cli.validate import build_request
 
@@ -107,7 +112,9 @@ def _sprite(
         "no_background": True if transparent else None,
         "seed": seed,
     }
-    if len(style_images) > 1:
+    # Keyed off the route rather than off the count, so an explicitly named route gets
+    # the payload it actually accepts.
+    if route.name == STYLE_REFERENCE_ROUTE:
         arguments["style_images"] = [_style_reference(path) for path in style_images]
     elif style_images:
         arguments["style_image"] = images.encode_file(style_images[0]).as_payload()

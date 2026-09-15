@@ -72,8 +72,10 @@ edit across every rotation the character has, and returns **a new `character_id`
 to the source by a `group_id`. So `pixellab character state knight-id -p "wearing a red
 cloak"` collects exactly what `pixellab character new` collects — submit, poll, read the
 character, download the rotation URLs — and the only new thing is what goes in the
-manifest: two identifiers rather than one, because a state is worth nothing if the
-group it belongs to is lost.
+manifest: the new `character_id`, the source the caller named, and the `group_id`
+**read off `GET /characters/{id}`** rather than assumed to be the source id — a
+character already in a group keeps that group, so a state of a state joins the group
+rather than starting one. A state whose group is lost is an orphan.
 
 It is Pro priced, twenty to forty generations, which puts it in the same announce-before-
 calling class as `pixellab object new` (R1.6).
