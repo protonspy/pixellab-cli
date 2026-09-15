@@ -14,7 +14,7 @@
   _Depends 1.1_
 - [x] 2.2 (Unit) Define the character recipe: the sprite recipe, then rotations, then one animation per action — R1.1, R1.4
   _Depends 2.1_
-- [ ] 2.3 (Unit) Ask the concept step for a south-facing rest pose — R1.5
+- [x] 2.3 (Unit) Ask the concept step for a south-facing rest pose — R1.5
   _Reason anchor wording asked for after delivery_
 
 ## 3 · The commands

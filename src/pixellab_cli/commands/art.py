@@ -17,6 +17,7 @@ from pixellab_cli import fal, output
 from pixellab_cli.context import AppContext
 from pixellab_cli.errors import PixellabCliError, ValidationError
 from pixellab_cli.ledger import UNKNOWN, Cost
+from pixellab_cli.prompts import anchor_prompt
 from pixellab_cli.run import from_fal
 from pixellab_cli.validate import build_request
 
@@ -28,6 +29,10 @@ UNKNOWN_COST = Cost(generations=0.0, usd=None, source=UNKNOWN)
 
 BOX_ART_SIZE = "portrait_4_3"
 BOX_ART_QUALITY = "max"
+
+# Square, because the PixelLab routes downstream take a square reference and a crop
+# from a wider frame is a crop somebody has to make.
+ANCHOR_SIZE = "square_hd"
 
 
 def _variant_model(variant: str, *, edit: bool) -> str:
@@ -151,6 +156,47 @@ def _boxart(context, prompt, variant, quality, size, count, name) -> None:
             "prompt": prompt,
             "quality": quality,
             "image_size": _size_argument(size),
+            "num_images": count,
+        },
+    )
+
+
+@app.command("anchor")
+def anchor(
+    context: typer.Context,
+    prompt: str = typer.Argument(..., help="Who or what the subject is."),
+    variant: str = typer.Option("sunburst", "--variant", help="sunburst or flare."),
+    quality: str = typer.Option(None, "--quality", help="auto, low, medium, high, xhigh, max."),
+    size: str = typer.Option(ANCHOR_SIZE, "--size", help="Defaults to a square."),
+    count: int = typer.Option(None, "--count", help="How many to make, to choose from."),
+    name: str = typer.Option(None, "--name", help="What to call the files."),
+) -> None:
+    """Make the front-facing reference a PixelLab character is built from.
+
+    One subject, facing the viewer, at rest, transparent. The rotation and animation
+    routes read the image they are given as the south frame, so an anchor in a
+    three-quarter hero pose becomes eight rotations of a character turned sideways.
+    """
+    try:
+        _anchor(context, prompt, variant, quality, size, count, name)
+    except PixellabCliError as failure:
+        output.handle(failure)
+
+
+def _anchor(context, prompt, variant, quality, size, count, name) -> None:
+    app_context: AppContext = context.obj
+    _execute(
+        app_context,
+        model_name=_variant_model(variant, edit=False),
+        description=f"anchor: {prompt}",
+        name=name or "anchor",
+        arguments={
+            "prompt": anchor_prompt(prompt),
+            "quality": quality,
+            "image_size": _size_argument(size),
+            # Not an option: a background the character routes have to remove is a
+            # cleanup call this could have avoided by asking.
+            "background": "transparent",
             "num_images": count,
         },
     )

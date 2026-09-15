@@ -312,3 +312,57 @@ class TestDryRun:
         invoke(["--dry-run", "art", "concept", "a castle"], tmp_path, monkeypatch)
 
         assert not (tmp_path / "out" / "ledger.jsonl").exists()
+
+
+class TestAnchor:
+    """The anchor is the one fal image whose job is to be converted, not to be looked at."""
+
+    @respx.mock
+    def test_the_prompt_asks_for_the_view_every_downstream_route_assumes(
+        self, tmp_path, monkeypatch, calls
+    ):
+        respx.get(CONCEPT_URL).respond(content=png_bytes())
+
+        invoke(["art", "anchor", "a knight"], tmp_path, monkeypatch)
+
+        sent = calls["subscribe"][0][1]["prompt"]
+        assert sent.startswith("a knight")
+        assert "facing the viewer" in sent
+        assert "at rest" in sent
+
+    @respx.mock
+    def test_it_defaults_to_a_square_on_a_transparent_background(
+        self, tmp_path, monkeypatch, calls
+    ):
+        respx.get(CONCEPT_URL).respond(content=png_bytes())
+
+        invoke(["art", "anchor", "a knight"], tmp_path, monkeypatch)
+
+        arguments = calls["subscribe"][0][1]
+        assert arguments["image_size"] == "square_hd"
+        assert arguments["background"] == "transparent"
+
+    @respx.mock
+    def test_the_size_can_still_be_named(self, tmp_path, monkeypatch, calls):
+        respx.get(CONCEPT_URL).respond(content=png_bytes())
+
+        invoke(["art", "anchor", "a knight", "--size", "512x512"], tmp_path, monkeypatch)
+
+        assert calls["subscribe"][0][1]["image_size"] == {"width": 512, "height": 512}
+
+    @respx.mock
+    def test_the_file_is_called_anchor_unless_it_is_named(self, tmp_path, monkeypatch, calls):
+        respx.get(CONCEPT_URL).respond(content=png_bytes())
+
+        invoke(["art", "anchor", "a knight"], tmp_path, monkeypatch)
+
+        assert list((tmp_path / "out").glob("*/anchor.png"))
+
+    def test_a_dry_run_shows_the_composed_prompt_and_sends_nothing(
+        self, tmp_path, monkeypatch, calls
+    ):
+        result = invoke(["--dry-run", "--json", "art", "anchor", "a knight"], tmp_path, monkeypatch)
+
+        assert result.exit_code == 0
+        assert "facing the viewer" in json.loads(result.stdout)["arguments"]["prompt"]
+        assert calls["subscribe"] == []
