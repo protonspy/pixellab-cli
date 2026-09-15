@@ -37,7 +37,9 @@ most likely mean terrain.
 
 **`pixellab-cli character new` against `pixellab-cli rotate`.** Both give eight views. Only
 the first gives a `character_id`, a skeleton, and the ability to add animations later.
-If they will want a walk cycle, make a character.
+If they will want a walk cycle, make a character. `character new --directions 4` gives
+south, east, north and west on a separate route for about one generation, which is what
+a top-down game usually needs and a quarter of the price of eight.
 
 **`pixellab-cli art anchor` against `pixellab-cli art concept`.** The anchor is the picture
 that exists to be converted: one subject, facing the viewer, at rest. Concept is the

@@ -110,3 +110,46 @@ default, because PixelLab's default is a number this project has not measured.
 They are worth having before any generation command, which is why they come in the
 same feature rather than later: without them the only record of a character is the
 manifest of the run that made it, and manifests are per run rather than per asset.
+
+## Four rotations, on a route of their own
+
+`create-character-v3` always returns eight. PixelLab has a separate endpoint,
+`/create-character-with-4-directions`, that returns south, east, north and west and
+nothing else — a different model family, template-based rather than rotation-based,
+with its own parameters. It is not v3 with a smaller number passed to it, so the
+choice is a route choice (R1.7) and `--directions 4|8` is what makes it.
+
+A flag rather than a second subcommand, because everything downstream is identical:
+both submit, both poll a background job, both return `character_id` and
+`background_job_id`, and both leave the rotations as URLs on `GET /characters/{id}`.
+`fetch_rotations` already skips the directions PixelLab left empty, so four arrive
+through the same path eight do.
+
+**`image_size` is required upstream on this route and optional on v3**, so the
+command has to supply one. It takes it from the reference sprite when there is one,
+from `--size` when there is not, and falls back to 64 — a value this project picked,
+not PixelLab's, because the endpoint publishes no default and refusing a call for
+want of a number nobody asked for is worse than naming one.
+
+The reference goes in `directions.south` rather than in `reference_image`: this route
+takes a map of per-direction sprites, uses the ones it is given as-is and generates
+the rest. Each must match `image_size` **exactly** or the provider answers 422, which
+is a paid round trip for a mistake that is visible locally — so a mismatch is refused
+here, with both sizes named (R1.9).
+
+`outline`, `shading` and `detail` are exposed on this route (R1.8) and on no other.
+It is the one that carries all three — v3 has no `shading` at all — and it is also
+the one whose table entry enumerates them. v3 declares `outline` and `detail` with
+no enumerated values, so a flag reaching that route would carry a misspelling into
+a paid call rather than into an error. Given with eight rotations they are refused
+by name, which is the answer a caller can act on; silently dropping them is the one
+thing that must not happen. Enumerating them on v3 as well is a change to that
+route and belongs to its own delta. The web editor shows two more
+controls beside them — *AI Freedom* and *Template Padding* — and neither exists in the
+public schema: `ai_freedom` appears only as a read-only field on `CharacterDetail`,
+and no request schema has a padding parameter of any name. They are website surface,
+which `adr:0002-call-pixellab-rest-v2-directly` puts out of scope.
+
+Its cost is not published. The eight-direction endpoint of the same family states one
+generation for its `standard` mode, and the estimate here is that number carried
+across; the ledger records what the call actually reported.

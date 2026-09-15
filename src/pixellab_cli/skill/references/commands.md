@@ -184,11 +184,18 @@ pixellab-cli art edit <files> --prompt/-p --mask --variant --quality --size --tr
 
 ### `pixellab-cli character new`
 
-Create a character with eight rotations and a skeleton.
+Create a character with eight rotations and a skeleton, or four.
 
 ```
-pixellab-cli character new <description> --reference --size --view --template --name --seed
+pixellab-cli character new <description> --reference --size --view --template --directions --outline --shading --detail --name --seed
 ```
+
+`--directions 4` is a different route, not a smaller number passed to the same one:
+south, east, north and west, template-based, and about one generation against four.
+It is the shape most top-down games actually use. That route requires a frame size,
+so one is taken from `--reference`, then from `--size`, and falls back to 64; a
+reference that is not exactly the frame size is refused before anything is sent.
+`--shading` exists only there.
 
 ### `pixellab-cli character state`
 

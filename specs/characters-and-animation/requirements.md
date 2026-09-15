@@ -1,8 +1,8 @@
 ---
 autonomy: auto
 ci: wait
-branch: feat/asset-consistency
-delivery: merged
+branch: feat/four-direction-character
+delivery: in-progress
 pr: 2
 ---
 
@@ -24,6 +24,9 @@ different endpoint family and no skeleton.
 - **R1.4** When asked for an object, the character commands shall create one from a description, in one direction or in eight.
 - **R1.5** (ADDED) When asked for a state of an existing character, the character commands shall apply a text edit to that character's rotations, shall write every rotation returned, and shall report the identifier of the new character and the group it shares with the character it came from.
 - **R1.6** (ADDED) The character commands shall say that a character state is priced as a Pro Tools route before calling it.
+- **R1.7** (ADDED) Where four rotations are asked for, the character commands shall create the character on the four-direction route and shall write south, east, north and west.
+- **R1.8** (ADDED) Where four rotations are asked for, the character commands shall accept an outline style, a shading style and a detail level.
+- **R1.9** (ADDED) Where four rotations are asked for, if a reference sprite is given whose dimensions differ from the frame size, then the character commands shall refuse the call and name both sizes, before spending anything.
 
 ## R2 · Animating
 

@@ -226,6 +226,35 @@ CREATE_CHARACTER_V3 = Route(
     ),
 )
 
+CREATE_CHARACTER_4_DIRECTIONS = Route(
+    name="create-character-with-4-directions",
+    method="POST",
+    path="/create-character-with-4-directions",
+    kind=RouteKind.BACKGROUND_JOB,
+    summary="A character facing south, east, north and west, on the template-based "
+    "four-rotation model rather than on v3.",
+    # Not published for this endpoint. The eight-direction route of the same family
+    # states one generation for its `standard` mode; this carries that across.
+    estimated_generations=1.0,
+    result_id_field="background_job_id",
+    poll_path=BACKGROUND_JOBS_PATH,
+    asset_id_field="character_id",
+    params=(
+        Param("description", ParamKind.STRING, required=True),
+        Param("image_size", ParamKind.SIZE, required=True, size=SizeLimit(max_side=256)),
+        # A map of per-direction sprites, not a single south frame: the ones given are
+        # used as-is and the rest are generated. Each must match `image_size` exactly.
+        Param("directions", ParamKind.OBJECT, help="Sprites keyed by direction."),
+        Param("view", ParamKind.STRING, choices=VIEW, default="low top-down"),
+        Param("template_id", ParamKind.STRING, help="Skeleton body type."),
+        Param("outline", ParamKind.STRING, choices=OUTLINE, default="single color black outline"),
+        Param("shading", ParamKind.STRING, choices=SHADING, default="basic shading"),
+        Param("detail", ParamKind.STRING, choices=DETAIL, default="medium detail"),
+        Param("isometric", ParamKind.BOOLEAN, default=False),
+        SEED,
+    ),
+)
+
 GENERATE_8_ROTATIONS_V3 = Route(
     name="generate-8-rotations-v3",
     method="POST",
@@ -997,6 +1026,7 @@ ROUTES: tuple[Route, ...] = (
     IMAGE_TO_PIXELART_PRO,
     CREATE_CHARACTER_V3,
     CREATE_CHARACTER_STATE,
+    CREATE_CHARACTER_4_DIRECTIONS,
     GENERATE_8_ROTATIONS_V3,
     CREATE_CHARACTER_ANIMATION,
     ANIMATE_WITH_TEXT_V3,

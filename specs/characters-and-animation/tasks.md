@@ -18,6 +18,15 @@
   _Depends 1.2_
 - [x] 2.4 (Unit) Add pixellab character state — R1.5, R1.6
   _Reason character states asked for after delivery_
+- [x] 2.5 (Unit) Add the four-direction character route to the catalogue — R1.7, R1.8
+  _Reason four directions asked for after delivery_
+- [x] 2.6 (Unit) Route character new by --directions, with the style options — R1.7,
+      R1.8
+  _Depends 2.5_
+  _Reason four directions asked for after delivery_
+- [x] 2.7 (Unit) Refuse a reference whose size differs from the frame size — R1.9
+  _Depends 2.6_
+  _Reason four directions asked for after delivery_
 
 ## 3 · Animating and rotating
 
