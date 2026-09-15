@@ -7,7 +7,7 @@
   _Depends 1.1_
 - [x] 1.3 (Unit) Edit several images at once, or match a reference image — R1.2
   _Depends 1.2_
-- [ ] 1.4 (Unit) Add pixellab outfit — R1.4
+- [x] 1.4 (Unit) Add pixellab outfit — R1.4
   _Reason outfit transfer asked for after delivery_
 
 ## 2 · Inpainting
@@ -21,5 +21,5 @@
 
 - [x] 3.1 (Unit) Refuse a file that does not exist, and report the route and arguments under a dry run without sending anything — R3.1, R3.2
   _Depends 1.2_
-- [ ] 3.2 (TDD) Refuse a frame set outside two to sixteen — R1.5
+- [x] 3.2 (TDD) Refuse a frame set outside two to sixteen — R1.5
   _Reason outfit transfer asked for after delivery_

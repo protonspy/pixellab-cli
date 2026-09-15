@@ -29,11 +29,13 @@ from pixellab_cli.validate import build_request
 SINGLE_ROUTE = "edit-image-pixen"
 BATCH_ROUTE = "edit-images-v2"
 INPAINT_ROUTE = "inpaint-v3"
+OUTFIT_ROUTE = "transfer-outfit-v2"
 
 
 def register(app: typer.Typer) -> None:
     app.command("edit")(edit)
     app.command("inpaint")(inpaint)
+    app.command("outfit")(outfit)
 
 
 def _load(path: Path) -> EncodedImage:
@@ -231,3 +233,58 @@ def _inpaint(context, file, mask, prompt, transparent, keep_canvas, name, seed) 
             "seed": seed,
         },
     )
+
+
+def outfit(
+    context: typer.Context,
+    frames: list[Path] = typer.Argument(..., help="Two to sixteen animation frames, in order."),
+    reference: Path = typer.Option(
+        ..., "--from", help="The image carrying the outfit to transfer."
+    ),
+    prompt: str = typer.Option(
+        None, "--prompt", "-p", help="Extra guidance: 'the frames show him from behind'."
+    ),
+    size: str = typer.Option(None, "--size", help="Output size. Defaults to the first frame."),
+    transparent: bool = typer.Option(False, "--transparent", help="Transparent background."),
+    name: str = typer.Option(None, "--name", help="What to call the files."),
+    seed: int = typer.Option(None, "--seed", help="Repeat a previous generation."),
+) -> None:
+    """Carry one outfit across a whole animation in a single call. Pro pricing."""
+    try:
+        _outfit(context, frames, reference, prompt, size, transparent, name, seed)
+    except PixellabCliError as failure:
+        output.handle(failure)
+
+
+def _outfit(context, frames, reference, prompt, size, transparent, name, seed) -> None:
+    app_context: AppContext = context.obj
+    loaded = [_load(path) for path in frames]
+    source = _load(reference)
+    first = loaded[0]
+
+    _execute(
+        app_context,
+        route_name=OUTFIT_ROUTE,
+        description=f"{frames[0].stem}: {reference.stem}",
+        name=name or f"{frames[0].stem}-{reference.stem}",
+        arguments={
+            "reference_image": _framed(source),
+            # In the order given, which is playback order: an animation whose frames
+            # come back shuffled is not an animation.
+            "frames": [_framed(image) for image in loaded],
+            "image_size": parse_size(size)
+            if size
+            else {"width": first.width, "height": first.height},
+            "additional_instructions": prompt,
+            "no_background": True if transparent else None,
+            "seed": seed,
+        },
+    )
+
+
+def _framed(image: EncodedImage) -> dict[str, Any]:
+    """The shape this route takes an image in: the size beside it, not on it."""
+    return {
+        "image": image.as_payload(),
+        "size": {"width": image.width, "height": image.height},
+    }
