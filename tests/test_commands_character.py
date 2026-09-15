@@ -8,12 +8,19 @@ import base64
 import json
 import struct
 
+import pytest
 import respx
 from typer.testing import CliRunner
 
+from pixellab_cli import images
 from pixellab_cli.cli import app
-from pixellab_cli.commands.character import known_templates, ordered_rotations
+from pixellab_cli.commands.character import (
+    frame_for_reference,
+    known_templates,
+    ordered_rotations,
+)
 from pixellab_cli.config import PIXELLAB_BASE_URL, PIXELLAB_SECRET_VAR
+from pixellab_cli.errors import ValidationError
 
 runner = CliRunner()
 
@@ -63,6 +70,32 @@ def mock_character(character_id="char-9", directions=DIRECTIONS):
         }
     )
     for name in directions:
+        respx.get(f"https://assets.pixellab.ai/{name}.png").respond(content=png_bytes())
+
+
+def mock_four_direction_character(character_id="char-4"):
+    """The four-direction route is collected exactly as v3 is: submit, poll, read."""
+    respx.post(f"{PIXELLAB_BASE_URL}/create-character-with-4-directions").respond(
+        json={
+            "character_id": character_id,
+            "background_job_id": "job-4",
+            "status": "processing",
+            "usage": {"generations": 1.0, "usd": 0.01},
+        }
+    )
+    respx.get(f"{PIXELLAB_BASE_URL}/background-jobs/job-4").respond(
+        json={"status": "completed", "last_response": {}}
+    )
+    respx.get(f"{PIXELLAB_BASE_URL}/characters/{character_id}").respond(
+        json={
+            "id": character_id,
+            "name": "a knight",
+            "status": "completed",
+            "rotation_urls": rotation_urls(("south", "east", "north", "west")),
+            "animations": [],
+        }
+    )
+    for name in ("south", "east", "north", "west"):
         respx.get(f"https://assets.pixellab.ai/{name}.png").respond(content=png_bytes())
 
 
@@ -666,3 +699,226 @@ class TestLongFormAnimation:
             next((tmp_path / "out").glob("*/*.manifest.json")).read_text(encoding="utf-8")
         )
         assert "group_id" not in manifest["ids"]
+
+
+class TestChoosingHowManyRotations:
+    """R1.7, R1.8: four directions is a route of its own, with its own style controls."""
+
+    @respx.mock
+    def test_four_directions_leaves_v3_for_the_four_direction_route(self, tmp_path, monkeypatch):
+        v3 = respx.post(f"{PIXELLAB_BASE_URL}/create-character-v3")
+        four = respx.post(f"{PIXELLAB_BASE_URL}/create-character-with-4-directions")
+        mock_four_direction_character()
+
+        result = invoke(
+            ["character", "new", "a knight", "--directions", "4"], tmp_path, monkeypatch
+        )
+
+        assert result.exit_code == 0
+        assert four.called and not v3.called
+
+    @respx.mock
+    def test_four_directions_writes_the_four_rotations(self, tmp_path, monkeypatch):
+        mock_four_direction_character()
+
+        invoke(["character", "new", "a knight", "--directions", "4"], tmp_path, monkeypatch)
+
+        names = {path.name for path in (tmp_path / "out").glob("*/*.png")}
+        assert len(names) == 4
+        assert any("south" in name for name in names)
+
+    @respx.mock
+    def test_eight_is_what_it_does_when_nobody_says(self, tmp_path, monkeypatch):
+        v3 = respx.post(f"{PIXELLAB_BASE_URL}/create-character-v3")
+        mock_character()
+
+        invoke(["character", "new", "a knight"], tmp_path, monkeypatch)
+
+        assert v3.called
+
+    @respx.mock
+    def test_a_frame_size_is_supplied_because_the_route_demands_one(self, tmp_path, monkeypatch):
+        create = respx.post(f"{PIXELLAB_BASE_URL}/create-character-with-4-directions")
+        mock_four_direction_character()
+
+        invoke(["character", "new", "a knight", "--directions", "4"], tmp_path, monkeypatch)
+
+        body = json.loads(create.calls.last.request.content)
+        assert body["image_size"] == {"width": 64, "height": 64}
+
+    @respx.mock
+    def test_an_asked_for_size_wins_over_the_fallback(self, tmp_path, monkeypatch):
+        create = respx.post(f"{PIXELLAB_BASE_URL}/create-character-with-4-directions")
+        mock_four_direction_character()
+
+        invoke(
+            ["character", "new", "a knight", "--directions", "4", "--size", "48"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        body = json.loads(create.calls.last.request.content)
+        assert body["image_size"] == {"width": 48, "height": 48}
+
+    @respx.mock
+    def test_the_three_style_controls_reach_the_body(self, tmp_path, monkeypatch):
+        create = respx.post(f"{PIXELLAB_BASE_URL}/create-character-with-4-directions")
+        mock_four_direction_character()
+
+        invoke(
+            [
+                "character",
+                "new",
+                "a knight",
+                "--directions",
+                "4",
+                "--outline",
+                "selective outline",
+                "--shading",
+                "detailed shading",
+                "--detail",
+                "highly detailed",
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        body = json.loads(create.calls.last.request.content)
+        assert body["outline"] == "selective outline"
+        assert body["shading"] == "detailed shading"
+        assert body["detail"] == "highly detailed"
+
+    @respx.mock
+    def test_a_reference_becomes_the_south_sprite_of_the_direction_map(self, tmp_path, monkeypatch):
+        create = respx.post(f"{PIXELLAB_BASE_URL}/create-character-with-4-directions")
+        mock_four_direction_character()
+        reference = tmp_path / "south.png"
+        reference.write_bytes(png_bytes())
+
+        invoke(
+            ["character", "new", "a knight", "--directions", "4", "--reference", str(reference)],
+            tmp_path,
+            monkeypatch,
+        )
+
+        body = json.loads(create.calls.last.request.content)
+        assert "south" in body["directions"]
+        assert "reference_image" not in body
+
+    def test_a_count_neither_route_offers_is_refused(self, tmp_path, monkeypatch):
+        result = invoke(
+            ["character", "new", "a knight", "--directions", "6"], tmp_path, monkeypatch
+        )
+
+        assert result.exit_code == 2
+        assert "4 or 8" in result.output
+
+    def test_shading_is_refused_on_the_route_that_has_none(self, tmp_path, monkeypatch):
+        result = invoke(
+            ["character", "new", "a knight", "--shading", "flat shading"], tmp_path, monkeypatch
+        )
+
+        assert result.exit_code == 2
+        assert "shading" in result.output
+
+    def test_a_style_option_on_the_eight_rotation_route_is_refused_rather_than_dropped(
+        self, tmp_path, monkeypatch
+    ):
+        result = invoke(
+            ["character", "new", "a knight", "--outline", "lineless"], tmp_path, monkeypatch
+        )
+
+        assert result.exit_code == 2
+        assert "--outline" in result.output
+        assert "--directions 4" in result.output
+
+    @respx.mock
+    def test_the_eight_rotation_body_carries_no_style_the_route_cannot_check(
+        self, tmp_path, monkeypatch
+    ):
+        # v3 declares outline and detail with no enumerated values, so a misspelling
+        # there would reach a paid call. Nothing on this branch may send them.
+        create = respx.post(f"{PIXELLAB_BASE_URL}/create-character-v3")
+        mock_character()
+
+        invoke(["character", "new", "a knight"], tmp_path, monkeypatch)
+
+        body = json.loads(create.calls.last.request.content)
+        assert "outline" not in body
+        assert "detail" not in body
+        assert "shading" not in body
+
+
+class TestFrameForReference:
+    """R1.9: the four-direction route takes its sprites as-is, so the size has to match."""
+
+    def test_a_square_sprite_sets_the_frame_when_nobody_asked_for_one(self, tmp_path):
+        encoded = images.encode(png_bytes(48, 48))
+
+        assert frame_for_reference(encoded, None, tmp_path / "south.png") == 48
+
+    def test_the_size_asked_for_is_kept_when_the_sprite_already_matches(self, tmp_path):
+        encoded = images.encode(png_bytes(48, 48))
+
+        assert frame_for_reference(encoded, 48, tmp_path / "south.png") == 48
+
+    def test_a_sprite_that_is_not_the_size_asked_for_is_refused_naming_both(self, tmp_path):
+        encoded = images.encode(png_bytes(64, 64))
+
+        with pytest.raises(ValidationError) as raised:
+            frame_for_reference(encoded, 48, tmp_path / "south.png")
+
+        assert "64x64" in str(raised.value)
+        assert "48x48" in str(raised.value)
+
+    def test_a_sprite_that_is_not_square_is_refused(self, tmp_path):
+        encoded = images.encode(png_bytes(64, 32))
+
+        with pytest.raises(ValidationError):
+            frame_for_reference(encoded, None, tmp_path / "south.png")
+
+    def test_a_size_that_cannot_be_read_is_not_treated_as_a_mismatch(self, tmp_path):
+        encoded = images.encode(b"not an image")
+
+        assert frame_for_reference(encoded, 48, tmp_path / "south.png") == 48
+
+    @respx.mock
+    def test_the_mismatch_is_refused_before_anything_is_sent(self, tmp_path, monkeypatch):
+        create = respx.post(f"{PIXELLAB_BASE_URL}/create-character-with-4-directions")
+        reference = tmp_path / "south.png"
+        reference.write_bytes(png_bytes(64, 64))
+
+        result = invoke(
+            [
+                "character",
+                "new",
+                "a knight",
+                "--directions",
+                "4",
+                "--size",
+                "48",
+                "--reference",
+                str(reference),
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 2
+        assert not create.called
+
+    @respx.mock
+    def test_the_sprite_s_own_size_becomes_the_frame(self, tmp_path, monkeypatch):
+        create = respx.post(f"{PIXELLAB_BASE_URL}/create-character-with-4-directions")
+        mock_four_direction_character()
+        reference = tmp_path / "south.png"
+        reference.write_bytes(png_bytes(32, 32))
+
+        invoke(
+            ["character", "new", "a knight", "--directions", "4", "--reference", str(reference)],
+            tmp_path,
+            monkeypatch,
+        )
+
+        body = json.loads(create.calls.last.request.content)
+        assert body["image_size"] == {"width": 32, "height": 32}

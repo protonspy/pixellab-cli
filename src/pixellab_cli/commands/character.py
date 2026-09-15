@@ -21,13 +21,19 @@ from pixellab_cli.errors import PixellabCliError, ProviderError, ValidationError
 from pixellab_cli.ledger import Cost
 from pixellab_cli.pixellab import PixelLabClient, Result
 from pixellab_cli.reference import REFERENCE_DIR
-from pixellab_cli.routes import DIRECTION, VIEW
+from pixellab_cli.routes import DETAIL, DIRECTION, OUTLINE, SHADING, VIEW
 from pixellab_cli.run import from_pixellab
 from pixellab_cli.validate import build_request
 
 app = typer.Typer(name="character", help="Characters: create, animate, list, export.")
 
 TEMPLATES_PATH = REFERENCE_DIR / "pixellab-animation-templates.json"
+
+# The four-direction route requires a frame size where v3 leaves it to PixelLab,
+# so one has to come from somewhere when the caller named neither a size nor a
+# reference to take it from.
+FOUR_DIRECTION_FRAME = 64
+ROTATION_COUNTS = (4, 8)
 
 # PixelLab returns rotations keyed by direction in no particular order; this is the
 # order a spritesheet and every game engine expects them in.
@@ -92,6 +98,51 @@ def fetch_rotations(
     )
 
 
+def reject_four_direction_styles(outline: str | None, shading: str | None, detail: str | None):
+    """Refuse a style option on the eight-rotation route rather than dropping it.
+
+    The three belong to the four-direction route (R1.8). v3 declares `outline` and
+    `detail` with no enumerated values, so a misspelling there would reach a paid call
+    instead of being named here, and it has no `shading` at all.
+    """
+    named = [
+        flag
+        for flag, value in (("--outline", outline), ("--shading", shading), ("--detail", detail))
+        if value is not None
+    ]
+    if not named:
+        return
+    raise ValidationError(
+        f"{', '.join(named)} needs --directions 4; the eight-rotation route carries its own "
+        "style defaults and does not take these",
+        context={"directions": 8, "options": named},
+    )
+
+
+def frame_for_reference(encoded: images.EncodedImage, size: int | None, path: Path) -> int | None:
+    """The frame size a four-direction call takes when it is handed a south sprite.
+
+    That route uses the sprites it is given as-is and answers 422 when one is not
+    exactly `image_size`, which is a paid round trip for something readable here. A
+    sprite whose size cannot be read is not known to be a mismatch, so it is not
+    treated as one.
+    """
+    if encoded.width is None or encoded.height is None:
+        return size
+    asked = size if size is not None else encoded.width
+    if (encoded.width, encoded.height) != (asked, asked):
+        raise ValidationError(
+            f"{path} is {encoded.width}x{encoded.height} and the four-direction route "
+            f"needs every sprite to be exactly the frame size, which is {asked}x{asked}",
+            context={
+                "path": str(path),
+                "reference": f"{encoded.width}x{encoded.height}",
+                "frame": f"{asked}x{asked}",
+            },
+        )
+    return asked
+
+
 @app.command("new")
 def new(
     context: typer.Context,
@@ -104,33 +155,85 @@ def new(
     template: str = typer.Option(
         None, "--template", help="Skeleton body type: mannequin, dog, cat, horse, bear, lion."
     ),
+    rotations: int = typer.Option(
+        8, "--directions", help="8 rotations, or 4: south, east, north and west."
+    ),
+    outline: str = typer.Option(None, "--outline", help=f"One of: {', '.join(OUTLINE)}"),
+    shading: str = typer.Option(None, "--shading", help=f"One of: {', '.join(SHADING)}"),
+    detail: str = typer.Option(None, "--detail", help=f"One of: {', '.join(DETAIL)}"),
     name: str = typer.Option(None, "--name", help="What to call the files."),
     seed: int = typer.Option(None, "--seed", help="Repeat a previous generation."),
 ) -> None:
-    """Create a character with eight rotations and a skeleton."""
+    """Create a character with eight rotations, or four, and a skeleton."""
     try:
-        _new(context, description, reference, size, view, template, name, seed)
+        _new(
+            context,
+            description,
+            reference,
+            size,
+            view,
+            template,
+            rotations,
+            outline,
+            shading,
+            detail,
+            name,
+            seed,
+        )
     except PixellabCliError as failure:
         output.handle(failure)
 
 
-def _new(context, description, reference, size, view, template, name, seed) -> None:
+def _new(
+    context,
+    description,
+    reference,
+    size,
+    view,
+    template,
+    rotations,
+    outline,
+    shading,
+    detail,
+    name,
+    seed,
+) -> None:
     app_context: AppContext = context.obj
-    route = catalog.route("create-character-v3")
+    if rotations not in ROTATION_COUNTS:
+        raise ValidationError(
+            f"--directions takes 4 or 8, not {rotations}",
+            context={"directions": rotations},
+        )
+    four = rotations == 4
+    route = catalog.route("create-character-with-4-directions" if four else "create-character-v3")
 
     arguments: dict[str, Any] = {
         "description": description,
         "view": view,
         "template_id": template,
-        "name": name,
         "seed": seed,
     }
+    if four:
+        arguments["outline"] = outline
+        arguments["shading"] = shading
+        arguments["detail"] = detail
+    else:
+        reject_four_direction_styles(outline, shading, detail)
+        arguments["name"] = name
+    frame = size
     if reference is not None:
         if not reference.is_file():
             raise ValidationError(f"{reference} is not a file", context={"path": str(reference)})
-        arguments["reference_image"] = images.encode_file(reference).as_payload()
-    if size is not None:
-        arguments["image_size"] = {"width": size, "height": size}
+        encoded = images.encode_file(reference)
+        if four:
+            arguments["directions"] = {"south": encoded.as_payload()}
+            frame = frame_for_reference(encoded, size, reference)
+        else:
+            arguments["reference_image"] = encoded.as_payload()
+    if four and frame is None:
+        frame = FOUR_DIRECTION_FRAME
+    if frame is not None:
+        arguments["image_size"] = {"width": frame, "height": frame}
 
     body = build_request(route, arguments)
     estimate = Cost(generations=route.estimated_generations)

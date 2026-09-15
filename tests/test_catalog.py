@@ -164,3 +164,41 @@ class TestTheTableItself:
 
     def test_checking_a_balance_is_free(self):
         assert route("balance").estimated_generations == 0.0
+
+
+class TestTheFourDirectionCharacterRoute:
+    """R1.7, R1.8: a route of its own, not v3 with a smaller number passed to it."""
+
+    def test_it_is_reachable_by_the_name_pixellab_gives_it(self):
+        assert route("create-character-with-4-directions").path == (
+            "/create-character-with-4-directions"
+        )
+
+    def test_it_is_collected_the_way_v3_is(self):
+        subject = route("create-character-with-4-directions")
+
+        assert subject.kind is RouteKind.BACKGROUND_JOB
+        assert subject.result_id_field == "background_job_id"
+        assert subject.asset_id_field == "character_id"
+
+    def test_a_frame_size_is_required_here_and_not_on_v3(self):
+        assert route("create-character-with-4-directions").param("image_size").required
+        assert not route("create-character-v3").param("image_size").required
+
+    def test_it_carries_the_three_style_controls_v3_does_not_have_together(self):
+        subject = route("create-character-with-4-directions")
+
+        assert {"outline", "shading", "detail"} <= subject.param_names
+        assert route("create-character-v3").param("shading") is None
+
+    def test_it_takes_sprites_keyed_by_direction_rather_than_one_south_frame(self):
+        subject = route("create-character-with-4-directions")
+
+        assert subject.param("directions").kind is ParamKind.OBJECT
+        assert subject.param("reference_image") is None
+
+    def test_it_is_estimated_below_the_pro_routes(self):
+        assert (
+            route("create-character-with-4-directions").estimated_generations
+            < route("create-character-state").estimated_generations
+        )

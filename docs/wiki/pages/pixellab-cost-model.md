@@ -37,7 +37,7 @@ public pricing page, reviewed 2026-09-12, and they move.
 | Prompt enhancers | ~0.05 | $0.002 | `enhance-pixen-prompt`, `enhance-character-v3-prompt`, `enhance-animation-v3-prompt` |
 | Cleanup | ~0.1 | $0.005–0.018 | `unzoom`, `correct-pixelart`, `reduce-colors`, `remove-background`, `resize`, `estimate-skeleton` |
 | Base image | ~1 | $0.007–0.017 | `create-image-pixflux`, `create-image-pixen`, `create-image-bitforge` |
-| Base animation and rotation | ~1 | $0.011–0.042 | `animate-with-text-v3`, `generate-8-rotations-v3`, `create-character-v3`, `animate-character` in `template` or `v3` mode |
+| Base animation and rotation | ~1 | $0.011–0.042 | `animate-with-text-v3`, `generate-8-rotations-v3`, `create-character-v3`, `create-character-with-4-directions`, `animate-character` in `template` or `v3` mode |
 | Tilesets | ~3 | $0.008–0.010 per tile size | `create-tileset`, `create-tileset-sidescroller` |
 | Pro Tools | 20–40 | $0.095–0.185 | everything named Pro: `generate-image-v2`, `edit-images-v2`, `inpaint-v3`, `create-character-pro`, `create-character-state`, `generate-with-style-v2`, `transfer-outfit-v2`, the object routes, `create-tiles-pro`, `portrait-character-pro` |
 | Fonts | 25 fixed | at least $0.125 | `generate-font-pro` |
