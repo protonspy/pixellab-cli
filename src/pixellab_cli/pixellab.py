@@ -90,7 +90,12 @@ class PixelLabClient:
         """
         route = catalog.route(route_name)
         body = build_request(route, arguments)
-        payload = self._request(route.method, route.path, body, route=route)
+        path, body = _split_path(route, body)
+
+        if route.returns_bytes:
+            return Result(route=route.name, images=[self._fetch(f"{self._base_url}{path}")])
+
+        payload = self._request(route.method, path, body, route=route)
 
         result = Result(route=route.name, raw=payload)
         self._collect_ids(route, payload, result)
@@ -104,6 +109,36 @@ class PixelLabClient:
         if not wait:
             return result
         return self._await(route, result)
+
+    def download(self, url: str) -> bytes:
+        """Fetch a generated asset from the URL PixelLab returned.
+
+        These links are unauthenticated: the unguessable identifier in them is the
+        access key. They are treated as intentional share links — fetched without a
+        bearer token, recorded in the manifest, and not committed anywhere.
+        """
+        return self._fetch(url, authenticated=False)
+
+    def _fetch(self, url: str, *, authenticated: bool = True) -> bytes:
+        headers = (
+            {"Authorization": f"Bearer {self._credentials.require_pixellab()}"}
+            if authenticated
+            else {}
+        )
+        try:
+            if self._client is not None:
+                response = self._client.get(url, headers=headers, timeout=GENERATION_TIMEOUT)
+            else:
+                with httpx.Client(timeout=GENERATION_TIMEOUT) as client:
+                    response = client.get(url, headers=headers)
+            response.raise_for_status()
+            return response.content
+        except httpx.HTTPError as failure:
+            raise ProviderError(
+                f"could not download from PixelLab: {failure}",
+                context={"url": url},
+                secrets=self._credentials.secrets,
+            ) from failure
 
     # ------------------------------------------------------------------ requests
 
@@ -287,6 +322,15 @@ def _poll_id(route: Route, payload: dict[str, Any]) -> str | None:
     if isinstance(value, list) and value:
         return str(value[0])
     return None
+
+
+def _split_path(route: Route, body: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+    """Move the path parameters out of the body and into the URL."""
+    if not route.path_params:
+        return route.path, body
+    remaining = dict(body)
+    values = {name: remaining.pop(name, "") for name in route.path_params}
+    return route.path.format(**values), remaining
 
 
 def _retry_after(response: httpx.Response) -> float | None:

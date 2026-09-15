@@ -1,40 +1,42 @@
+---
+autonomy: auto
+ci: wait
+---
+
 # Concept art — design
-
-<!-- The design must fit the decision being made. Every heading below except
-     "What changes" is OPTIONAL: delete the ones this change does not decide.
-
-     A heading filled with "N/A", or with prose written to satisfy the heading, is
-     worse than an absent heading — the next session reads invented architecture as
-     a decision somebody made, and honors it. Filler becomes binding.
-
-     Delete this comment too. -->
 
 ## What changes
 
-Serves R1.1.
+One module, `commands/art.py`, with three commands under an `art` group:
 
-<!-- Required. What changes, where, and why. For a change that decides nothing
-     structural, this section is the whole design and that is the correct outcome.
+```
+pixellab art concept "a castle on a cliff"        text to image
+pixellab art edit reference.png "make it night"   image to image
+pixellab art boxart "a knight at dawn"            text to image, cover defaults
+```
 
-     Keep the "Serves" line above and make it real: the design has to name the
-     requirements it answers, or the trace from what to how is unreadable — and
-     `scc spec validate` says so. -->
+`boxart` is `concept` with two different defaults — a 3:4 cover shape and the top
+quality tier. It is a separate command rather than a flag because it is a different
+job with a different budget, and a flag that quietly quadruples the price is worse
+than a name.
 
-## Boundaries and contracts <!-- optional -->
+## Uploading
 
-<!-- Only if this change moves a boundary or an external contract, and only for the
-     parts that actually move. -->
+fal reads images from its own CDN, so `edit` uploads every local file first and
+passes the URLs (`docs/wiki/pages/fal-platform.md`). Existence is checked before the
+first upload rather than per file (R2.3): uploading three of four files and then
+failing leaves three files on a CDN for nothing.
 
-## Data <!-- optional -->
+## Cost
 
-<!-- Only if a data shape changes. -->
+Every call is recorded with `source: unknown`. fal returns no usage, and this project
+found no published price for these four endpoints on either the model page or the API
+page — so the ledger says so rather than carrying a number nobody checked (note
+n-0002). That is the third state `Cost.source` exists for.
 
-## Alternatives considered <!-- optional -->
+## What is not decided here
 
-<!-- Only where there were real alternatives with trade-offs. Say which won and why.
-     If the decision is hard to reverse, write an ADR under docs/adr/ and cite it
-     here instead of arguing it twice. -->
-
-## Risks <!-- optional -->
-
-<!-- What could go wrong that the task list does not already cover. -->
+Which variant is better. `sunburst` and `flare` take byte-identical inputs and return
+byte-identical outputs, fal publishes no comparison, and nothing in this repository
+has measured one. `--variant` selects; the default is `sunburst`; the help text does
+not imply a ranking.

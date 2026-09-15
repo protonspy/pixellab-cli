@@ -143,6 +143,13 @@ class Route:
     # a managed asset: `character_id`, `object_id`, `tileset_id`. It outlives the job
     # and is what a later call refers to the asset by, so it goes in the manifest.
     asset_id_field: str | None = None
+    # Parameters that go in the path rather than the body. They are named in `path`
+    # as `{name}` and supplied like any other argument, so a caller never builds a
+    # URL and a library route is one catalogue entry rather than a special case.
+    path_params: tuple[str, ...] = ()
+    # True where the route answers with a file rather than JSON — a spritesheet ZIP,
+    # a font atlas. The client returns the bytes instead of trying to parse them.
+    returns_bytes: bool = False
     # What this route is estimated to cost, in generations, when nothing better is
     # known. The reported usage always wins; see docs/wiki/pages/pixellab-cost-model.md.
     estimated_generations: float = 1.0

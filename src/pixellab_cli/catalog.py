@@ -792,6 +792,66 @@ GET_BALANCE = Route(
 )
 
 
+# ------------------------------------------------------------------- the library
+
+# Free, and the answer to "what did I already pay for". A manifest records one run;
+# these record what the account holds.
+
+LIST_CHARACTERS = Route(
+    name="characters",
+    method="GET",
+    path="/characters",
+    kind=RouteKind.SYNCHRONOUS,
+    summary="Every character on the account.",
+    estimated_generations=0.0,
+    params=(),
+)
+
+GET_CHARACTER = Route(
+    name="character",
+    method="GET",
+    path="/characters/{character_id}",
+    kind=RouteKind.SYNCHRONOUS,
+    summary="One character: its rotation URLs, its animations, and how it was made.",
+    estimated_generations=0.0,
+    params=(Param("character_id", ParamKind.STRING, required=True),),
+    path_params=("character_id",),
+)
+
+CHARACTER_SPRITESHEET = Route(
+    name="character-spritesheet",
+    method="GET",
+    path="/characters/{character_id}/spritesheet",
+    kind=RouteKind.SYNCHRONOUS,
+    summary="A character as one uniform-grid sheet plus its layout JSON, as a ZIP.",
+    estimated_generations=0.0,
+    params=(Param("character_id", ParamKind.STRING, required=True),),
+    path_params=("character_id",),
+    returns_bytes=True,
+)
+
+LIST_OBJECTS = Route(
+    name="objects",
+    method="GET",
+    path="/objects",
+    kind=RouteKind.SYNCHRONOUS,
+    summary="Every object on the account.",
+    estimated_generations=0.0,
+    params=(),
+)
+
+GET_OBJECT = Route(
+    name="object",
+    method="GET",
+    path="/objects/{object_id}",
+    kind=RouteKind.SYNCHRONOUS,
+    summary="One object: its status, its frames, and how it was made.",
+    estimated_generations=0.0,
+    params=(Param("object_id", ParamKind.STRING, required=True),),
+    path_params=("object_id",),
+)
+
+
 ROUTES: tuple[Route, ...] = (
     CREATE_IMAGE_PIXFLUX,
     CREATE_IMAGE_PIXEN,
@@ -820,6 +880,11 @@ ROUTES: tuple[Route, ...] = (
     GENERATE_FONT_PRO,
     PORTRAIT_CHARACTER_PRO,
     GET_BALANCE,
+    LIST_CHARACTERS,
+    GET_CHARACTER,
+    CHARACTER_SPRITESHEET,
+    LIST_OBJECTS,
+    GET_OBJECT,
 )
 
 BY_NAME: dict[str, Route] = {route.name: route for route in ROUTES}

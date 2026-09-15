@@ -5,31 +5,36 @@ ci: wait
 
 # Concept art — requirements
 
-<!-- EARS, numbered R<group>.<item>. All five patterns are valid; use the one the
-     requirement actually is, and do not invent a trigger for something that is
-     simply always true:
-
-       The <system> shall <response>                                  ubiquitous
-       While <precondition>, the <system> shall <response>          state-driven
-       When <trigger>, the <system> shall <response>                event-driven
-       Where <feature>, the <system> shall <response>           optional feature
-       If <trigger>, then the <system> shall <response>       unwanted behavior
-
-     Omit, don't fill: specify what this feature decides, and nothing else.
-     Over-specification measurably makes generated code worse, not just longer.
-     Delete this comment. -->
-
 ## Purpose
 
-<!-- One paragraph: what this feature is for, and who it is for. -->
+The fal half of the tool: a composed, high-resolution image that is not pixel art.
+Two jobs. One is a reference for PixelLab to work from, where the cheap iteration
+happens before anything pixel-shaped is paid for. The other is artwork that was never
+going to be pixel art at all — a box cover, a store banner, a title screen.
 
-## R1 · <group name>
+## R1 · Making an image
 
-- **R1.1** The <system> shall <response>
-- **R1.2** When <trigger>, the <system> shall <response>
-- **R1.3** If <trigger>, then the <system> shall <response>
+- **R1.1** When asked for a concept image, the concept art commands shall generate it on a GPT Image 2.5 model and write it to the workspace with its manifest.
+- **R1.2** The concept art commands shall accept a quality tier, an output size, a background treatment and a number of images, and shall reject a value the model does not allow before calling it.
+- **R1.3** Where the caller names a variant, the concept art commands shall use it; otherwise they shall use the default variant and shall not claim one variant is better than the other.
+- **R1.4** When several images are asked for, the concept art commands shall write every one of them.
+
+## R2 · Editing
+
+- **R2.1** When asked to edit, the concept art commands shall upload the local images given, pass their URLs to the edit model with the instruction, and write the result.
+- **R2.2** Where a mask is given, the concept art commands shall upload it and confine the edit to it.
+- **R2.3** If a file given does not exist, then the concept art commands shall say so before uploading anything.
+
+## R3 · Box art
+
+- **R3.1** The concept art commands shall offer a box art form that defaults to a cover-shaped size and the highest quality tier, without preventing those defaults from being overridden.
+
+## R4 · Cost
+
+- **R4.1** The concept art commands shall record every call in the ledger with its cost marked as unknown, because fal reports no usage and this project has no confirmed price for these models.
+- **R4.2** While a dry run is asked for, the concept art commands shall report the model and the arguments and shall upload nothing and call nothing.
 
 ## Out of scope
 
-<!-- What a reader might reasonably expect here and will not find, so nobody
-     builds it by accident. Delete the heading if there is nothing to say. -->
+- Any fal model other than the four GPT Image 2.5 endpoints, video included.
+- Converting the result to pixel art, which is a PixelLab route — `specs/recipes/` joins the two.
