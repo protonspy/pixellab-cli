@@ -159,9 +159,9 @@ def config_paths(start: Path | None = None, home: Path | None = None) -> list[Pa
     home_dir = (Path.home() if home is None else home).resolve()
 
     walked = [start]
-    root = project_root(start, home_dir)
     under_home = home_dir == start or home_dir in start.parents
-    if under_home and root is not None and root != start:
+    root = project_root(start, home_dir) if under_home else None
+    if root is not None and root != start:
         for directory in start.parents:
             walked.append(directory)
             # Two stops, whichever comes first. The project root, because above it the
