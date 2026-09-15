@@ -47,3 +47,4 @@ over this file answers with the example above as well as with the notes. -->
 - n-0007 2026-09-15 #gotcha @src/pixellab_cli/routing.py — a style spread over several pictures costs thirty times one style image, so the second --style is the only thing that reaches it
 - n-0008 2026-09-15 #ceiling @src/pixellab_cli/catalog.py — transfer-outfit-v2 caps frames by size (15 at 64px, 8 at 80px, 3 at 256px); the local check is the flat 2-16 and the rest is a free 422
 - n-0009 2026-09-15 #gotcha @.github/workflows/release.yml — 0.1.0 was published by hand before the release pipeline existed; tagging v0.1.0 would fail at upload because PyPI never reuses a version
+- n-0010 2026-09-15 #gotcha @src/pixellab_cli/__init__.py — the version lives in pyproject.toml only; __init__ reads installed metadata, and a test compares the two
