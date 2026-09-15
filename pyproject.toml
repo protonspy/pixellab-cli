@@ -33,6 +33,9 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pixellab_cli"]
+# The skill ships inside the wheel: `pixellab setup` installs it into whichever
+# harness the person uses, and an installed CLI has no repository to copy it from.
+artifacts = ["src/pixellab_cli/skill/**"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -110,19 +110,12 @@ def _set(app_context: AppContext, name: str, file: Path | None, value: str | Non
             context={"name": name, "path": str(path)},
         )
 
-    contents, complaint = read_config(path)
-    if complaint:
-        # Never overwrite a file this could not parse: it holds credentials, and the
-        # unreadable part may be the other one.
-        raise ValidationError(f"{complaint}. Fix it or move it before writing to it.")
-
     value = typer.prompt(f"{name}", hide_input=True) if value is None else value
     value = value.strip()
     if not value:
         raise ValidationError("nothing was given, so nothing was written.")
 
-    updated = (contents or CredentialsFile()).model_copy(update={field: value})
-    _write(path, updated)
+    write_credential(path, field, value)
 
     if app_context.as_json:
         output.emit({"written": str(path), "name": field}, [], as_json=True)
@@ -133,6 +126,18 @@ def _set(app_context: AppContext, name: str, file: Path | None, value: str | Non
             f"{path} is readable by anyone who can read your profile: Windows has no "
             f"mode to set here, so the file's protection is the folder's."
         )
+
+
+def write_credential(path: Path, field: str, value: str) -> None:
+    """Store one credential, keeping whatever else the file holds.
+
+    Refuses a file it could not parse rather than replacing it: it holds credentials,
+    and the part that would not parse may be the other one.
+    """
+    contents, complaint = read_config(path)
+    if complaint:
+        raise ValidationError(f"{complaint}. Fix it or move it before writing to it.")
+    _write(path, (contents or CredentialsFile()).model_copy(update={field: value}))
 
 
 def _write(path: Path, contents: CredentialsFile) -> None:

@@ -62,6 +62,22 @@ points at `.pixellab/skill/` beside it for the rest. The full command list is
 reference material, and a harness that inlines every instruction into every prompt
 should not be carrying it.
 
+## Writing where somebody else can choose the path
+
+`AGENTS.md` in a repository that was cloned is a path an attacker picks, and so is
+`.claude/skills/pixellab-assets/SKILL.md`. Every write here refuses a symbolic link at
+the target and opens with `O_NOFOLLOW` where the platform has it (R1.7) — the rule the
+credentials file already had, carried to the files `setup` writes. What a link would
+redirect is not a secret but a truncation: the victim's own file replaced with
+instructional Markdown.
+
+A skill directory is emptied before it is filled (R1.8). Leaving a file nobody
+packaged is leaving instructions an agent will read, and a reinstall that keeps them is
+a clean slate that is not one.
+
+A file this edits keeps the line endings it had (R1.9). Rewriting a CRLF file with LF
+turns one appended block into a diff of every line somebody else wrote.
+
 ## What it asks, and what it already knows
 
 Credentials come from four sources already (`adr:0005-read-credentials-from-a-file-as-well-as-the-environment`),
@@ -83,9 +99,21 @@ a repository says somebody used an agent, not which one.
 `--non-interactive` has no one to offer to, so it installs exactly what was named and
 refuses to guess (R3.1, R3.2).
 
-## Failure is per harness
+## Failure is per harness, and the report comes first
 
 A path that cannot be written is reported and the rest of the run continues (R1.6).
 Setting up three harnesses and failing all three because one directory is read-only is
 the behaviour this avoids; the report at the end says what landed, what did not, and
 what is still missing before anything can be generated (R4.1).
+
+An installation that stopped partway still wrote something, so the paths are collected
+as they land rather than returned only on success (R1.10): a run that copied the skill
+and then could not write `AGENTS.md` has copied the skill, and a report saying nothing
+happened sends somebody looking for a file that is there.
+
+The same reason orders the two halves of the run. A credential that cannot be stored —
+a `~/.pixellab.json` that will not parse — is kept rather than raised where it happens,
+so the harness report is printed first and the failure sets the exit code afterwards
+(R2.5). What is already resolved is also said as it is found rather than only in the
+final report: somebody typing a fal key needs to see that their PixelLab token was
+found, or the prompt reads as though nothing was (R2.1).

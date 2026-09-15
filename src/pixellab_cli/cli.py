@@ -25,6 +25,7 @@ from pixellab_cli.commands import (
     motion,
     prop,
     recipe_command,
+    setup,
     sprite,
     tiles,
 )
@@ -44,6 +45,7 @@ app.add_typer(prop.app)
 app.add_typer(clean.app)
 app.add_typer(tiles.app)
 app.add_typer(recipe_command.app)
+setup.register(app)
 sprite.register(app)
 motion.register(app)
 edit.register(app)
