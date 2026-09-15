@@ -9,7 +9,7 @@ ci: wait
 
 ```
 recipe.py            a Step, a Recipe, and the loop that runs one
-commands/recipe.py   pixellab recipe list|run|resume
+commands/recipe.py   pixellab-cli recipe list|run|resume
 ```
 
 ## A step
@@ -37,7 +37,7 @@ the one where a caller can spend a hundred generations by adding one more `--act
 
 Both recipes rotate or animate what the first step drew, and the routes that do it read
 the image they are given as the **south** frame. So the concept step asks for the same
-thing `pixellab art anchor` asks for — one subject, from the front, at rest — rather than
+thing `pixellab-cli art anchor` asks for — one subject, from the front, at rest — rather than
 for the best picture of the subject (R1.5).
 
 The wording lives in one place and both callers use it: the recipe's concept step and the
@@ -52,7 +52,7 @@ Each step's state goes into a recipe manifest as it finishes (R2.2): `pending`,
 stops the recipe and keeps everything earlier (R2.1) — the alternative is throwing
 away four paid steps because the fifth was rejected.
 
-`pixellab recipe resume <manifest>` reads that file and starts at the first step that
+`pixellab-cli recipe resume <manifest>` reads that file and starts at the first step that
 is not `done` (R2.3). Steps that completed are not re-run, which is the whole point:
 resuming a five-step recipe that failed at step five must cost one step, not five.
 

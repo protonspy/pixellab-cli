@@ -10,11 +10,11 @@ ci: wait
 One module, `commands/tiles.py`:
 
 ```
-pixellab tiles terrain --lower grass --upper stone      create-tileset
-pixellab tiles platform --material "stone bricks"       create-tileset-sidescroller
-pixellab tiles variants "1). grass 2). lava"            create-tiles-pro   (Pro)
-pixellab tiles isometric "grass on soil"                create-isometric-tile
-pixellab tiles prop "a wooden barrel"                   map-objects
+pixellab-cli tiles terrain --lower grass --upper stone      create-tileset
+pixellab-cli tiles platform --material "stone bricks"       create-tileset-sidescroller
+pixellab-cli tiles variants "1). grass 2). lava"            create-tiles-pro   (Pro)
+pixellab-cli tiles isometric "grass on soil"                create-isometric-tile
+pixellab-cli tiles prop "a wooden barrel"                   map-objects
 ```
 
 Five commands (R1.1, R1.2, R2.1, R2.3, R3.1) rather than one with a mode flag,

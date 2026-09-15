@@ -32,7 +32,7 @@ nothing else promises more than PixelLab's own wording does ([[pixellab-style-co
 
 ## The manifest is a document, not a memory
 
-A recipe manifest is meant to be picked up again — `pixellab recipe resume` reads one,
+A recipe manifest is meant to be picked up again — `pixellab-cli recipe resume` reads one,
 and the agent skill tells an agent to. That makes it a file somebody can hand you, and
 every path inside it is therefore untrusted input: the `directory` it names is where
 the resumed run would write, and the `files` its completed steps list are read back so

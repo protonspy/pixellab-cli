@@ -8,8 +8,8 @@ ci: wait
 ## What changes
 
 ```
-commands/sprite.py    pixellab sprite
-commands/clean.py     pixellab clean background|unzoom|colors|correct|resize
+commands/sprite.py    pixellab-cli sprite
+commands/clean.py     pixellab-cli clean background|unzoom|colors|correct|resize
 routing.py            picking a route from what the caller asked for
 ```
 
@@ -31,7 +31,7 @@ Three image routes overlap and differ in ways a caller should not have to hold
 The first row is a thirty-fold price step, so it is only ever reached by asking for it:
 one `--style` is the cheap route, and a second `--style` is the caller saying the style
 lives in more than one picture. The command announces the tier before it calls, the same
-way `pixellab edit` does when a second image turns a one-generation edit into a Pro one
+way `pixellab-cli edit` does when a second image turns a one-generation edit into a Pro one
 (`specs/editing-and-inpainting/design.md`).
 
 `generate-with-style-v2` has no `image_size`: the schema marks it removed and deduces the
@@ -52,7 +52,7 @@ size that works, and one ceiling is not enough to do that with.
 
 ## Cleaning up
 
-`pixellab clean` is five sub-commands over local files, each one route:
+`pixellab-cli clean` is five sub-commands over local files, each one route:
 
 ```
 clean background  files…   remove-background

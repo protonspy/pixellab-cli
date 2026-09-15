@@ -187,11 +187,11 @@ def block_body(references: Path) -> str:
 - **Pro Tools cost twenty to forty generations a call:** `object new`, `ui`, `inpaint`,
   `tiles variants`, `character state`, `outfit`, `sprite` with more than one `--style`,
   and `edit` with more than one image. Never run one without agreement.
-- **A failed generation is charged.** `pixellab ledger` lists what was spent and what
+- **A failed generation is charged.** `pixellab-cli ledger` lists what was spent and what
   was submitted and never collected.
-- **Never read, print or echo a credential.** `pixellab config show` says which are set
+- **Never read, print or echo a credential.** `pixellab-cli config show` says which are set
   and where they came from, never their values.
-- Start a character from `pixellab art anchor`, not `art concept`: the rotation and
+- Start a character from `pixellab-cli art anchor`, not `art concept`: the rotation and
   animation routes read the image they are given as the south frame.
 - Do not name a provider route, and do not guess enum spellings or size limits. The
   tool chooses, validates before spending, and its errors name what would have worked.

@@ -1,7 +1,7 @@
 # Where each agent harness reads its instructions
 
 Three harnesses run this tool, and no two of them look in the same place or read the
-same format. This is what `pixellab setup` has to know, distilled from each project's
+same format. This is what `pixellab-cli setup` has to know, distilled from each project's
 own documentation on 2026-09-15 — the useful half of which is not in either of their
 READMEs.
 
@@ -28,7 +28,7 @@ keeping the block short and pointing at files to read on demand.
 Globally, Codex reads from `$CODEX_HOME` (`~/.codex` unless set), preferring
 `AGENTS.override.md` and falling back to `AGENTS.md`. **The override is the person's
 own escape hatch**: a tool that writes there takes the one file its user has for
-overruling everything else, so `pixellab setup --global --codex` writes the fallback.
+overruling everything else, so `pixellab-cli setup --global --codex` writes the fallback.
 
 ## opencode
 

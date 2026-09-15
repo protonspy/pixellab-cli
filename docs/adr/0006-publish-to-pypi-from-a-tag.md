@@ -8,7 +8,7 @@ date: 2026-09-15
 ## Context
 
 The tool is installable only from a checkout. That is the wrong shape for something
-whose own skill tells an agent to run `pixellab sprite`: the person reading that has
+whose own skill tells an agent to run `pixellab-cli sprite`: the person reading that has
 to be able to install it in one line.
 
 Publishing is the one act in this repository that cannot be taken back. A version on
@@ -17,9 +17,12 @@ follows from that.
 
 `pixellab-cli` is free on PyPI. `pixellab` is not — it is PixelLab's own SDK, which
 this project deliberately does not depend on (`adr:0002-call-pixellab-rest-v2-directly`).
-The distribution name is therefore `pixellab-cli` while the console script stays
-`pixellab`, and installing both packages into one environment would leave one script
-shadowing the other.
+The distribution is therefore `pixellab-cli`, **and so is the console script**. The
+script was called `pixellab` — `adr:0003-a-cli-and-a-skill-rather-than-an-mcp-server`
+records it under that name, which is what was decided then and is left standing there.
+Two packages shipping a `pixellab` script into one environment leaves one shadowing
+the other silently, and the one that loses is decided by install order. Renaming costs
+nothing before the first release and cannot be done after it.
 
 ## Decision
 
@@ -33,7 +36,7 @@ rejected: it removes the one line a person edits deliberately before releasing.
 
 **The gates run before the upload, and the wheel is installed before the upload.**
 Build, format, lint and the suite, then `twine check`, then the built wheel installed
-into a clean environment where `pixellab --version` has to answer. A broken upload
+into a clean environment where `pixellab-cli --version` has to answer. A broken upload
 cannot be replaced, so the last thing checked is the artefact itself rather than the
 source it came from.
 

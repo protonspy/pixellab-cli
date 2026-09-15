@@ -25,7 +25,9 @@ dependencies = [
 ]
 
 [project.scripts]
-pixellab = "pixellab_cli.cli:app"
+# `pixellab` on PyPI is PixelLab's own SDK and ships a script of that name, so this
+# one carries the distribution's name rather than shadowing theirs.
+pixellab-cli = "pixellab_cli.cli:app"
 
 [project.urls]
 Homepage = "https://github.com/protonspy/pixellab-cli"

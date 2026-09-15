@@ -24,7 +24,7 @@ NOT_IN_BODY: set[str] = set()
 
 
 def cli_commands() -> set[str]:
-    """Every leaf command, as `pixellab …` would be typed."""
+    """Every leaf command, as `pixellab-cli …` would be typed."""
     root = typer.main.get_command(app)
     found: set[str] = set()
 
@@ -35,7 +35,7 @@ def cli_commands() -> set[str]:
             for sub in subcommands.values():
                 walk(sub, f"{name} " if name else "")
             return
-        found.add(name.replace("pixellab ", "", 1))
+        found.add(name.replace("pixellab-cli ", "", 1))
 
     walk(root)
     return found
@@ -120,13 +120,13 @@ class TestTheRulesThatCostMoney:
         assert "failed generation is charged" in skill_text()
 
     def test_it_points_at_the_ledger_for_what_has_been_spent(self):
-        assert "pixellab ledger" in skill_text()
+        assert "pixellab-cli ledger" in skill_text()
 
     def test_it_names_the_pro_tools_commands(self):
         text = skill_text()
 
         assert "Pro Tools" in text
-        assert "pixellab object new" in text
+        assert "pixellab-cli object new" in text
 
     def test_it_says_animation_costs_per_direction(self):
         assert "per direction" in skill_text()

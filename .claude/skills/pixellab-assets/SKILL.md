@@ -1,6 +1,6 @@
 ---
 name: pixellab-assets
-description: Generate 2D game assets with the `pixellab` CLI — sprites, icons, characters with eight rotations, animations, tilesets, UI panels, pixel fonts, portraits, and concept art or box covers on fal. Use it whenever art has to be generated for a game, when someone asks for a sprite, a tileset, a character sheet or a cover, when a half-finished generation needs picking up again, and before any paid image call, because every call here spends the person's money and is recorded.
+description: Generate 2D game assets with the `pixellab-cli` command — sprites, icons, characters with eight rotations, animations, tilesets, UI panels, pixel fonts, portraits, and concept art or box covers on fal. Use it whenever art has to be generated for a game, when someone asks for a sprite, a tileset, a character sheet or a cover, when a half-finished generation needs picking up again, and before any paid image call, because every call here spends the person's money and is recorded.
 ---
 
 You generate game art with a command-line tool that spends real money on every call.
@@ -14,7 +14,7 @@ call and then stops without sending anything. A dry run that passes is evidence 
 real call will not be rejected.
 
 ```bash
-pixellab --dry-run recipe run character "a knight in red armour" -a walking
+pixellab-cli --dry-run recipe run character "a knight in red armour" -a walking
 ```
 
 Show what it prints — the steps, the routes, the estimated generations — and wait for
@@ -29,34 +29,34 @@ Use it whenever the person has named a budget.
 
 | They asked for | Command |
 |---|---|
-| A sprite, an icon, an item | `pixellab sprite "a healing potion" --size 64 --transparent` |
-| A character with eight rotations | `pixellab character new "a knight" --name knight` |
-| The same character, changed — armour, a cloak, wounded | `pixellab character state <character-id> -p "wearing a red cloak"` |
-| An animation for that character | `pixellab character animate <character-id> -a walking` |
-| Eight views of a loose image | `pixellab rotate sprite.png` |
-| An animation from a loose image | `pixellab animate sprite.png -a walking` |
-| An animation longer than sixteen frames | `pixellab animate sprite.png -a walking --frames 24` |
-| One outfit across a whole animation | `pixellab outfit walk-1.png walk-2.png --from cloak.png` |
-| A prop from eight angles | `pixellab object new "a barrel" --directions 8` |
-| Ground that tiles seamlessly | `pixellab tiles terrain --lower grass --upper stone` |
-| Platforms for a side-scroller | `pixellab tiles platform --material "stone bricks"` |
-| Tile variants, roads, buildings | `pixellab tiles variants "1). grass 2). lava" --connect roads` |
-| One isometric tile | `pixellab tiles isometric "grass on soil"` |
-| A prop to sit on a map | `pixellab tiles prop "a barrel" --into map.png` |
-| A change to an existing sprite | `pixellab edit sprite.png -p "give him a red cape"` |
-| A sprite matching a style spread over several pictures | `pixellab sprite "a potion" --style a.png --style b.png` |
-| A change inside a mask | `pixellab inpaint sprite.png --mask mask.png -p "a helmet"` |
-| A UI panel | `pixellab ui "wooden RPG panel with gold trim"` |
-| A pixel font | `pixellab font "warm arcade font" --bold` |
-| A portrait from a character | `pixellab portrait knight.png --to-portrait` |
-| The reference a character is built from | `pixellab art anchor "a knight"` |
-| Concept art, not pixel art | `pixellab art concept "a castle on a cliff"` |
-| A box cover | `pixellab art boxart "a knight at dawn"` |
-| Editing a concept image | `pixellab art edit concept.png -p "make it night"` |
-| The whole thing, end to end | `pixellab recipe run character "a knight" -a walking` |
-| Cleaning up art that exists | `pixellab clean unzoom|background|colors|correct|resize` |
-| What is left to spend | `pixellab balance` |
-| What has been spent | `pixellab ledger` |
+| A sprite, an icon, an item | `pixellab-cli sprite "a healing potion" --size 64 --transparent` |
+| A character with eight rotations | `pixellab-cli character new "a knight" --name knight` |
+| The same character, changed — armour, a cloak, wounded | `pixellab-cli character state <character-id> -p "wearing a red cloak"` |
+| An animation for that character | `pixellab-cli character animate <character-id> -a walking` |
+| Eight views of a loose image | `pixellab-cli rotate sprite.png` |
+| An animation from a loose image | `pixellab-cli animate sprite.png -a walking` |
+| An animation longer than sixteen frames | `pixellab-cli animate sprite.png -a walking --frames 24` |
+| One outfit across a whole animation | `pixellab-cli outfit walk-1.png walk-2.png --from cloak.png` |
+| A prop from eight angles | `pixellab-cli object new "a barrel" --directions 8` |
+| Ground that tiles seamlessly | `pixellab-cli tiles terrain --lower grass --upper stone` |
+| Platforms for a side-scroller | `pixellab-cli tiles platform --material "stone bricks"` |
+| Tile variants, roads, buildings | `pixellab-cli tiles variants "1). grass 2). lava" --connect roads` |
+| One isometric tile | `pixellab-cli tiles isometric "grass on soil"` |
+| A prop to sit on a map | `pixellab-cli tiles prop "a barrel" --into map.png` |
+| A change to an existing sprite | `pixellab-cli edit sprite.png -p "give him a red cape"` |
+| A sprite matching a style spread over several pictures | `pixellab-cli sprite "a potion" --style a.png --style b.png` |
+| A change inside a mask | `pixellab-cli inpaint sprite.png --mask mask.png -p "a helmet"` |
+| A UI panel | `pixellab-cli ui "wooden RPG panel with gold trim"` |
+| A pixel font | `pixellab-cli font "warm arcade font" --bold` |
+| A portrait from a character | `pixellab-cli portrait knight.png --to-portrait` |
+| The reference a character is built from | `pixellab-cli art anchor "a knight"` |
+| Concept art, not pixel art | `pixellab-cli art concept "a castle on a cliff"` |
+| A box cover | `pixellab-cli art boxart "a knight at dawn"` |
+| Editing a concept image | `pixellab-cli art edit concept.png -p "make it night"` |
+| The whole thing, end to end | `pixellab-cli recipe run character "a knight" -a walking` |
+| Cleaning up art that exists | `pixellab-cli clean unzoom|background|colors|correct|resize` |
+| What is left to spend | `pixellab-cli balance` |
+| What has been spent | `pixellab-cli ledger` |
 
 **Do not name a provider route.** The tool picks between overlapping routes by size
 and by what you gave it, and says which one it chose. Pass `--route` only when the
@@ -68,12 +68,12 @@ wrong guess costs nothing and corrects itself; read the error and try again.
 
 ## Money
 
-- `pixellab clean …` and `pixellab balance|ledger|character list|show` are cheap or free. Reach for them freely.
-- `pixellab object new`, `pixellab ui`, `pixellab inpaint`, `pixellab tiles variants`, `pixellab character state`, `pixellab outfit`, `pixellab sprite` with more than one `--style`, and `pixellab edit` with more than one image are **Pro Tools**: twenty to forty generations a call. They say so before calling. Never run one without agreement.
-- `pixellab font` is a fixed twenty-five generations.
-- `pixellab character animate` costs its tier **per direction**. It defaults to south alone. Do not pass eight directions unless the person asked for eight.
-- `pixellab animate` above sixteen frames leaves the cheap route for a beta one that needs a tier 1 subscription and is priced by generation time. The estimate it prints is rougher than the others; it says so.
-- **A failed generation is charged.** So is a call that was submitted and never collected. `pixellab ledger` lists the unresolved ones with the job id that would collect them.
+- `pixellab-cli clean …` and `pixellab-cli balance|ledger|character list|show` are cheap or free. Reach for them freely.
+- `pixellab-cli object new`, `pixellab-cli ui`, `pixellab-cli inpaint`, `pixellab-cli tiles variants`, `pixellab-cli character state`, `pixellab-cli outfit`, `pixellab-cli sprite` with more than one `--style`, and `pixellab-cli edit` with more than one image are **Pro Tools**: twenty to forty generations a call. They say so before calling. Never run one without agreement.
+- `pixellab-cli font` is a fixed twenty-five generations.
+- `pixellab-cli character animate` costs its tier **per direction**. It defaults to south alone. Do not pass eight directions unless the person asked for eight.
+- `pixellab-cli animate` above sixteen frames leaves the cheap route for a beta one that needs a tier 1 subscription and is priced by generation time. The estimate it prints is rougher than the others; it says so.
+- **A failed generation is charged.** So is a call that was submitted and never collected. `pixellab-cli ledger` lists the unresolved ones with the job id that would collect them.
 
 ## Credentials
 
@@ -83,15 +83,15 @@ one in the person's home directory, or one beside the game, which wins. If a
 credential is missing the tool says which one and where to get it — relay that and
 stop.
 
-`pixellab config show` says which credentials are set and which of the four sources
-each came from, and never prints a value. `pixellab config path` lists the files that
+`pixellab-cli config show` says which credentials are set and which of the four sources
+each came from, and never prints a value. `pixellab-cli config path` lists the files that
 would be consulted. Run either freely; both are local and free.
 
-`pixellab setup` is how a person installs this skill into their harness and stores
+`pixellab-cli setup` is how a person installs this skill into their harness and stores
 both keys in one pass. Point them at it when a credential is missing and they do not
 have one set anywhere; do not run it for them, because it asks for the values.
 
-**`pixellab config set fal-key` is for the person, not for you.** It reads the value
+**`pixellab-cli config set fal-key` is for the person, not for you.** It reads the value
 without echoing it. Never pass `--value`: that puts the credential in your transcript
 and in their shell history, which is the one thing this command exists to avoid.
 
@@ -105,7 +105,7 @@ A recipe writes `recipe.json` beside its output as it goes. If it stopped, every
 before the failing step is still there and paid for:
 
 ```bash
-pixellab recipe resume pixellab-out/<run>/recipe.json
+pixellab-cli recipe resume pixellab-out/<run>/recipe.json
 ```
 
 Completed steps are not run again. Never re-run a whole recipe to recover one step.
@@ -114,9 +114,9 @@ Completed steps are not run again. Never re-run a whole recipe to recover one st
 
 The rotation and animation routes read the image they are given as the **south**
 frame, and none of them reports a hero pose as an error — the art simply comes back
-wrong, and paid for. So the reference a character is built from is `pixellab art
-anchor`, not `pixellab art concept`: it asks for one subject facing the viewer, at
-rest, on a transparent background. `pixellab recipe run character` already starts
+wrong, and paid for. So the reference a character is built from is `pixellab-cli art
+anchor`, not `pixellab-cli art concept`: it asks for one subject facing the viewer, at
+rest, on a transparent background. `pixellab-cli recipe run character` already starts
 that way.
 
 ## Where the output goes

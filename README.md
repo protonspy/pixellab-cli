@@ -14,10 +14,14 @@ Requires [uv](https://docs.astral.sh/uv/) and Python 3.12 or newer.
 
 ```bash
 uv tool install pixellab-cli
-pixellab --version
+pixellab-cli --version
 ```
 
-Before the first published release, or to run what is on `main`:
+That puts one command on the path: `pixellab-cli`. The distribution and the command
+share a name because `pixellab` on PyPI is PixelLab's own SDK and ships a script of
+that name — installing both should not leave one shadowing the other.
+
+To run what is on `main`, or before the first published release:
 
 ```bash
 uv tool install git+https://github.com/protonspy/pixellab-cli
@@ -27,17 +31,48 @@ From a clone, for development:
 
 ```bash
 uv sync --all-groups
-uv run pixellab --help
+uv run pixellab-cli --help
 ```
+
+## Setup, in one command
+
+```bash
+pixellab-cli setup
+```
+
+It offers the agent harnesses it finds evidence of — Claude Code, Codex, opencode —
+installs the skill where each of them reads it, and then asks for whichever
+credentials are not already set, without echoing them. A key it can already find is
+reported with its source and never asked for again.
+
+Flags for when you know what you want: `--claude`, `--codex`, `--opencode`,
+`--global` to install for every project rather than this one, `--non-interactive` for
+a machine with nobody at the keyboard.
 
 ## Credentials
 
-Two providers, two separate accounts, two environment variables:
+Two providers and two separate accounts. `PIXELLAB_SECRET` comes from
+`https://www.pixellab.ai/account` and `FAL_KEY` from `https://fal.ai/dashboard/keys`.
+
+Either can live in an environment variable or in a `.pixellab.json`, and four places
+are consulted, per credential, first hit winning:
+
+```
+FAL_KEY in the environment                 CI exports this; nothing on disk outranks it
+./.pixellab.json … up to the project root  this game's key
+~/.pixellab.json                           the one you set once
+```
 
 ```bash
-export PIXELLAB_SECRET=...   # https://www.pixellab.ai/account
-export FAL_KEY=...           # https://fal.ai/dashboard/keys
+pixellab-cli config set fal-key   # prompts, without echo; never pass --value
+pixellab-cli config show          # which are set and where each came from, never the value
+pixellab-cli config path          # every file that would be consulted
 ```
+
+A home file may also name a command instead of a value —
+`{"fal_key_command": "op read op://vault/fal/key"}` — for keys that live in a
+password manager. A project file may not: a project file arrives with a clone, and
+running a command out of one would make `git clone` enough to execute it.
 
 The PixelLab credential is the bearer token from the account page. A browser session
 cookie is a different thing and will not work. Neither value is ever written to a
@@ -49,8 +84,8 @@ Nothing here is free, so start with a dry run. It performs the same route choice
 the same argument validation as the real call, then stops.
 
 ```bash
-pixellab --dry-run sprite "a healing potion" --size 64 --transparent
-pixellab sprite "a healing potion" --size 64 --transparent
+pixellab-cli --dry-run sprite "a healing potion" --size 64 --transparent
+pixellab-cli sprite "a healing potion" --size 64 --transparent
 ```
 
 ```
@@ -62,19 +97,19 @@ cost: 1 generations, $0.0079 (reported)
 ## What it can make
 
 ```bash
-pixellab character new "a knight in red armour" --name knight
-pixellab character animate <character-id> -a walking -d south -d north
-pixellab tiles terrain --lower grass --upper stone
-pixellab tiles platform --material "stone bricks"
-pixellab edit knight.png -p "give him a blue cape"
-pixellab inpaint knight.png --mask mask.png -p "a horned helmet"
-pixellab ui "wooden RPG panel with gold trim"
-pixellab font "warm orange arcade font" --bold
-pixellab art boxart "a knight at dawn over a burning keep"
-pixellab clean unzoom downloaded-sprite.png
+pixellab-cli character new "a knight in red armour" --name knight
+pixellab-cli character animate <character-id> -a walking -d south -d north
+pixellab-cli tiles terrain --lower grass --upper stone
+pixellab-cli tiles platform --material "stone bricks"
+pixellab-cli edit knight.png -p "give him a blue cape"
+pixellab-cli inpaint knight.png --mask mask.png -p "a horned helmet"
+pixellab-cli ui "wooden RPG panel with gold trim"
+pixellab-cli font "warm orange arcade font" --bold
+pixellab-cli art boxart "a knight at dawn over a burning keep"
+pixellab-cli clean unzoom downloaded-sprite.png
 ```
 
-`pixellab --help` lists everything; every command takes `--dry-run`, `--json` and
+`pixellab-cli --help` lists everything; every command takes `--dry-run`, `--json` and
 `--workspace`.
 
 ### Recipes
@@ -82,12 +117,12 @@ pixellab clean unzoom downloaded-sprite.png
 The point of one tool over two is the sequence across both providers:
 
 ```bash
-pixellab recipe run character "a knight in red armour" -a walking -a attacking
+pixellab-cli recipe run character "a knight in red armour" -a walking -a attacking
 ```
 
 A concept image on fal, converted to pixel art, background removed, eight rotations,
 then one animation per action. Every step is recorded as it finishes, a failure keeps
-everything before it, and `pixellab recipe resume <recipe.json>` carries on without
+everything before it, and `pixellab-cli recipe resume <recipe.json>` carries on without
 paying for the steps that already completed.
 
 `--max-generations N` stops before the first call if the estimate is over N.
@@ -107,8 +142,8 @@ names the route, the parameters, the seed and the identifiers PixelLab assigned.
 ledger records every call, before it is made and again when it resolves.
 
 ```bash
-pixellab balance   # what is left to spend
-pixellab ledger    # what has been spent, by route, and what never resolved
+pixellab-cli balance   # what is left to spend
+pixellab-cli ledger    # what has been spent, by route, and what never resolved
 ```
 
 The ledger prints the estimate and the reported cost side by side and never adds
@@ -116,10 +151,14 @@ them: the gap between the two is what corrects the price table.
 
 ## Using it from an agent
 
-`.claude/skills/pixellab-assets/` is an agent skill that teaches this CLI. Copy that
-directory into another project's `.claude/skills/` and an agent there can generate
-assets without learning a single endpoint name. There is no MCP server, and
-`docs/adr/0003-a-cli-and-a-skill-rather-than-an-mcp-server.md` says why.
+`pixellab-cli setup` installs a skill that teaches this CLI, and an agent with it can
+generate assets without learning a single endpoint name. Claude Code gets the skill
+directory; Codex and opencode get a delimited block in `AGENTS.md` with the references
+beside it, and nothing outside that block is touched.
+
+There is no MCP server, and `docs/adr/0003-a-cli-and-a-skill-rather-than-an-mcp-server.md`
+says why. `docs/wiki/pages/harness-instructions.md` records where each harness reads
+its instructions from.
 
 ## Documentation
 

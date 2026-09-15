@@ -48,6 +48,8 @@ docs/adr/0006-publish-to-pypi-from-a-tag.md
 - [x] 1.4 (Unit) Install the built wheel in a clean environment and run the command
 - [x] 1.5 (Unit) Fill in the metadata PyPI shows: description, licence, links, classifiers
 - [x] 1.6 (Unit) Write the release steps into the README
+- [x] 1.7 (Unit) Rename the console script to pixellab-cli
+  _Reason the script name would have collided with PixelLab's own package_
 
 ## Done when
 
