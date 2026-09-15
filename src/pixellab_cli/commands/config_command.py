@@ -22,6 +22,7 @@ from pixellab_cli.config import (
     PIXELLAB_ACCOUNT_URL,
     CredentialsFile,
     config_paths,
+    on_windows,
     read_config,
 )
 from pixellab_cli.context import AppContext
@@ -127,7 +128,7 @@ def _set(app_context: AppContext, name: str, file: Path | None, value: str | Non
         output.emit({"written": str(path), "name": field}, [], as_json=True)
         return
     output.emit({}, [f"{field} written to {path}"], as_json=False)
-    if os.name == "nt":
+    if on_windows():
         output.stderr(
             f"{path} is readable by anyone who can read your profile: Windows has no "
             f"mode to set here, so the file's protection is the folder's."
@@ -155,7 +156,7 @@ def _write(path: Path, contents: CredentialsFile) -> None:
         descriptor = os.open(path, flags, 0o600)
         with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
             handle.write(body)
-        if os.name != "nt":
+        if not on_windows():
             os.chmod(path, 0o600)
     except OSError as failure:
         raise ValidationError(
