@@ -1,25 +1,29 @@
 # Recipes — tasks
 
-<!-- Grammar, per task, all four parts required:
+## 1 · The machinery
 
-       - [ ] <number> (Unit|TDD) <description> — <requirement ids>
+- [x] 1.1 (Unit) Define a Step and a Recipe, with each step's arguments built from what earlier steps produced — R1.1, R1.4
+- [x] 1.2 (TDD) Run a recipe step by step through the runner, recording each step's state as it finishes and stopping at the first failure without discarding earlier work — R1.1, R1.2, R2.1, R2.2
+  _Depends 1.1_
+- [x] 1.3 (TDD) Resume from a manifest, starting at the first step that is not done and paying for nothing already completed — R2.3
+  _Depends 1.2_
 
-     (Unit) writes the code, then a unit test per function, immediately, asserting
-     the requirement rather than the implementation. (TDD) writes the failing test
-     first and watches it fail — mandatory for money, complex algorithms, and
-     hypothesis validation.
+## 2 · The recipes
 
-     A task is the right size when it can be verified on its own.
+- [x] 2.1 (Unit) Define the sprite recipe: concept on fal, convert to pixel art, remove the background — R1.1, R1.4
+  _Depends 1.1_
+- [x] 2.2 (Unit) Define the character recipe: the sprite recipe, then rotations, then one animation per action — R1.1, R1.4
+  _Depends 2.1_
 
-     Every requirement must reach at least one task, and every task must cite a
-     requirement that exists. `scc spec validate` checks both directions.
-     Delete this comment. -->
+## 3 · The commands
 
-## 1 · <group name>
-
-- [ ] 1.1 (Unit) <description> — R1.1
-- [ ] 1.2 (TDD) <description> — R1.2, R1.3
-
-## 2 · <group name>
-
-- [ ] 2.1 (Unit) <description> — R1.1
+- [x] 3.1 (Unit) List the recipes and their steps — R1.1
+  _Depends 2.2_
+- [x] 3.2 (Unit) Run a recipe, reporting each step and the totals with the estimate and the report kept apart — R1.2, R1.3
+  _Depends 1.2, 2.2_
+- [x] 3.3 (TDD) Stop before the first call when the estimated total is over the budget named — R3.2
+  _Depends 3.2_
+- [x] 3.4 (Unit) List every step, its route and the estimated total under a dry run, sending nothing — R3.1
+  _Depends 3.2_
+- [x] 3.5 (Unit) Resume a recipe from its manifest — R2.3
+  _Depends 1.3, 3.2_

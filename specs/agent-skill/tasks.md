@@ -1,25 +1,14 @@
 # Agent skill — tasks
 
-<!-- Grammar, per task, all four parts required:
+## 1 · The skill
 
-       - [ ] <number> (Unit|TDD) <description> — <requirement ids>
+- [x] 1.1 (Unit) Write SKILL.md: the description that says when to use it, the asset-to-command routing table, and the credential rule — R1.1, R1.2, R3.1, R3.2, R4.1
+- [x] 1.2 (Unit) Write the spending rule: dry run first, show the estimate, wait for agreement, and what a failed or unresolved call means — R2.1, R2.2, R2.3
+  _Depends 1.1_
+- [x] 1.3 (Unit) Write references/commands.md and references/choosing.md, keeping the detail out of the body — R1.3, R4.2
+  _Depends 1.1_
 
-     (Unit) writes the code, then a unit test per function, immediately, asserting
-     the requirement rather than the implementation. (TDD) writes the failing test
-     first and watches it fail — mandatory for money, complex algorithms, and
-     hypothesis validation.
+## 2 · Holding it true
 
-     A task is the right size when it can be verified on its own.
-
-     Every requirement must reach at least one task, and every task must cite a
-     requirement that exists. `scc spec validate` checks both directions.
-     Delete this comment. -->
-
-## 1 · <group name>
-
-- [ ] 1.1 (Unit) <description> — R1.1
-- [ ] 1.2 (TDD) <description> — R1.2, R1.3
-
-## 2 · <group name>
-
-- [ ] 2.1 (Unit) <description> — R1.1
+- [x] 2.1 (TDD) Assert that every command the skill names exists in the CLI, and that every command the CLI exposes is named somewhere in the skill — R1.1
+  _Depends 1.3_

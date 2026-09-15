@@ -106,6 +106,8 @@ class Runner:
         name: str | None = None,
         roles: Sequence[str] | None = None,
         suffix: str = ".png",
+        directory: Path | None = None,
+        run_id: str | None = None,
     ) -> RunOutcome:
         """Make one paid call, write what it produced, and record both.
 
@@ -113,8 +115,10 @@ class Runner:
         saying a charge may have happened. The outcome is written whether the call
         succeeded or failed, because a failed generation is charged too.
         """
-        directory = self.workspace.run_directory(description)
-        run_id = directory.name
+        # A recipe hands in one directory for all of its steps, and a distinct run
+        # id per step so the ledger's intent and outcome lines still pair up.
+        directory = directory or self.workspace.run_directory(description)
+        run_id = run_id or directory.name
         self.ledger.intent(
             run_id, provider, route, arguments, estimate=estimate, secrets=self.secrets
         )
@@ -197,9 +201,14 @@ class Runner:
         }
         return self.workspace.write_text(
             directory,
-            f"{run_id}.manifest.json",
+            f"{manifest_name(run_id)}.manifest.json",
             json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
         )
+
+
+def manifest_name(run_id: str) -> str:
+    """A run id as something a filename can hold."""
+    return run_id.replace("#", "-")
 
 
 def _base(description: str) -> str:

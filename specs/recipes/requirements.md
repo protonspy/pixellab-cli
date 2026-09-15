@@ -5,31 +5,34 @@ ci: wait
 
 # Recipes — requirements
 
-<!-- EARS, numbered R<group>.<item>. All five patterns are valid; use the one the
-     requirement actually is, and do not invent a trigger for something that is
-     simply always true:
-
-       The <system> shall <response>                                  ubiquitous
-       While <precondition>, the <system> shall <response>          state-driven
-       When <trigger>, the <system> shall <response>                event-driven
-       Where <feature>, the <system> shall <response>           optional feature
-       If <trigger>, then the <system> shall <response>       unwanted behavior
-
-     Omit, don't fill: specify what this feature decides, and nothing else.
-     Over-specification measurably makes generated code worse, not just longer.
-     Delete this comment. -->
-
 ## Purpose
 
-<!-- One paragraph: what this feature is for, and who it is for. -->
+The join between the two providers, run as one command. A usable game asset is never
+one call: a character is a concept image, a conversion to pixel art, a cleanup pass,
+eight rotations and an animation per action — five steps whose size ceilings do not
+agree, across two credential schemes and two image transports. A recipe owns that
+sequence, carries the constraints forward, and leaves a record that says how far it
+got.
 
-## R1 · <group name>
+## R1 · Running a recipe
 
-- **R1.1** The <system> shall <response>
-- **R1.2** When <trigger>, the <system> shall <response>
-- **R1.3** If <trigger>, then the <system> shall <response>
+- **R1.1** The recipe commands shall run a named sequence of steps end to end, writing each step's output to one run directory.
+- **R1.2** The recipe commands shall report each step as it completes, naming the route and what it cost.
+- **R1.3** The recipe commands shall report the total cost of the whole recipe, keeping the estimated and the reported totals apart.
+- **R1.4** The recipe commands shall carry each step's output into the next step's input without the caller naming a file.
+
+## R2 · Stopping
+
+- **R2.1** If a step fails, then the recipe commands shall stop, report which step failed, and keep everything the earlier steps produced.
+- **R2.2** The recipe commands shall write a recipe manifest naming every step, its state, and the identifiers it produced.
+- **R2.3** When a recipe is resumed from its manifest, the recipe commands shall skip the steps that already completed and shall not pay for them again.
+
+## R3 · Consent
+
+- **R3.1** While a dry run is asked for, the recipe commands shall list every step, the route it would call and the estimated total, and shall send nothing.
+- **R3.2** Where the estimated total is above a limit the caller names, the recipe commands shall stop before the first call rather than partway through.
 
 ## Out of scope
 
-<!-- What a reader might reasonably expect here and will not find, so nobody
-     builds it by accident. Delete the heading if there is nothing to say. -->
+- User-defined recipes. The recipes here are the ones the tool ships with.
+- Running steps in parallel.

@@ -40,3 +40,4 @@ over this file answers with the example above as well as with the notes. -->
 <!-- Notes go below, oldest first. `scc notes add` appends here. -->
 - n-0001 2026-09-14 #gotcha @src/pixellab_cli/catalog.py — restoring a source file from a backup of the same byte length can leave a .pyc Python still trusts — clear __pycache__ after any cp-restore
 - n-0002 2026-09-14 #cost @src/pixellab_cli/fal.py — fal publishes no price for the gpt-image-2.5 endpoints on the model or api pages, so a fal call's cost is recorded as unknown rather than estimated
+- n-0003 2026-09-14 #gotcha @src/pixellab_cli/recipe.py — a resumed recipe step reads its outputs back from disk because the bytes the next step needs live only in the files the earlier run wrote

@@ -25,7 +25,7 @@ learned a single endpoint name.
 
 - `src/pixellab_cli/` — the package: command tree, route table, providers, workspace
 - `tests/` — the suite, with recorded provider responses
-- `skills/pixellab-assets/` — the agent skill and its reference files
+- `.claude/skills/pixellab-assets/` — the agent skill and its reference files
 - `reference/` — the vendored provider schemas the route table is derived from
 
 ## References

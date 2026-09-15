@@ -1,40 +1,44 @@
+---
+autonomy: auto
+ci: wait
+---
+
 # Agent skill — design
-
-<!-- The design must fit the decision being made. Every heading below except
-     "What changes" is OPTIONAL: delete the ones this change does not decide.
-
-     A heading filled with "N/A", or with prose written to satisfy the heading, is
-     worse than an absent heading — the next session reads invented architecture as
-     a decision somebody made, and honors it. Filler becomes binding.
-
-     Delete this comment too. -->
 
 ## What changes
 
-Serves R1.1.
+```
+.claude/skills/pixellab-assets/
+  SKILL.md                    what to use, when, and the spending rule
+  references/commands.md      every command and its options
+  references/choosing.md      which asset needs which command, and what each costs
+```
 
-<!-- Required. What changes, where, and why. For a change that decides nothing
-     structural, this section is the whole design and that is the correct outcome.
+It lives under `.claude/skills/` so it works in this repository as written (R4.1);
+copying that directory into another project is how it travels. There is no build step
+and nothing to install.
 
-     Keep the "Serves" line above and make it real: the design has to name the
-     requirements it answers, or the trace from what to how is unreadable — and
-     `scc spec validate` says so. -->
+## The body stays short
 
-## Boundaries and contracts <!-- optional -->
+`SKILL.md` carries the routing table, the spending rule and the credential rule.
+Everything that is only needed once a command has been chosen — every option of every
+command, the per-route price table — is in `references/` (R4.2), which loads when it
+is wanted rather than on every session that mentions art.
 
-<!-- Only if this change moves a boundary or an external contract, and only for the
-     parts that actually move. -->
+## The spending rule is the point
 
-## Data <!-- optional -->
+An agent with a shell and a PixelLab token can spend a hundred generations in one
+command, and the person is usually not watching. So the skill's strongest instruction
+is procedural (R2.1): run `--dry-run` first, show the estimate, wait for agreement,
+then run it for real.
 
-<!-- Only if a data shape changes. -->
+`--dry-run` is worth trusting for this because it performs the same route choice and
+the same argument validation as the real call and then stops. A dry run that passes is
+evidence the real call will not be rejected — which is what makes "show the estimate
+and wait" a cheap instruction to follow rather than an expensive one.
 
-## Alternatives considered <!-- optional -->
+## What the skill does not teach
 
-<!-- Only where there were real alternatives with trade-offs. Say which won and why.
-     If the decision is hard to reverse, write an ADR under docs/adr/ and cite it
-     here instead of arguing it twice. -->
-
-## Risks <!-- optional -->
-
-<!-- What could go wrong that the task list does not already cover. -->
+Endpoint names, enum spellings and size ceilings (R1.2). The CLI validates all three
+and its errors name what would have worked, so an agent that guesses wrong is
+corrected for free. Duplicating them in the skill would create a second copy to drift.

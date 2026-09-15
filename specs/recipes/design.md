@@ -1,40 +1,51 @@
+---
+autonomy: auto
+ci: wait
+---
+
 # Recipes — design
-
-<!-- The design must fit the decision being made. Every heading below except
-     "What changes" is OPTIONAL: delete the ones this change does not decide.
-
-     A heading filled with "N/A", or with prose written to satisfy the heading, is
-     worse than an absent heading — the next session reads invented architecture as
-     a decision somebody made, and honors it. Filler becomes binding.
-
-     Delete this comment too. -->
 
 ## What changes
 
-Serves R1.1.
+```
+recipe.py            a Step, a Recipe, and the loop that runs one
+commands/recipe.py   pixellab recipe list|run|resume
+```
 
-<!-- Required. What changes, where, and why. For a change that decides nothing
-     structural, this section is the whole design and that is the correct outcome.
+## A step
 
-     Keep the "Serves" line above and make it real: the design has to name the
-     requirements it answers, or the trace from what to how is unreadable — and
-     `scc spec validate` says so. -->
+A `Step` is a name, the provider and route it calls, a function that builds its
+arguments from what earlier steps produced, and what to call the files it writes.
+The runner from `specs/asset-workspace/` executes each one, so every step of a recipe
+is an ordinary run with its own ledger lines and its own manifest (R1.1, R1.2) —
+there is no second recording path for recipes.
 
-## Boundaries and contracts <!-- optional -->
+Carrying output forward (R1.4) is why the arguments are a function rather than a
+dictionary: step three needs the bytes step two wrote, and neither the caller nor the
+recipe definition can know them in advance.
 
-<!-- Only if this change moves a boundary or an external contract, and only for the
-     parts that actually move. -->
+## The two recipes
 
-## Data <!-- optional -->
+**`sprite`** — concept on fal, convert to pixel art, remove the background. The cheap
+iteration happens on the first step, where pixels are plentiful.
 
-<!-- Only if a data shape changes. -->
+**`character`** — the same three steps, then eight rotations and a character id, then
+one animation per action named. This is the one the tool exists for, and it is also
+the one where a caller can spend a hundred generations by adding one more `--action`.
 
-## Alternatives considered <!-- optional -->
+## Stopping and resuming
 
-<!-- Only where there were real alternatives with trade-offs. Say which won and why.
-     If the decision is hard to reverse, write an ADR under docs/adr/ and cite it
-     here instead of arguing it twice. -->
+Each step's state goes into a recipe manifest as it finishes (R2.2): `pending`,
+`done` with the files and ids it produced, or `failed` with the reason. A failure
+stops the recipe and keeps everything earlier (R2.1) — the alternative is throwing
+away four paid steps because the fifth was rejected.
 
-## Risks <!-- optional -->
+`pixellab recipe resume <manifest>` reads that file and starts at the first step that
+is not `done` (R2.3). Steps that completed are not re-run, which is the whole point:
+resuming a five-step recipe that failed at step five must cost one step, not five.
 
-<!-- What could go wrong that the task list does not already cover. -->
+## The budget
+
+`--max-generations` is checked against the sum of the step estimates before the first
+call (R3.2), not step by step. A budget enforced midway is a budget that stops after
+it has already spent most of the money.
