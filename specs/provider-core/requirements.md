@@ -2,8 +2,8 @@
 autonomy: auto
 ci: wait
 branch: fix/credentials-search-boundary
-delivery: in-progress
-pr: 4
+delivery: in-review
+pr: 11
 ---
 
 # Provider core — requirements
