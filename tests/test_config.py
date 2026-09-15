@@ -1,6 +1,9 @@
+import json
+
 import pytest
 
 from pixellab_cli.config import (
+    CONFIG_NAME,
     FAL_KEY_VAR,
     PIXELLAB_SECRET_VAR,
     Credentials,
@@ -94,3 +97,229 @@ class TestSecrets:
 
     def test_secrets_of_an_empty_set_of_credentials_is_empty(self):
         assert Credentials().secrets == ()
+
+
+def write_config(directory, **fields) -> None:
+    (directory / CONFIG_NAME).write_text(json.dumps(fields), encoding="utf-8")
+
+
+class TestTheCredentialsFile:
+    """Four sources, tried per credential. See adr:0005."""
+
+    def test_a_file_in_the_working_directory_is_read(self, tmp_path):
+        write_config(tmp_path, fal_key="fal-file")
+
+        credentials = load_credentials({}, start=tmp_path, home=tmp_path / "nowhere")
+
+        assert credentials.fal_key == "fal-file"
+
+    def test_the_environment_beats_the_file(self, tmp_path):
+        write_config(tmp_path, fal_key="fal-file")
+
+        credentials = load_credentials(
+            {FAL_KEY_VAR: "fal-env"}, start=tmp_path, home=tmp_path / "nowhere"
+        )
+
+        assert credentials.fal_key == "fal-env"
+
+    def test_a_parent_directory_is_searched_when_the_working_one_has_none(self, tmp_path):
+        write_config(tmp_path, fal_key="fal-parent")
+        deep = tmp_path / "assets" / "characters"
+        deep.mkdir(parents=True)
+
+        credentials = load_credentials({}, start=deep, home=tmp_path / "nowhere")
+
+        assert credentials.fal_key == "fal-parent"
+
+    def test_the_nearest_file_wins_over_one_further_up(self, tmp_path):
+        write_config(tmp_path, fal_key="fal-far")
+        near = tmp_path / "game"
+        near.mkdir()
+        write_config(near, fal_key="fal-near")
+
+        credentials = load_credentials({}, start=near, home=tmp_path / "nowhere")
+
+        assert credentials.fal_key == "fal-near"
+
+    def test_home_is_the_last_source(self, tmp_path):
+        home = tmp_path / "home"
+        home.mkdir()
+        write_config(home, fal_key="fal-home")
+        project = tmp_path / "game"
+        project.mkdir()
+
+        credentials = load_credentials({}, start=project, home=home)
+
+        assert credentials.fal_key == "fal-home"
+
+    def test_each_credential_takes_the_first_source_that_carries_it(self, tmp_path):
+        home = tmp_path / "home"
+        home.mkdir()
+        write_config(home, fal_key="fal-home", pixellab_secret="pl-home")
+        project = tmp_path / "game"
+        project.mkdir()
+        write_config(project, fal_key="fal-project")
+
+        credentials = load_credentials({}, start=project, home=home)
+
+        assert credentials.fal_key == "fal-project"
+        assert credentials.pixellab_secret == "pl-home"
+
+    def test_the_source_of_each_credential_is_reported(self, tmp_path):
+        home = tmp_path / "home"
+        home.mkdir()
+        write_config(home, pixellab_secret="pl-home")
+        project = tmp_path / "game"
+        project.mkdir()
+        write_config(project, fal_key="fal-project")
+
+        credentials = load_credentials({}, start=project, home=home)
+
+        assert str(project) in credentials.source_of("fal_key")
+        assert str(home) in credentials.source_of("pixellab_secret")
+
+    def test_an_environment_source_is_named_as_the_variable(self, tmp_path):
+        credentials = load_credentials(
+            {FAL_KEY_VAR: "fal-env"}, start=tmp_path, home=tmp_path / "nowhere"
+        )
+
+        assert credentials.source_of("fal_key") == FAL_KEY_VAR
+
+    def test_a_credential_nobody_carries_has_no_source(self, tmp_path):
+        credentials = load_credentials({}, start=tmp_path, home=tmp_path / "nowhere")
+
+        assert credentials.source_of("fal_key") is None
+
+
+class TestACommandInsteadOfAValue:
+    """`fal_key_command` is a pipeline out of a password manager — and a way in."""
+
+    def test_a_command_in_the_home_file_is_run(self, tmp_path):
+        home = tmp_path / "home"
+        home.mkdir()
+        write_config(home, fal_key_command="python -c \"print('fal-from-manager')\"")
+        project = tmp_path / "game"
+        project.mkdir()
+
+        credentials = load_credentials({}, start=project, home=home)
+
+        assert credentials.fal_key == "fal-from-manager"
+
+    def test_the_source_says_it_came_from_a_command(self, tmp_path):
+        home = tmp_path / "home"
+        home.mkdir()
+        write_config(home, fal_key_command="python -c \"print('fal-from-manager')\"")
+
+        credentials = load_credentials({}, start=home, home=home)
+
+        assert "fal_key_command" in credentials.source_of("fal_key")
+
+    def test_a_command_in_a_project_file_is_never_run(self, tmp_path):
+        # A project file arrives with a checkout. Running this would make
+        # `git clone && pixellab sprite` arbitrary code execution.
+        home = tmp_path / "home"
+        home.mkdir()
+        project = tmp_path / "game"
+        project.mkdir()
+        marker = project / "executed.txt"
+        write_config(
+            project,
+            fal_key_command=f"python -c \"open(r'{marker}', 'w').write('x')\"",
+        )
+
+        credentials = load_credentials({}, start=project, home=home)
+
+        assert not marker.exists()
+        assert credentials.fal_key is None
+
+    def test_ignoring_a_project_command_is_said_out_loud(self, tmp_path):
+        home = tmp_path / "home"
+        home.mkdir()
+        project = tmp_path / "game"
+        project.mkdir()
+        write_config(project, fal_key_command="echo nope")
+
+        credentials = load_credentials({}, start=project, home=home)
+
+        assert any("only honoured" in warning for warning in credentials.warnings)
+
+    def test_a_value_in_a_project_file_is_still_read(self, tmp_path):
+        home = tmp_path / "home"
+        home.mkdir()
+        project = tmp_path / "game"
+        project.mkdir()
+        write_config(project, fal_key="fal-project")
+
+        assert load_credentials({}, start=project, home=home).fal_key == "fal-project"
+
+    def test_a_command_that_fails_is_reported_and_not_fatal(self, tmp_path):
+        home = tmp_path / "home"
+        home.mkdir()
+        write_config(home, fal_key_command='python -c "raise SystemExit(3)"')
+
+        credentials = load_credentials({}, start=home, home=home)
+
+        assert credentials.fal_key is None
+        assert any("exited 3" in warning for warning in credentials.warnings)
+
+    def test_only_the_first_line_of_the_output_is_taken(self, tmp_path):
+        home = tmp_path / "home"
+        home.mkdir()
+        write_config(home, fal_key_command="python -c \"print('fal-1'); print('noise')\"")
+
+        assert load_credentials({}, start=home, home=home).fal_key == "fal-1"
+
+    def test_a_value_outranks_a_command_in_the_same_file(self, tmp_path):
+        home = tmp_path / "home"
+        home.mkdir()
+        write_config(home, fal_key="fal-plain", fal_key_command="python -c \"print('fal-run')\"")
+
+        assert load_credentials({}, start=home, home=home).fal_key == "fal-plain"
+
+
+class TestAFileThatCannotBeUsed:
+    """A broken file is a warning. Locking someone out over a typo helps nobody."""
+
+    def test_invalid_json_names_the_file(self, tmp_path):
+        (tmp_path / CONFIG_NAME).write_text("{not json", encoding="utf-8")
+
+        credentials = load_credentials({}, start=tmp_path, home=tmp_path / "nowhere")
+
+        assert any(str(tmp_path) in warning for warning in credentials.warnings)
+
+    def test_the_environment_still_answers_over_a_broken_file(self, tmp_path):
+        (tmp_path / CONFIG_NAME).write_text("{not json", encoding="utf-8")
+
+        credentials = load_credentials(
+            {FAL_KEY_VAR: "fal-env"}, start=tmp_path, home=tmp_path / "nowhere"
+        )
+
+        assert credentials.fal_key == "fal-env"
+
+    def test_a_further_file_still_answers_over_a_broken_nearer_one(self, tmp_path):
+        home = tmp_path / "home"
+        home.mkdir()
+        write_config(home, fal_key="fal-home")
+        project = tmp_path / "game"
+        project.mkdir()
+        (project / CONFIG_NAME).write_text("{not json", encoding="utf-8")
+
+        credentials = load_credentials({}, start=project, home=home)
+
+        assert credentials.fal_key == "fal-home"
+
+    def test_a_misspelled_key_is_reported_rather_than_ignored(self, tmp_path):
+        write_config(tmp_path, fal_keys="fal-1")
+
+        credentials = load_credentials({}, start=tmp_path, home=tmp_path / "nowhere")
+
+        assert credentials.fal_key is None
+        assert any("fal_keys" in warning for warning in credentials.warnings)
+
+    def test_a_directory_where_the_file_belongs_is_a_warning(self, tmp_path):
+        (tmp_path / CONFIG_NAME).mkdir()
+
+        credentials = load_credentials({}, start=tmp_path, home=tmp_path / "nowhere")
+
+        assert credentials.fal_key is None
+        assert credentials.warnings

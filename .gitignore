@@ -24,6 +24,9 @@ htmlcov/
 # Reference checkouts — other people's repositories, read here, never shipped
 ref/
 
+# Credentials — never committed, which is the whole reason the default lives in $HOME
+.pixellab.json
+
 # Editors
 .idea/
 .vscode/

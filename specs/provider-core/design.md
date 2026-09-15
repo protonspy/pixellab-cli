@@ -21,6 +21,43 @@ fal.py         the fal client: upload, subscribe, download
 `reference.py` already exists and stays where it is: it owns the vendored schemas, and
 `routes.py` is checked against it by the suite.
 
+## Where a credential comes from
+
+Four sources, tried per credential rather than per file, so a project can override the
+fal key and inherit the PixelLab token:
+
+```
+FAL_KEY in the environment          CI exports this; nothing on disk outranks it
+./.pixellab.json … ../.pixellab.json  nearest first, from the working directory up
+~/.pixellab.json                     the default a person sets once
+```
+
+The search starts at the working directory because that is where the game is. This
+tool's own repository is not special and is not consulted.
+
+`{"fal_key_command": "op read op://vault/fal/key"}` names a command whose stdout is the
+credential, for a person whose secrets live in a manager. **That field is honoured in
+the home file and ignored in a project file** (`adr:0005-read-credentials-from-a-file-as-well-as-the-environment`):
+a project file arrives with a clone, and running a command out of one would turn
+`git clone && pixellab sprite` into arbitrary code execution. Ignoring it is said out
+loud rather than done silently, because a person who wrote that field is otherwise left
+wondering why their key is missing.
+
+A malformed file is a warning and not a failure. The remaining sources are still tried,
+because a typo in a project file should not lock someone out of a key their environment
+already carries.
+
+## Saying where a key came from without saying what it is
+
+`pixellab config show` prints one line per credential: present or not, and which of the
+four sources it came from. With four places to look, "it is not picking up my key" is
+the failure people will actually have, and it has to be answerable without printing a
+secret. `pixellab config set fal-key` prompts without echo, so the value reaches neither
+a shell history nor a transcript.
+
+The file is created `0600` where the platform has POSIX permissions. On Windows it is
+written without a mode and the difference is stated rather than papered over.
+
 ## The route table
 
 A `Route` is data, not a function. It carries the method, the path, the parameter

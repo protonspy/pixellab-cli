@@ -19,6 +19,7 @@ from pixellab_cli.commands import (
     art,
     character,
     clean,
+    config_command,
     edit,
     interface,
     motion,
@@ -36,6 +37,7 @@ app = typer.Typer(
     add_completion=False,
 )
 app.add_typer(account.app)
+app.add_typer(config_command.app)
 app.add_typer(art.app)
 app.add_typer(character.app)
 app.add_typer(prop.app)

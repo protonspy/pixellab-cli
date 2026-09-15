@@ -112,6 +112,33 @@ Make a concept image from a description.
 pixellab art concept <prompt> --variant --quality --size --transparent --count --name
 ```
 
+### `pixellab config show`
+
+Which credentials are set and where each came from. Never a value. Free.
+
+```
+pixellab config show
+```
+
+### `pixellab config path`
+
+Every file that would be consulted for a credential, nearest first. Free.
+
+```
+pixellab config path
+```
+
+### `pixellab config set`
+
+Store a credential, read without echo. The person runs this, not an agent.
+
+```
+pixellab config set pixellab-secret|fal-key|pixellab-secret-command|fal-key-command --file --value
+```
+
+`--value` defeats the point of the command: it puts the credential in a shell history
+and in an agent's transcript. The `*-command` forms are honoured only in the home file.
+
 ### `pixellab art anchor`
 
 Make the front-facing reference a PixelLab character is built from.

@@ -19,8 +19,13 @@ looks like have to be decided once.
 
 ## R1 · Credentials
 
-- **R1.1** The provider core shall read the PixelLab bearer token from the `PIXELLAB_SECRET` environment variable and the fal key from the `FAL_KEY` environment variable.
+- **R1.1** (MODIFIED) The provider core shall read the PixelLab bearer token and the fal key from, in order of precedence, the `PIXELLAB_SECRET` and `FAL_KEY` environment variables, the nearest credentials file found from the working directory upward, and the credentials file in the user's home directory, taking each credential from the first source that carries it.
 - **R1.2** If a command needs a credential that is not set, then the provider core shall fail before making any request, naming the missing variable and where its value is obtained.
+- **R1.4** (ADDED) Where a credentials file names a command instead of a value, the provider core shall run that command and read the credential from its standard output.
+- **R1.5** (ADDED) If a credentials file outside the user's home directory names a command instead of a value, then the provider core shall ignore that field and say that it was ignored, because such a file arrives with a checkout.
+- **R1.6** (ADDED) If a credentials file cannot be read or is not valid JSON, then the provider core shall say which file and why, and shall continue with the sources that remain.
+- **R1.7** (ADDED) The provider core shall report, for each credential, whether it is present and which source it came from, and shall never render the value.
+- **R1.8** (ADDED) When asked to store a credential, the provider core shall read it without echoing it, write it to the credentials file in the user's home directory unless another file is named, and create that file readable only by its owner.
 - **R1.3** The provider core shall redact credential values from every error, message and record it produces.
 
 ## R2 · Requests

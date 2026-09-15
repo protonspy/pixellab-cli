@@ -78,8 +78,18 @@ wrong guess costs nothing and corrects itself; read the error and try again.
 ## Credentials
 
 `PIXELLAB_SECRET` from `https://www.pixellab.ai/account`, and `FAL_KEY` from
-`https://fal.ai/dashboard/keys`. If either is missing the tool says which one and
-where to get it — relay that and stop.
+`https://fal.ai/dashboard/keys`. Either can instead live in `.pixellab.json` — the
+one in the person's home directory, or one beside the game, which wins. If a
+credential is missing the tool says which one and where to get it — relay that and
+stop.
+
+`pixellab config show` says which credentials are set and which of the four sources
+each came from, and never prints a value. `pixellab config path` lists the files that
+would be consulted. Run either freely; both are local and free.
+
+**`pixellab config set fal-key` is for the person, not for you.** It reads the value
+without echoing it. Never pass `--value`: that puts the credential in your transcript
+and in their shell history, which is the one thing this command exists to avoid.
 
 **Never read, print, echo or `cat` a credential value**, and never write one into a
 file, a commit or a message. Do not scan `.env` files or shell history looking for

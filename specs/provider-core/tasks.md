@@ -5,6 +5,14 @@
 - [x] 1.1 (Unit) Define the exception hierarchy in `errors.py`, with a `redact` pass that strips credential values and base64 payloads from anything attached to an exception — R1.3, R2.5, R2.6
 - [x] 1.2 (Unit) Read and validate both credentials in `config.py`, failing with the variable name and where its value comes from — R1.1, R1.2
   _Depends 1.1_
+- [x] 1.3 (TDD) Resolve a credential across the four sources — R1.1
+  _Reason credentials file asked for after delivery_
+- [x] 1.4 (TDD) Run a command field, and refuse one in a project file — R1.4, R1.5
+  _Reason credentials file asked for after delivery_
+- [x] 1.5 (Unit) Warn on an unreadable file and keep going — R1.6
+  _Reason credentials file asked for after delivery_
+- [x] 1.6 (Unit) Add pixellab config show and config set — R1.7, R1.8
+  _Reason credentials file asked for after delivery_
 
 ## 2 · The route table
 
