@@ -1,0 +1,26 @@
+# Stack
+
+Every adopted technology, with one line on why it earned its place. **Technology
+that is not listed here is an open decision, never something adopted silently** —
+and because this project's dependency file is structured data rather than source,
+that rule is checkable: a direct dependency declared there and absent from here is
+reported.
+
+So adding a dependency is a two-step act: add it, and say here why.
+
+## Runtime
+
+- **Python** — 3.12 or newer. The image work and both providers' client stories are Python's; see `adr:0001-python-with-uv-for-the-cli`.
+- **typer** — the command tree, built on click, with the argument types declared once and reused for help output and validation.
+- **httpx** — the HTTP client for PixelLab REST v2, chosen over `requests` for its timeout model and its async client, which the batch paths need.
+- **pydantic** — request and response models for the route table, so a bad argument is rejected before it costs money rather than by a provider's 422.
+- **pillow** — decoding, composing spritesheets, checking palettes and sizes, and every pixel operation the tool does itself rather than paying for.
+- **fal-client** — fal's own client. It owns the queue protocol, the CDN upload and the polling; reimplementing that would be reimplementing the part fal actually maintains.
+
+## Development
+
+- **uv** — package manager, lockfile and runner. One tool for the virtual environment, the lock, and `uv tool install` for users who want the command without the repository.
+- **pytest** — the suite, and the gate the delivery step runs.
+- **pytest-cov** — the coverage number the test gate reports.
+- **respx** — records and replays `httpx` traffic, so the route table is tested against real captured responses without a paid call per test run.
+- **ruff** — linter and formatter in one, fast enough to run per task rather than per commit.

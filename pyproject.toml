@@ -1,0 +1,55 @@
+[project]
+name = "pixellab-cli"
+version = "0.1.0"
+description = "Generate 2D game assets from PixelLab and concept art from fal, from one command line."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+dependencies = [
+    "typer>=0.15",
+    "httpx>=0.28",
+    "pydantic>=2.10",
+    "pillow>=11.0",
+    "fal-client>=0.5",
+]
+
+[project.scripts]
+pixellab = "pixellab_cli.cli:app"
+
+[project.urls]
+Repository = "https://github.com/prode/pixellab-cli"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-cov>=6.0",
+    "respx>=0.22",
+    "ruff>=0.9",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pixellab_cli"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.coverage.run]
+source = ["src/pixellab_cli"]
+branch = true
+# `python -m pixellab_cli` is three lines that call the same app object the console
+# script does; the console script is what the tests drive.
+omit = ["src/pixellab_cli/__main__.py"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+# `ref/` holds other people's repositories, checked out for reading, not for linting.
+extend-exclude = ["ref", ".codegraph", "docs", "specs", "plans"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]

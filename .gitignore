@@ -1,0 +1,32 @@
+# Build artefacts
+dist/
+build/
+*.egg-info/
+
+# Environments
+.venv/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Test and coverage
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.json
+htmlcov/
+
+# Tooling caches
+.ruff_cache/
+.codegraph/
+
+# Reference checkouts — other people's repositories, read here, never shipped
+ref/
+
+# Editors
+.idea/
+.vscode/
+
+# Generated assets and their records — output, never source
+pixellab-out/
