@@ -15,6 +15,10 @@ Generate one pixel-art sprite.
 pixellab sprite <description> --size/-s --name --route --style --from --palette --outline --shading --detail --view --direction --transparent --seed
 ```
 
+`--style` twice or more leaves the cheap route for `generate-with-style-v2`, which is
+Pro priced and takes up to four style images. It reads the output size off them, so
+`--size` cannot be given with more than one `--style`.
+
 ### `pixellab rotate`
 
 Generate eight directional views of an image, each named after its direction.
@@ -28,8 +32,12 @@ pixellab rotate <file> --description/-d --name --transparent --seed
 Animate a loose image from its first frame. Frames land in playback order.
 
 ```
-pixellab animate <file> --action/-a --frames --last --name --transparent --seed
+pixellab animate <file> --action/-a --frames --last --route --deflicker --name --transparent --seed
 ```
+
+Four to sixteen frames and even stays on the cheap route. Above sixteen, up to forty
+in multiples of four, it moves to `animate-pixminimax`: beta, tier 1 and above, priced
+by generation time. `--deflicker` belongs to that route alone.
 
 ### `pixellab edit`
 
@@ -38,6 +46,17 @@ Change existing pixel art. One image and an instruction is the cheap route.
 ```
 pixellab edit <files> --prompt/-p --match --size --transparent --name --seed
 ```
+
+### `pixellab outfit`
+
+Carry one outfit across a whole animation in a single call. Pro pricing.
+
+```
+pixellab outfit <frames> --from --prompt/-p --size --transparent --name --seed
+```
+
+Two to sixteen frames, at most 256 per side, written back in the order given. For one
+image, or for unrelated images, use `pixellab edit --match`.
 
 ### `pixellab inpaint`
 
@@ -93,6 +112,19 @@ Make a concept image from a description.
 pixellab art concept <prompt> --variant --quality --size --transparent --count --name
 ```
 
+### `pixellab art anchor`
+
+Make the front-facing reference a PixelLab character is built from.
+
+```
+pixellab art anchor <prompt> --variant --quality --size --count --name
+```
+
+One subject, facing the viewer, at rest, square and transparent by default. This is
+what `pixellab character new --reference`, `pixellab rotate` and `pixellab animate`
+expect: they read the image as the south frame. `pixellab art concept` does not
+compose that prompt, and a three-quarter pose there becomes eight wrong rotations.
+
 ### `pixellab art boxart`
 
 Make box art: a cover shape at the top quality tier, by default.
@@ -118,6 +150,18 @@ Create a character with eight rotations and a skeleton.
 ```
 pixellab character new <description> --reference --size --view --template --name --seed
 ```
+
+### `pixellab character state`
+
+Make a new character from an existing one, edited across every rotation. Pro pricing.
+
+```
+pixellab character state <character_id> --edit/-p --name --size --keep-palette --seed
+```
+
+A state is a second character with its own id, grouped with the one it came from.
+Both ids go in the manifest. Use it for armour, a cloak, a wound — anything that has
+to stay the same character across eight directions.
 
 ### `pixellab character animate`
 

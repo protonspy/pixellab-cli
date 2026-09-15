@@ -17,10 +17,14 @@ nothing portable about quality — see [[pixellab-terminology]].
 | One sprite matching an existing style image, up to 200x200 | `POST /create-image-bitforge` | Synchronous. The only base route with a `style_image` slot and skeleton keypoints. |
 | A sprite at a native size with a style reference | `POST /create-image-pro-flash` | Background job. Native sizes 16 to 96 square, custom 16-256. Returns a durable `source_image_id` for later Pro Flash rotations. |
 | Several images from one description with up to four reference images | `POST /generate-image-v2` | Background job, Pro pricing. |
+| A sprite matching a style spread over several pictures | `POST /generate-with-style-v2` | Background job, Pro pricing. One to four style images, each at most 512 per side. Takes no `image_size`: the output size is deduced from the style images, and the schema marks the field removed. |
 | A character with eight rotations | `POST /create-character-v3` | Background job. With `reference_image` it rotates the sprite given; without one it generates a south-facing sprite first. Returns a durable `character_id`. |
+| The same character, changed | `POST /create-character-state` | Background job, Pro pricing. One edit applied across every rotation, returning a second `character_id` grouped with the first. |
 | Eight rotations of an image, without creating a character | `POST /generate-8-rotations-v3` | Background job. Reference frame at most 256x256. |
 | An animation for an existing character | `POST /characters/animations` | Background job per direction. `mode=template` is one generation per direction from a named template; `mode=v3` animates from an action description; `mode=pro` costs twenty to forty. |
 | An animation from a loose frame | `POST /animate-with-text-v3` | Background job. First frame at most 256x256, four to sixteen even frames. |
+| An animation of more than sixteen frames | `POST /animate-pixminimax` | Background job. Four to forty frames in multiples of four, at most 256 square, optional `last_frame` and a `drift_threshold` de-flicker pass. Beta, tier 1 and above, priced by generation time. |
+| One outfit across the frames of one animation | `POST /transfer-outfit-v2` | Background job, Pro pricing. One reference image and two to sixteen frames, each at most 256 per side, in one call so the outfit holds between frames. |
 | A prop from one angle | `POST /create-1-direction-object` | Background job, Pro Tools pricing. |
 | A prop from eight angles | `POST /create-8-direction-object` | Background job, Pro Tools pricing. Sizes 24 to 168. |
 | A prop for a map, with background style matching | `POST /map-objects` | Background job. Takes a `background_image` and an inpainting shape to blend into a map. |

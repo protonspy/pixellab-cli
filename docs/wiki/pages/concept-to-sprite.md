@@ -7,9 +7,16 @@ image from a description ([[gpt-image-25]]). PixelLab makes assets a game engine
 
 ## The default recipe
 
-1. **Concept.** `openai/gpt-image-2.5/sunburst/text-to-image`, `background: transparent`
+1. **Anchor.** `openai/gpt-image-2.5/sunburst/text-to-image`, `background: transparent`
    for a subject, opaque for a scene. This is the cheap step to iterate on, and the step
    where a human should look before anything else is paid for.
+
+   For anything that will be rotated or animated, the prompt is not free-form: steps 5
+   and onward read the image they are given as the **south** frame, so the subject has
+   to face the viewer, at rest, alone, on a plain background. Nothing downstream reports
+   a three-quarter hero pose as an error — it produces eight rotations of a character
+   permanently turned, at full price. That wording is what an [[pixellab-terminology|anchor]]
+   is, and it lives in one place so the command and the recipe cannot drift apart.
 2. **Edit, if needed.** `openai/gpt-image-2.5/sunburst/edit` with the concept in
    `image_urls`. Composition, palette and silhouette are fixed here, while pixels are
    still cheap and plentiful.

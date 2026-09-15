@@ -31,9 +31,12 @@ Use it whenever the person has named a budget.
 |---|---|
 | A sprite, an icon, an item | `pixellab sprite "a healing potion" --size 64 --transparent` |
 | A character with eight rotations | `pixellab character new "a knight" --name knight` |
+| The same character, changed — armour, a cloak, wounded | `pixellab character state <character-id> -p "wearing a red cloak"` |
 | An animation for that character | `pixellab character animate <character-id> -a walking` |
 | Eight views of a loose image | `pixellab rotate sprite.png` |
 | An animation from a loose image | `pixellab animate sprite.png -a walking` |
+| An animation longer than sixteen frames | `pixellab animate sprite.png -a walking --frames 24` |
+| One outfit across a whole animation | `pixellab outfit walk-1.png walk-2.png --from cloak.png` |
 | A prop from eight angles | `pixellab object new "a barrel" --directions 8` |
 | Ground that tiles seamlessly | `pixellab tiles terrain --lower grass --upper stone` |
 | Platforms for a side-scroller | `pixellab tiles platform --material "stone bricks"` |
@@ -41,10 +44,12 @@ Use it whenever the person has named a budget.
 | One isometric tile | `pixellab tiles isometric "grass on soil"` |
 | A prop to sit on a map | `pixellab tiles prop "a barrel" --into map.png` |
 | A change to an existing sprite | `pixellab edit sprite.png -p "give him a red cape"` |
+| A sprite matching a style spread over several pictures | `pixellab sprite "a potion" --style a.png --style b.png` |
 | A change inside a mask | `pixellab inpaint sprite.png --mask mask.png -p "a helmet"` |
 | A UI panel | `pixellab ui "wooden RPG panel with gold trim"` |
 | A pixel font | `pixellab font "warm arcade font" --bold` |
 | A portrait from a character | `pixellab portrait knight.png --to-portrait` |
+| The reference a character is built from | `pixellab art anchor "a knight"` |
 | Concept art, not pixel art | `pixellab art concept "a castle on a cliff"` |
 | A box cover | `pixellab art boxart "a knight at dawn"` |
 | Editing a concept image | `pixellab art edit concept.png -p "make it night"` |
@@ -64,9 +69,10 @@ wrong guess costs nothing and corrects itself; read the error and try again.
 ## Money
 
 - `pixellab clean …` and `pixellab balance|ledger|character list|show` are cheap or free. Reach for them freely.
-- `pixellab object new`, `pixellab ui`, `pixellab inpaint`, `pixellab tiles variants`, and `pixellab edit` with more than one image are **Pro Tools**: twenty to forty generations a call. They say so before calling. Never run one without agreement.
+- `pixellab object new`, `pixellab ui`, `pixellab inpaint`, `pixellab tiles variants`, `pixellab character state`, `pixellab outfit`, `pixellab sprite` with more than one `--style`, and `pixellab edit` with more than one image are **Pro Tools**: twenty to forty generations a call. They say so before calling. Never run one without agreement.
 - `pixellab font` is a fixed twenty-five generations.
 - `pixellab character animate` costs its tier **per direction**. It defaults to south alone. Do not pass eight directions unless the person asked for eight.
+- `pixellab animate` above sixteen frames leaves the cheap route for a beta one that needs a tier 1 subscription and is priced by generation time. The estimate it prints is rougher than the others; it says so.
 - **A failed generation is charged.** So is a call that was submitted and never collected. `pixellab ledger` lists the unresolved ones with the job id that would collect them.
 
 ## Credentials
@@ -89,6 +95,15 @@ pixellab recipe resume pixellab-out/<run>/recipe.json
 ```
 
 Completed steps are not run again. Never re-run a whole recipe to recover one step.
+
+## Starting a character
+
+The rotation and animation routes read the image they are given as the **south**
+frame, and none of them reports a hero pose as an error — the art simply comes back
+wrong, and paid for. So the reference a character is built from is `pixellab art
+anchor`, not `pixellab art concept`: it asks for one subject facing the viewer, at
+rest, on a transparent background. `pixellab recipe run character` already starts
+that way.
 
 ## Where the output goes
 
