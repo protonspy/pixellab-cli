@@ -2,8 +2,8 @@
 autonomy: auto
 ci: wait
 branch: feat/asset-consistency
-delivery: in-progress
-pr: 1
+delivery: in-review
+pr: 2
 ---
 
 # Concept art — requirements
