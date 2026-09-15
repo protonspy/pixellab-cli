@@ -7,6 +7,8 @@
   _Depends 1.1_
 - [x] 1.3 (Unit) Write references/commands.md and references/choosing.md, keeping the detail out of the body — R1.3, R4.2
   _Depends 1.1_
+- [ ] 1.4 (Unit) Teach the new commands and their tiers — R1.1, R1.3
+  _Reason five commands added after delivery_
 
 ## 2 · Holding it true
 

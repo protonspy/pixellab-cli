@@ -37,6 +37,11 @@ going to be pixel art at all — a box cover, a store banner, a title screen.
 - **R4.1** The concept art commands shall record every call in the ledger with its cost marked as unknown, because fal reports no usage and this project has no confirmed price for these models.
 - **R4.2** While a dry run is asked for, the concept art commands shall report the model and the arguments and shall upload nothing and call nothing.
 
+## R5 · The anchor
+
+- **R5.1** (ADDED) The concept art commands shall offer an anchor form that asks for one subject, seen from the front, in a rest pose, on a transparent background, at a square size.
+- **R5.2** (ADDED) The concept art commands shall state, wherever the anchor form is described, that the rotation and animation routes read the image they are given as the south-facing frame, which is what the anchor exists to satisfy.
+
 ## Out of scope
 
 - Any fal model other than the four GPT Image 2.5 endpoints, video included.

@@ -167,6 +167,37 @@ IMAGE_TO_PIXELART_PRO = Route(
     ),
 )
 
+GENERATE_WITH_STYLE_V2 = Route(
+    name="generate-with-style-v2",
+    method="POST",
+    path="/generate-with-style-v2",
+    kind=RouteKind.BACKGROUND_JOB,
+    summary="An image matching the style of one to four reference images. Pro pricing, and "
+    "the output size comes from the references rather than from an argument.",
+    estimated_generations=30.0,
+    result_id_field="background_job_id",
+    poll_path=BACKGROUND_JOBS_PATH,
+    params=(
+        Param("description", ParamKind.STRING, required=True, help="What to draw."),
+        Param(
+            "style_images",
+            ParamKind.IMAGE_LIST,
+            required=True,
+            min_items=1,
+            max_items=4,
+            size=SizeLimit(max_side=512),
+            help="One to four images whose style to match.",
+        ),
+        Param("style_description", ParamKind.STRING, help="The style, in words."),
+        Param("no_background", ParamKind.BOOLEAN, default=True),
+        SEED,
+    ),
+)
+
+# `image_size` is deliberately absent: the schema marks it removed and the route takes
+# its output size from the style images. Leaving it out is what makes a `--size` passed
+# with two style images a refusal rather than an argument that is quietly dropped.
+
 # ----------------------------------------------------------------------- characters
 
 CREATE_CHARACTER_V3 = Route(
@@ -267,6 +298,73 @@ ANIMATE_WITH_TEXT_V3 = Route(
         Param("no_background", ParamKind.BOOLEAN),
         Param("drift_threshold", ParamKind.NUMBER, help="Colour de-flicker sensitivity."),
         Param("enhance_prompt", ParamKind.BOOLEAN, default=False),
+        Param("seed", ParamKind.INTEGER, minimum=0, default=0),
+    ),
+)
+
+CREATE_CHARACTER_STATE = Route(
+    name="create-character-state",
+    method="POST",
+    path="/create-character-state",
+    kind=RouteKind.BACKGROUND_JOB,
+    summary="A new character, grouped with an existing one, carrying the same edit across "
+    "every rotation it has. Pro pricing.",
+    estimated_generations=30.0,
+    result_id_field="background_job_id",
+    poll_path=BACKGROUND_JOBS_PATH,
+    asset_id_field="character_id",
+    params=(
+        Param("character_id", ParamKind.STRING, required=True, help="The character to edit."),
+        Param(
+            "edit_description",
+            ParamKind.STRING,
+            required=True,
+            help="'wearing a red cloak'. Applied to every rotation.",
+        ),
+        Param("state_name", ParamKind.STRING, help="Default: derived from the edit."),
+        Param(
+            "override_frame_size",
+            ParamKind.SIZE,
+            size=SizeLimit(divisible_by=4),
+            help="A larger canvas, for an edit that needs room beyond the source.",
+        ),
+        Param("use_color_palette_from_reference", ParamKind.BOOLEAN, default=False),
+        Param("no_background", ParamKind.BOOLEAN, default=True),
+        SEED,
+    ),
+)
+
+ANIMATE_PIXMINIMAX = Route(
+    name="animate-pixminimax",
+    method="POST",
+    path="/animate-pixminimax",
+    kind=RouteKind.BACKGROUND_JOB,
+    summary="An animation of four to forty frames from a first frame. Beta, tier 1 and "
+    "above, and priced by generation time rather than by a tier.",
+    estimated_generations=3.0,
+    result_id_field="background_job_id",
+    poll_path=BACKGROUND_JOBS_PATH,
+    params=(
+        Param("description", ParamKind.STRING, required=True, help="The motion, in words."),
+        _image("first_frame", required=True, max_side=256, help="The frame to animate."),
+        _image("last_frame", max_side=256, help="An end pose, the same size as the first."),
+        Param("direction", ParamKind.STRING, choices=DIRECTION),
+        Param(
+            "frame_count",
+            ParamKind.INTEGER,
+            minimum=4,
+            maximum=40,
+            default=8,
+            help="A multiple of four.",
+        ),
+        Param(
+            "drift_threshold",
+            ParamKind.NUMBER,
+            minimum=0,
+            help="De-flicker sensitivity. 0 corrects every frame toward the first.",
+        ),
+        Param("enhance_prompt", ParamKind.BOOLEAN, default=False),
+        Param("no_background", ParamKind.BOOLEAN, default=True),
         Param("seed", ParamKind.INTEGER, minimum=0, default=0),
     ),
 )
@@ -610,6 +708,45 @@ INPAINT_V3 = Route(
     ),
 )
 
+TRANSFER_OUTFIT_V2 = Route(
+    name="transfer-outfit-v2",
+    method="POST",
+    path="/transfer-outfit-v2",
+    kind=RouteKind.BACKGROUND_JOB,
+    summary="One outfit from a reference image, applied across two to sixteen animation "
+    "frames in a single call. Pro pricing.",
+    estimated_generations=30.0,
+    result_id_field="background_job_id",
+    poll_path=BACKGROUND_JOBS_PATH,
+    params=(
+        Param(
+            "reference_image",
+            ParamKind.IMAGE,
+            required=True,
+            size=SizeLimit(max_side=256),
+            help="The outfit to transfer.",
+        ),
+        Param(
+            "frames",
+            ParamKind.IMAGE_LIST,
+            required=True,
+            min_items=2,
+            max_items=16,
+            size=SizeLimit(max_side=256),
+            help="The animation frames it is applied to, in playback order.",
+        ),
+        Param(
+            "image_size",
+            ParamKind.SIZE,
+            required=True,
+            size=SizeLimit(min_side=32, max_side=256),
+        ),
+        Param("additional_instructions", ParamKind.STRING, default=""),
+        Param("no_background", ParamKind.BOOLEAN, default=False),
+        SEED,
+    ),
+)
+
 # -------------------------------------------------------------------------- cleanup
 
 REMOVE_BACKGROUND = Route(
@@ -856,11 +993,14 @@ ROUTES: tuple[Route, ...] = (
     CREATE_IMAGE_PIXFLUX,
     CREATE_IMAGE_PIXEN,
     CREATE_IMAGE_BITFORGE,
+    GENERATE_WITH_STYLE_V2,
     IMAGE_TO_PIXELART_PRO,
     CREATE_CHARACTER_V3,
+    CREATE_CHARACTER_STATE,
     GENERATE_8_ROTATIONS_V3,
     CREATE_CHARACTER_ANIMATION,
     ANIMATE_WITH_TEXT_V3,
+    ANIMATE_PIXMINIMAX,
     CREATE_1_DIRECTION_OBJECT,
     CREATE_8_DIRECTION_OBJECT,
     CREATE_MAP_OBJECT,
@@ -871,6 +1011,7 @@ ROUTES: tuple[Route, ...] = (
     EDIT_IMAGE_PIXEN,
     EDIT_IMAGES_V2,
     INPAINT_V3,
+    TRANSFER_OUTFIT_V2,
     REMOVE_BACKGROUND,
     UNZOOM,
     CORRECT_PIXELART,

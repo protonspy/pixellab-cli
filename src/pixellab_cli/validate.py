@@ -62,8 +62,10 @@ def _check(route: Route, param: Param, value: Any) -> Any:
         _require(isinstance(value, str), route, param, value, "a string")
     elif param.kind is ParamKind.SIZE:
         _check_size(route, param, value)
-    elif param.kind in (ParamKind.IMAGE, ParamKind.IMAGE_LIST):
+    elif param.kind is ParamKind.IMAGE:
         _check_image(route, param, value)
+    elif param.kind is ParamKind.IMAGE_LIST:
+        _check_image_list(route, param, value)
     elif param.kind is ParamKind.STRING_LIST:
         _check_list(route, param, value)
     return value
@@ -126,9 +128,29 @@ def _check_image(route: Route, param: Param, value: Any) -> None:
     _check_bounds(route, param, dimensions[0], dimensions[1], param.size)
 
 
+def _check_image_list(route: Route, param: Param, value: Any) -> None:
+    """Check how many images were given, and each one that carries its size.
+
+    The count is the part worth checking locally: the routes taking a list of images
+    are the expensive ones, and `style_images` wants one to four while `frames` wants
+    two to sixteen. Being told by the provider costs the same as being told by the
+    tool, except that the provider is told over the network and this is not.
+    """
+    _check_list(route, param, value)
+    if param.min_items is not None and len(value) < param.min_items:
+        _require(False, route, param, value, f"at least {param.min_items} images")
+    for image in value:
+        _check_image(route, param, image)
+
+
 def _dimensions(value: Any) -> tuple[int, int] | None:
     if isinstance(value, Mapping):
         width, height = value.get("width"), value.get("height")
+        # Two shapes on the wire for the same fact: `{image, width, height}` on a
+        # style image, `{image, size: {width, height}}` on an animation frame.
+        if not isinstance(width, int) and isinstance(value.get("size"), Mapping):
+            size = value["size"]
+            width, height = size.get("width"), size.get("height")
     else:
         width, height = getattr(value, "width", None), getattr(value, "height", None)
     if isinstance(width, int) and isinstance(height, int):

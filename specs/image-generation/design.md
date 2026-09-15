@@ -23,9 +23,21 @@ Three image routes overlap and differ in ways a caller should not have to hold
 
 | Given | Route | Why |
 |---|---|---|
-| a style image | `create-image-bitforge` | the only base route with a style slot, area up to 200x200 |
+| two to four style images | `generate-with-style-v2` | the only route matching a style across several references. Pro pricing |
+| one style image | `create-image-bitforge` | the only base route with a style slot, area up to 200x200 |
 | an area over 160000, or a side over 400 | `create-image-pixen` | the only base route reaching 512x512 |
 | anything else | `create-image-pixflux` | cheapest, widest, takes an init image and a palette |
+
+The first row is a thirty-fold price step, so it is only ever reached by asking for it:
+one `--style` is the cheap route, and a second `--style` is the caller saying the style
+lives in more than one picture. The command announces the tier before it calls, the same
+way `pixellab edit` does when a second image turns a one-generation edit into a Pro one
+(`specs/editing-and-inpainting/design.md`).
+
+`generate-with-style-v2` has no `image_size`: the schema marks it removed and deduces the
+output size from the style images. A `--size` passed with two or more style images is
+therefore refused rather than ignored (R1.8) — silently dropping an argument a caller
+paid attention to is how a surprising image gets billed.
 
 Chosen, then **named in the output** (R1.2). A tool that silently picks between
 routes with different prices and different ceilings has to say which one it picked,

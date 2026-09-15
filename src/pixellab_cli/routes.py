@@ -120,6 +120,7 @@ class Param:
     minimum: float | None = None
     maximum: float | None = None
     size: SizeLimit | None = None
+    min_items: int | None = None
     max_items: int | None = None
     default: Any = None
     help: str = ""

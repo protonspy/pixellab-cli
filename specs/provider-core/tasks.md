@@ -15,6 +15,9 @@
   _Depends 2.1_
 - [x] 2.4 (TDD) Assert every route in the table against the vendored schema: path exists, required parameters match, enumerated values match — R3.4
   _Depends 2.3_
+- [x] 2.5 (Unit) Add the four new routes to the table — R3.1, R3.2, R3.4
+  _Depends 2.3_
+  _Reason four routes asked for after delivery_
 
 ## 3 · The PixelLab client
 

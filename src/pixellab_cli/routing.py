@@ -19,6 +19,14 @@ from pixellab_cli.routes import Route, SizeLimit
 # docs/wiki/pages/pixellab-asset-routing.md.
 IMAGE_ROUTES = ("create-image-pixflux", "create-image-pixen", "create-image-bitforge")
 STYLE_ROUTE = "create-image-bitforge"
+# Two style images is not a bigger version of one. It is a different route at thirty
+# times the price, so it is reached by asking for it and never by falling into it.
+STYLE_REFERENCE_ROUTE = "generate-with-style-v2"
+STYLE_REFERENCE_MAX = 4
+# What a caller who named no size gets. It lives here rather than on the option so
+# that "no size was named" survives as far as the style reference route, which is the
+# one route that refuses a size outright.
+DEFAULT_SIZE = {"width": 64, "height": 64}
 
 _SIZE = re.compile(r"^\s*(\d+)\s*(?:[x*]\s*(\d+)\s*)?$", re.IGNORECASE)
 
@@ -39,21 +47,51 @@ def parse_size(text: str) -> dict[str, int]:
 
 
 def choose_image_route(
-    size: dict[str, int],
+    size: dict[str, int] | None = None,
     *,
-    has_style_image: bool = False,
+    style_images: int = 0,
     route_name: str | None = None,
 ) -> Route:
-    """Pick the route that can make this image, or say why none can."""
+    """Pick the route that can make this image, or say why none can.
+
+    `size` is None when the caller named none. Every base route requires one; the
+    style reference route refuses one, because it reads the output size off the
+    style images it was given.
+    """
+    if style_images > 1:
+        return _style_reference(size, style_images)
     if route_name is not None:
-        return _named(route_name, size)
-    if has_style_image:
-        return _with_style(size)
+        return _named(route_name, _or_default(size))
+    if style_images == 1:
+        return _with_style(_or_default(size))
+    size = _or_default(size)
     for name in IMAGE_ROUTES:
         route = catalog.route(name)
         if _fits(route, size):
             return route
     raise ValidationError(_no_route_message(size), context={"size": _describe(size)})
+
+
+def _or_default(size: dict[str, int] | None) -> dict[str, int]:
+    return dict(DEFAULT_SIZE) if size is None else size
+
+
+def _style_reference(size: dict[str, int] | None, style_images: int) -> Route:
+    """The route for a style spread across several references, and its two refusals."""
+    if size is not None:
+        raise ValidationError(
+            f"{STYLE_REFERENCE_ROUTE} takes its output size from the style images, so a "
+            f"size cannot be given with more than one of them. Drop the size, or pass a "
+            f"single style image to stay on {STYLE_ROUTE}.",
+            context={"route": STYLE_REFERENCE_ROUTE, "size": _describe(size)},
+        )
+    if style_images > STYLE_REFERENCE_MAX:
+        raise ValidationError(
+            f"{STYLE_REFERENCE_ROUTE} takes at most {STYLE_REFERENCE_MAX} style images, "
+            f"and {style_images} were given.",
+            context={"route": STYLE_REFERENCE_ROUTE, "style_images": style_images},
+        )
+    return catalog.route(STYLE_REFERENCE_ROUTE)
 
 
 def _named(route_name: str, size: dict[str, int]) -> Route:

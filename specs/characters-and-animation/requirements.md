@@ -22,6 +22,8 @@ different endpoint family and no skeleton.
 - **R1.2** The character commands shall report the character identifier PixelLab assigned, and shall record it in the manifest.
 - **R1.3** The character commands shall name each rotation file after the direction it shows.
 - **R1.4** When asked for an object, the character commands shall create one from a description, in one direction or in eight.
+- **R1.5** (ADDED) When asked for a state of an existing character, the character commands shall apply a text edit to that character's rotations, shall write every rotation returned, and shall report the identifier of the new character and the group it shares with the character it came from.
+- **R1.6** (ADDED) The character commands shall say that a character state is priced as a Pro Tools route before calling it.
 
 ## R2 · Animating
 
@@ -29,6 +31,9 @@ different endpoint family and no skeleton.
 - **R2.2** The character commands shall report, before the call, that an animation costs its tier once per direction.
 - **R2.3** Where a named animation template is not in the catalogue the tool carries, the character commands shall warn that the catalogue is partial and send it anyway, and shall print the catalogue when the provider rejects it.
 - **R2.4** When asked to animate a loose image rather than a character, the character commands shall use the route that takes a first frame, and shall write the frames in playback order.
+- **R2.5** (ADDED) Where more frames are asked for than the default animation route accepts, the character commands shall use the long-form animation route, and shall say that the route is in beta and needs a subscription tier the account may not hold.
+- **R2.6** (ADDED) If a frame count is given that the chosen animation route does not accept, then the character commands shall say so and name the counts that route accepts, before spending anything.
+- **R2.7** (ADDED) Where the long-form animation route is used, the character commands shall report that it is priced by generation time rather than by a fixed tier, so that the estimate is a weaker claim than usual.
 
 ## R3 · Rotating
 
@@ -45,4 +50,4 @@ different endpoint family and no skeleton.
 
 - Deleting anything. This tool never removes a remote asset.
 - Skeleton editing and skeleton-driven animation.
-- Paperdolling and layered characters.
+- Paperdolling and layered characters. A character state is a new character grouped with its source, not a layer composited over one.

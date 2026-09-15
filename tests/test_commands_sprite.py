@@ -250,3 +250,106 @@ class TestFailures:
 
         entries = (tmp_path / "out" / "ledger.jsonl").read_text(encoding="utf-8").splitlines()
         assert json.loads(entries[1])["status"] == "failed"
+
+
+class TestStyleReference:
+    """One style image is a cheap route; two is a Pro one. The step must be deliberate."""
+
+    def _style_file(self, tmp_path, name: str, width: int = 64, height: int = 64):
+        path = tmp_path / name
+        path.write_bytes(png_bytes(width, height))
+        return str(path)
+
+    def test_one_style_image_stays_on_the_cheap_route(self, tmp_path, monkeypatch):
+        style = self._style_file(tmp_path, "style.png")
+
+        result = invoke(
+            ["--dry-run", "--json", "sprite", "a knight", "--style", style],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert json.loads(result.stdout)["route"] == "create-image-bitforge"
+
+    def test_two_style_images_reach_the_style_reference_route(self, tmp_path, monkeypatch):
+        first = self._style_file(tmp_path, "one.png")
+        second = self._style_file(tmp_path, "two.png", 32, 48)
+
+        result = invoke(
+            ["--dry-run", "--json", "sprite", "a knight", "--style", first, "--style", second],
+            tmp_path,
+            monkeypatch,
+        )
+
+        payload = json.loads(result.stdout)
+        assert payload["route"] == "generate-with-style-v2"
+        assert len(payload["arguments"]["style_images"]) == 2
+
+    def test_each_style_image_carries_the_size_read_from_the_file(self, tmp_path, monkeypatch):
+        first = self._style_file(tmp_path, "one.png", 64, 64)
+        second = self._style_file(tmp_path, "two.png", 32, 48)
+
+        result = invoke(
+            ["--dry-run", "--json", "sprite", "a knight", "--style", first, "--style", second],
+            tmp_path,
+            monkeypatch,
+        )
+
+        sent = json.loads(result.stdout)["arguments"]["style_images"]
+        assert [(one["width"], one["height"]) for one in sent] == [(64, 64), (32, 48)]
+
+    def test_no_size_is_sent_because_the_route_deduces_it(self, tmp_path, monkeypatch):
+        first = self._style_file(tmp_path, "one.png")
+        second = self._style_file(tmp_path, "two.png")
+
+        result = invoke(
+            ["--dry-run", "--json", "sprite", "a knight", "--style", first, "--style", second],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert "image_size" not in json.loads(result.stdout)["arguments"]
+
+    def test_a_size_given_with_two_style_images_is_refused(self, tmp_path, monkeypatch):
+        first = self._style_file(tmp_path, "one.png")
+        second = self._style_file(tmp_path, "two.png")
+
+        result = invoke(
+            [
+                "--dry-run",
+                "sprite",
+                "a knight",
+                "--size",
+                "96x64",
+                "--style",
+                first,
+                "--style",
+                second,
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 2
+
+    def test_the_pro_tier_is_announced_before_the_call(self, tmp_path, monkeypatch):
+        first = self._style_file(tmp_path, "one.png")
+        second = self._style_file(tmp_path, "two.png")
+
+        result = invoke(
+            ["--dry-run", "sprite", "a knight", "--style", first, "--style", second],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert "Pro Tools" in result.output
+
+    def test_five_style_images_are_refused_with_the_ceiling(self, tmp_path, monkeypatch):
+        paths = []
+        for index in range(5):
+            paths += ["--style", self._style_file(tmp_path, f"style-{index}.png")]
+
+        result = invoke(["--dry-run", "sprite", "a knight", *paths], tmp_path, monkeypatch)
+
+        assert result.exit_code == 2
+        assert "4" in result.output

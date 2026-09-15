@@ -23,6 +23,7 @@ got.
 - **R1.2** The recipe commands shall report each step as it completes, naming the route and what it cost.
 - **R1.3** The recipe commands shall report the total cost of the whole recipe, keeping the estimated and the reported totals apart.
 - **R1.4** The recipe commands shall carry each step's output into the next step's input without the caller naming a file.
+- **R1.5** (ADDED) Where a recipe goes on to rotate or animate what an earlier step drew, the recipe commands shall ask that step for a subject seen from the front in a rest pose, because the routes downstream read the image they are given as the south-facing frame.
 
 ## R2 · Stopping
 

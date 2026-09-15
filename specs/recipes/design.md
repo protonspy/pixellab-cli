@@ -33,6 +33,18 @@ iteration happens on the first step, where pixels are plentiful.
 one animation per action named. This is the one the tool exists for, and it is also
 the one where a caller can spend a hundred generations by adding one more `--action`.
 
+## The concept step is an anchor, not a picture
+
+Both recipes rotate or animate what the first step drew, and the routes that do it read
+the image they are given as the **south** frame. So the concept step asks for the same
+thing `pixellab art anchor` asks for — one subject, from the front, at rest — rather than
+for the best picture of the subject (R1.5).
+
+The wording lives in one place and both callers use it: the recipe's concept step and the
+`anchor` command, because two copies of a prompt drift and the failure they produce is
+eight rotations of a character facing the wrong way, discovered after paying for them
+(`specs/concept-art/design.md`).
+
 ## Stopping and resuming
 
 Each step's state goes into a recipe manifest as it finishes (R2.2): `pending`,
