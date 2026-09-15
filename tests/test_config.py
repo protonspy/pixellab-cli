@@ -7,6 +7,7 @@ from pixellab_cli.config import (
     FAL_KEY_VAR,
     PIXELLAB_SECRET_VAR,
     Credentials,
+    config_paths,
     load_credentials,
 )
 from pixellab_cli.errors import ConfigurationError
@@ -126,12 +127,15 @@ class TestTheCredentialsFile:
         # Up to the project root and no further, so the project needs a marker: without
         # one the search never leaves the working directory, which is the boundary that
         # keeps somebody else's file in a shared parent out.
-        (tmp_path / ".git").mkdir()
-        write_config(tmp_path, fal_key="fal-parent")
-        deep = tmp_path / "assets" / "characters"
+        project = tmp_path / "game"
+        deep = project / "assets" / "characters"
         deep.mkdir(parents=True)
+        (project / ".git").mkdir()
+        write_config(project, fal_key="fal-parent")
 
-        credentials = load_credentials({}, start=deep, home=tmp_path / "nowhere")
+        # The home directory is above the project, as it is in ordinary use. The walk
+        # is disabled entirely when it is not — R1.11.
+        credentials = load_credentials({}, start=deep, home=tmp_path)
 
         assert credentials.fal_key == "fal-parent"
 
@@ -350,7 +354,7 @@ class TestTheSearchStopsAtTheProject:
         (project / ".git").mkdir()
         write_config(project, fal_key="fal-project")
 
-        credentials = load_credentials({}, start=deep, home=tmp_path / "home")
+        credentials = load_credentials({}, start=deep, home=tmp_path)
 
         assert credentials.fal_key == "fal-project"
 
@@ -386,3 +390,66 @@ class TestTheSearchStopsAtTheProject:
         credentials = load_credentials({}, start=deep, home=tmp_path)
 
         assert credentials.fal_key == "fal-project"
+
+
+class TestTheSearchDoesNotClimbOutOfTheHomeDirectory:
+    """R1.11: above the project, only the home file answers — including off-home trees.
+
+    The stop at the home directory is an equality test against each ancestor, so it
+    cannot fire when the home directory is not on the way up: a working directory on
+    another drive, a container whose checkout lives outside $HOME, a mounted share.
+    The walk then runs to the nearest project marker, which in a shared tree belongs
+    to somebody else, and a .pixellab.json beside it is read as though it were the
+    project's own.
+    """
+
+    def build(self, tmp_path):
+        home = tmp_path / "Users" / "alice"
+        shared = tmp_path / "SharedDrive" / "team"
+        project = shared / "project-a"
+        home.mkdir(parents=True)
+        project.mkdir(parents=True)
+        (shared / ".git").mkdir()
+        (shared / CONFIG_NAME).write_text(json.dumps({"fal_key": "planted"}), encoding="utf-8")
+        return home, shared, project
+
+    def test_a_credentials_file_in_a_shared_parent_is_not_read(self, tmp_path):
+        home, _, project = self.build(tmp_path)
+
+        credentials = load_credentials({}, start=project, home=home)
+
+        assert credentials.fal_key is None
+
+    def test_the_shared_parent_is_not_even_searched(self, tmp_path):
+        home, shared, project = self.build(tmp_path)
+
+        searched = config_paths(project, home)
+
+        assert shared / CONFIG_NAME not in searched
+
+    def test_the_working_directory_still_answers_for_itself(self, tmp_path):
+        home, _, project = self.build(tmp_path)
+        (project / CONFIG_NAME).write_text(json.dumps({"fal_key": "mine"}), encoding="utf-8")
+
+        credentials = load_credentials({}, start=project, home=home)
+
+        assert credentials.fal_key == "mine"
+
+    def test_the_home_file_still_answers_from_off_the_path(self, tmp_path):
+        home, _, project = self.build(tmp_path)
+        (home / CONFIG_NAME).write_text(json.dumps({"fal_key": "home"}), encoding="utf-8")
+
+        credentials = load_credentials({}, start=project, home=home)
+
+        assert credentials.fal_key == "home"
+
+    def test_a_project_inside_the_home_directory_still_walks_up(self, tmp_path):
+        home = tmp_path / "Users" / "alice"
+        project = home / "games" / "repo" / "src"
+        project.mkdir(parents=True)
+        (project.parent / ".git").mkdir()
+        (project.parent / CONFIG_NAME).write_text(json.dumps({"fal_key": "repo"}), encoding="utf-8")
+
+        credentials = load_credentials({}, start=project, home=home)
+
+        assert credentials.fal_key == "repo"

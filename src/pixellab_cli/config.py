@@ -142,6 +142,16 @@ def config_paths(start: Path | None = None, home: Path | None = None) -> list[Pa
     gets the tool to authenticate as them. See
     `adr:0005-read-credentials-from-a-file-as-well-as-the-environment`.
 
+    **It does not walk at all when the home directory is not above the start.** The stop
+    at the home directory is an equality test against each ancestor, so a home that is
+    not on the way up can never end the walk — a working directory on another drive, a
+    checkout outside `$HOME` in a container, a mounted share. What ends it then is the
+    nearest project marker, and in a shared tree that marker is somebody else's: the
+    project itself carries none, so the first `.git` above it is mistaken for its root
+    and a `.pixellab.json` beside that marker is read. Outside the home directory only
+    the working directory answers for itself, and above it only the home file answers.
+    See `adr:0008-do-not-search-for-credentials-outside-the-home-directory`.
+
     A home file already on the way up is named once, so it does not get two chances to
     answer.
     """
@@ -150,7 +160,8 @@ def config_paths(start: Path | None = None, home: Path | None = None) -> list[Pa
 
     walked = [start]
     root = project_root(start, home_dir)
-    if root is not None and root != start:
+    under_home = home_dir == start or home_dir in start.parents
+    if under_home and root is not None and root != start:
         for directory in start.parents:
             walked.append(directory)
             # Two stops, whichever comes first. The project root, because above it the
