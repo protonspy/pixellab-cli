@@ -39,6 +39,10 @@ CONFIG_NAME = ".pixellab.json"
 # The field in the file, and the environment variable that outranks it.
 CREDENTIAL_VARS = {"pixellab_secret": PIXELLAB_SECRET_VAR, "fal_key": FAL_KEY_VAR}
 
+# What makes a directory a project rather than somewhere a project happens to sit.
+# The upward search for a credentials file stops here.
+PROJECT_MARKERS = (".git", ".hg", ".svn", "pyproject.toml", "package.json", "Cargo.toml")
+
 # How long a credential command may take before it is abandoned. A password manager
 # that is locked prompts on its own; a command that never returns must not hang a
 # generation behind it.
@@ -107,19 +111,80 @@ class Credentials:
         return self.fal_key
 
 
+def project_root(start: Path, home: Path | None = None) -> Path | None:
+    """The nearest directory holding a repository marker, if there is one.
+
+    This is the boundary of the upward search. Above a project root the directories
+    stop being the person's project and start being shared — a build agent's workspace
+    parent, `/tmp`, a drive root — and a `.pixellab.json` planted in one of those is
+    somebody else's key, which this tool would otherwise authenticate as.
+
+    The home directory ends the search whether or not a marker is found there: a home
+    directory is not a project, and a stray `package.json` in one would otherwise carry
+    the boundary far above anything this project owns.
+    """
+    home = (Path.home() if home is None else home).resolve()
+    for directory in (start, *start.parents):
+        if directory == home:
+            return None
+        if any((directory / marker).exists() for marker in PROJECT_MARKERS):
+            return directory
+    return None
+
+
 def config_paths(start: Path | None = None, home: Path | None = None) -> list[Path]:
     """Every file that may carry a credential, nearest first, home last.
 
-    The working directory and its parents, then the home file. A home file already on
-    the way up is named once, so it does not get two chances to answer.
+    The working directory, then its parents up to and including the project root, then
+    the home file. **The walk stops at the project root** and, with no root to find, at
+    the working directory itself: a credentials file in a directory above the project
+    is not this project's, and trusting one is how a co-tenant on a shared filesystem
+    gets the tool to authenticate as them. See
+    `adr:0005-read-credentials-from-a-file-as-well-as-the-environment`.
+
+    A home file already on the way up is named once, so it does not get two chances to
+    answer.
     """
     start = (Path.cwd() if start is None else start).resolve()
     home_dir = (Path.home() if home is None else home).resolve()
-    found = [directory / CONFIG_NAME for directory in (start, *start.parents)]
+
+    walked = [start]
+    root = project_root(start, home_dir)
+    if root is not None and root != start:
+        for directory in start.parents:
+            walked.append(directory)
+            # Two stops, whichever comes first. The project root, because above it the
+            # directories are shared rather than this project's. The home directory,
+            # because a marker sitting in or above it would otherwise carry the search
+            # into every directory on the way there.
+            if directory in (root, home_dir):
+                break
+
+    found = [directory / CONFIG_NAME for directory in walked]
     home_file = home_dir / CONFIG_NAME
     if home_file not in found:
         found.append(home_file)
     return found
+
+
+def is_private(path: Path) -> tuple[bool, str | None]:
+    """Whether only this user can write `path`, and what is wrong when they cannot.
+
+    A credentials file that a group or the world can write is one somebody else can
+    replace. POSIX answers this exactly; Windows has no mode to read here, so this
+    reports nothing rather than inventing a check whose result is always the same.
+    """
+    if os.name == "nt":
+        return True, None
+    try:
+        status = path.stat()
+    except OSError:
+        return True, None
+    if status.st_uid != os.getuid():
+        return False, f"{path} is owned by another user"
+    if status.st_mode & 0o022:
+        return False, f"{path} is writable by its group or by everyone"
+    return True, None
 
 
 def read_config(path: Path) -> tuple[CredentialsFile | None, str | None]:
@@ -195,6 +260,10 @@ def load_credentials(
     for path in config_paths(start, home):
         if len(values) == len(CREDENTIAL_VARS):
             break
+        private, why = is_private(path)
+        if not private:
+            warnings.append(f"{why}, so it was not read")
+            continue
         contents, complaint = read_config(path)
         if complaint:
             warnings.append(complaint)

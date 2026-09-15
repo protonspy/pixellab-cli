@@ -142,14 +142,31 @@ def write_credential(path: Path, field: str, value: str) -> None:
 def _write(path: Path, contents: CredentialsFile) -> None:
     """Write the file so that only its owner can read it, where that is a thing.
 
-    Opened with the mode rather than chmod-ed after, so there is no instant where the
-    file exists holding a credential and is readable by everyone.
+    The mode passed to `os.open` applies to a file it creates and to nothing else, so
+    a file that was already there keeps whatever permissions it had — and that is the
+    case that matters, because rotating a key is a write to a file that exists. The
+    `chmod` afterwards is what actually closes it.
+
+    `O_NOFOLLOW` where the platform has it: a symlink left at this path would
+    otherwise send a credential somewhere else entirely.
+
+    Every failure here is one line on stderr, like every other failure this tool has.
+    A traceback would bury the one sentence that says which path refused the write.
     """
     body = json.dumps(contents.model_dump(exclude_none=True), indent=2) + "\n"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
-        handle.write(body)
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        descriptor = os.open(path, flags, 0o600)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            handle.write(body)
+        if os.name != "nt":
+            os.chmod(path, 0o600)
+    except OSError as failure:
+        raise ValidationError(
+            f"{path} could not be written: {failure.strerror or failure}",
+            context={"path": str(path)},
+        ) from None
 
 
 @app.command("path")

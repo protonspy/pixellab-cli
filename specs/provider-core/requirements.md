@@ -3,7 +3,7 @@ autonomy: auto
 ci: wait
 branch: feat/asset-consistency
 delivery: in-review
-pr: 2
+pr: 4
 ---
 
 # Provider core — requirements
@@ -25,7 +25,10 @@ looks like have to be decided once.
 - **R1.5** (ADDED) If a credentials file outside the user's home directory names a command instead of a value, then the provider core shall ignore that field and say that it was ignored, because such a file arrives with a checkout.
 - **R1.6** (ADDED) If a credentials file cannot be read or is not valid JSON, then the provider core shall say which file and why, and shall continue with the sources that remain.
 - **R1.7** (ADDED) The provider core shall report, for each credential, whether it is present and which source it came from, and shall never render the value.
-- **R1.8** (ADDED) When asked to store a credential, the provider core shall read it without echoing it, write it to the credentials file in the user's home directory unless another file is named, and create that file readable only by its owner.
+- **R1.8** (ADDED) When asked to store a credential, the provider core shall read it without echoing it, and shall write it to the credentials file in the user's home directory unless another file is named.
+- **R1.9** (ADDED) Where the platform enforces file permissions, the provider core shall leave the credentials file readable only by its owner; where it does not, the provider core shall say so.
+- **R1.10** (ADDED) If the credentials file cannot be written, then the provider core shall report which path refused it and why, in one line.
+- **R1.11** (ADDED) The provider core shall stop the upward search for a credentials file at the project root and at the user's home directory, and shall ignore a credentials file that another user owns or that its group or everyone can write.
 - **R1.3** The provider core shall redact credential values from every error, message and record it produces.
 
 ## R2 · Requests

@@ -5,8 +5,11 @@ from, and never what it is.
 """
 
 import json
+import os
+import stat
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from pixellab_cli.cli import app
@@ -182,3 +185,59 @@ class TestConfigPath:
         lines = [line for line in result.stdout.splitlines() if line.strip()]
         assert str(project / CONFIG_NAME) in lines[0]
         assert any(str(tmp_path / "home" / CONFIG_NAME) in line for line in lines)
+
+
+class TestHowTheFileIsWritten:
+    """`_write` exists for one security property, so that property is what is tested."""
+
+    @pytest.mark.skipif(os.name == "nt", reason="Windows has no POSIX mode to assert")
+    def test_the_file_is_readable_only_by_its_owner(self, tmp_path, monkeypatch):
+        home = tmp_path / "home"
+
+        invoke(["config", "set", "fal-key", "--value", SECRET], tmp_path, monkeypatch, home=home)
+
+        assert stat.S_IMODE((home / CONFIG_NAME).stat().st_mode) == 0o600
+
+    @pytest.mark.skipif(os.name == "nt", reason="Windows has no POSIX mode to assert")
+    def test_a_file_that_was_already_loose_is_tightened(self, tmp_path, monkeypatch):
+        # The mode passed to os.open applies to a file it creates and to nothing else,
+        # so rotating a key into an existing file is the case that matters.
+        home = tmp_path / "home"
+        home.mkdir()
+        (home / CONFIG_NAME).write_text("{}", encoding="utf-8")
+        (home / CONFIG_NAME).chmod(0o644)
+
+        invoke(["config", "set", "fal-key", "--value", SECRET], tmp_path, monkeypatch, home=home)
+
+        assert stat.S_IMODE((home / CONFIG_NAME).stat().st_mode) == 0o600
+
+    def test_windows_is_told_that_the_folder_is_the_protection(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(os, "name", "nt")
+
+        result = invoke(["config", "set", "fal-key", "--value", SECRET], tmp_path, monkeypatch)
+
+        assert "Windows" in result.output
+
+    def test_a_path_that_cannot_be_written_is_one_line_and_no_traceback(
+        self, tmp_path, monkeypatch
+    ):
+        blocked = tmp_path / "notadir"
+        blocked.write_text("I am a file", encoding="utf-8")
+
+        result = invoke(
+            [
+                "config",
+                "set",
+                "fal-key",
+                "--value",
+                SECRET,
+                "--file",
+                str(blocked / CONFIG_NAME),
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 2
+        assert "Traceback" not in result.output
+        assert str(blocked) in result.output
