@@ -10,7 +10,7 @@ ci: wait
 ```
 src/pixellab_cli/skill/          the packaged skill: SKILL.md and references/
 src/pixellab_cli/harness.py      one Harness per target, and what writing one means
-commands/setup.py                pixellab setup
+commands/setup.py                pixellab-cli setup
 ```
 
 ## The skill has to move house first
@@ -20,7 +20,7 @@ inside the wheel — so an installed `pixellab` has nothing to install. The file
 to `src/pixellab_cli/skill/` and ship as package data.
 
 That leaves this repository's own `.claude/skills/pixellab-assets/` as a second copy,
-and two copies drift. It becomes the output of `pixellab setup --claude` run here, and
+and two copies drift. It becomes the output of `pixellab-cli setup --claude` run here, and
 `tests/test_skill.py` asserts the installed copy and the packaged one are byte for
 byte the same — so drift fails the suite rather than shipping.
 
@@ -84,7 +84,7 @@ Credentials come from four sources already (`adr:0005-read-credentials-from-a-fi
 so setup resolves them before it asks anything and reports what it found: a key in
 `FAL_KEY` or in a file is named as present with its source and never asked for again
 (R2.1, R2.2). Only what is missing is prompted, without echo, into `~/.pixellab.json`
-through the same writer `pixellab config set` uses.
+through the same writer `pixellab-cli config set` uses.
 
 Declining is a normal answer (R2.4): someone setting up a machine where the keys live
 in CI should still get the skill installed.

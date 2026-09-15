@@ -8,9 +8,9 @@ ci: wait
 ## What changes
 
 ```
-commands/character.py   pixellab character new|state|animate|list|show|sheet
-commands/object.py      pixellab object new
-commands/motion.py      pixellab rotate, pixellab animate
+commands/character.py   pixellab-cli character new|state|animate|list|show|sheet
+commands/object.py      pixellab-cli object new
+commands/motion.py      pixellab-cli rotate, pixellab-cli animate
 ```
 
 Plus three additions to the provider core, because this is the first feature whose
@@ -60,7 +60,7 @@ Animation bundle on 2026-06-30. It is explicitly marked as not authoritative,
 because it is not: an id missing from it may still be valid.
 
 So the catalogue informs and does not gate (R2.3). An unknown id gets a warning and
-is sent; `pixellab character templates` prints the catalogue; and a provider
+is sent; `pixellab-cli character templates` prints the catalogue; and a provider
 rejection prints it too, which is the moment the caller actually needed it. Refusing
 locally against a list known to be incomplete would block working requests, which is
 worse than the round trip it saves.
@@ -69,8 +69,8 @@ worse than the round trip it saves.
 
 `create-character-state` takes a `character_id` and an edit description, applies that
 edit across every rotation the character has, and returns **a new `character_id`** joined
-to the source by a `group_id`. So `pixellab character state knight-id -p "wearing a red
-cloak"` collects exactly what `pixellab character new` collects — submit, poll, read the
+to the source by a `group_id`. So `pixellab-cli character state knight-id -p "wearing a red
+cloak"` collects exactly what `pixellab-cli character new` collects — submit, poll, read the
 character, download the rotation URLs — and the only new thing is what goes in the
 manifest: the new `character_id`, the source the caller named, and the `group_id`
 **read off `GET /characters/{id}`** rather than assumed to be the source id — a
@@ -78,7 +78,7 @@ character already in a group keeps that group, so a state of a state joins the g
 rather than starting one. A state whose group is lost is an orphan.
 
 It is Pro priced, twenty to forty generations, which puts it in the same announce-before-
-calling class as `pixellab object new` (R1.6).
+calling class as `pixellab-cli object new` (R1.6).
 
 This is not paperdolling. Nothing is composited locally and no layer is kept; PixelLab
 redraws the rotations and hands back a second character. The out-of-scope line stands.

@@ -5,6 +5,17 @@ description = "Generate 2D game assets from PixelLab and concept art from fal, f
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
+keywords = ["pixel-art", "game-assets", "pixellab", "fal", "sprites", "tilesets", "cli"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Graphics",
+    "Topic :: Games/Entertainment",
+]
 dependencies = [
     "typer>=0.15",
     "httpx>=0.28",
@@ -14,10 +25,14 @@ dependencies = [
 ]
 
 [project.scripts]
-pixellab = "pixellab_cli.cli:app"
+# `pixellab` on PyPI is PixelLab's own SDK and ships a script of that name, so this
+# one carries the distribution's name rather than shadowing theirs.
+pixellab-cli = "pixellab_cli.cli:app"
 
 [project.urls]
-Repository = "https://github.com/prode/pixellab-cli"
+Homepage = "https://github.com/protonspy/pixellab-cli"
+Repository = "https://github.com/protonspy/pixellab-cli"
+Issues = "https://github.com/protonspy/pixellab-cli/issues"
 
 [dependency-groups]
 dev = [
@@ -30,6 +45,20 @@ dev = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.sdist]
+# An allowlist rather than whatever git happens to track: an sdist goes to PyPI and
+# cannot be recalled, so what travels in it is a decision. Tests and the vendored
+# schemas are here because the suite is runnable from the sdist alone.
+include = [
+    "src/pixellab_cli",
+    "tests",
+    "reference",
+    "scripts",
+    "README.md",
+    "LICENSE",
+    "pyproject.toml",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pixellab_cli"]

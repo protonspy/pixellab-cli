@@ -10,17 +10,17 @@ ci: wait
 One module, `commands/edit.py`, with two commands:
 
 ```
-pixellab edit sprite.png -p "give him a red cape"      edit-image-pixen
-pixellab edit a.png b.png c.png -p "make them gold"    edit-images-v2   (Pro)
-pixellab inpaint sprite.png --mask mask.png -p "..."   inpaint-v3       (Pro)
-pixellab outfit walk-*.png --from cloak.png            transfer-outfit-v2 (Pro)
+pixellab-cli edit sprite.png -p "give him a red cape"      edit-image-pixen
+pixellab-cli edit a.png b.png c.png -p "make them gold"    edit-images-v2   (Pro)
+pixellab-cli inpaint sprite.png --mask mask.png -p "..."   inpaint-v3       (Pro)
+pixellab-cli outfit walk-*.png --from cloak.png            transfer-outfit-v2 (Pro)
 ```
 
 ## Why the outfit transfer is its own command
 
 `transfer-outfit-v2` takes one reference image and between two and sixteen animation
 frames, and applies the outfit across all of them in one call. That is a different job
-from `pixellab edit --match`, which matches a reference across a batch of unrelated
+from `pixellab-cli edit --match`, which matches a reference across a batch of unrelated
 images: here the frames are one animation and the point is that the cloak does not
 change shape between frame three and frame four.
 
@@ -43,7 +43,7 @@ asking to change one sprite wants the first, every time.
 
 So one image and no reference picks pixen; more than one image, or `--match`, picks
 v2 and says the tier out loud before calling. The same shape as
-`pixellab object new`: the expensive route announces itself.
+`pixellab-cli object new`: the expensive route announces itself.
 
 ## The mask
 

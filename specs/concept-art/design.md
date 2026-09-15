@@ -10,10 +10,10 @@ ci: wait
 One module, `commands/art.py`, with three commands under an `art` group:
 
 ```
-pixellab art concept "a castle on a cliff"        text to image
-pixellab art edit reference.png "make it night"   image to image
-pixellab art boxart "a knight at dawn"            text to image, cover defaults
-pixellab art anchor "a knight"                   text to image, reference defaults
+pixellab-cli art concept "a castle on a cliff"        text to image
+pixellab-cli art edit reference.png "make it night"   image to image
+pixellab-cli art boxart "a knight at dawn"            text to image, cover defaults
+pixellab-cli art anchor "a knight"                   text to image, reference defaults
 ```
 
 ## The anchor

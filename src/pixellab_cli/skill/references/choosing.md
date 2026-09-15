@@ -22,61 +22,61 @@ PixelLab's public pricing, and the tool records what each call actually reported
 
 ## Pairs that are easy to confuse
 
-**`pixellab sprite` against `pixellab object new`.** A sprite is one image for about
+**`pixellab-cli sprite` against `pixellab-cli object new`.** A sprite is one image for about
 one generation. An object is a managed asset with an id, optionally eight angles, for
 twenty to forty. A barrel that only has to look right from one angle is a sprite.
 
-**`pixellab edit` against `pixellab art edit`.** The first edits pixel art and keeps
+**`pixellab-cli edit` against `pixellab-cli art edit`.** The first edits pixel art and keeps
 the grid. The second edits a concept image on fal. Round-tripping a finished sprite
 through a general image model loses the grid and costs a cleanup pass to recover.
 
-**`pixellab tiles variants` against `pixellab tiles terrain`.** Variants are
+**`pixellab-cli tiles variants` against `pixellab-cli tiles terrain`.** Variants are
 independent tiles or a connectable set, on a Pro Tools route. Terrain is two terrains
 that meet seamlessly, for about three generations. If the person said "tileset" they
 most likely mean terrain.
 
-**`pixellab character new` against `pixellab rotate`.** Both give eight views. Only
+**`pixellab-cli character new` against `pixellab-cli rotate`.** Both give eight views. Only
 the first gives a `character_id`, a skeleton, and the ability to add animations later.
 If they will want a walk cycle, make a character.
 
-**`pixellab art anchor` against `pixellab art concept`.** The anchor is the picture
+**`pixellab-cli art anchor` against `pixellab-cli art concept`.** The anchor is the picture
 that exists to be converted: one subject, facing the viewer, at rest. Concept is the
 picture that does what it is told. Everything downstream reads its input as the south
 frame, so a character built from a concept image in a dramatic pose gives eight
 rotations of a character permanently turned.
 
-**`pixellab character state` against `pixellab character new`.** A state keeps the
+**`pixellab-cli character state` against `pixellab-cli character new`.** A state keeps the
 character: same face, same proportions, new armour, across all eight directions, for
 Pro pricing. A second `character new` with a similar description gives a different
 person. If they said "the same knight but...", it is a state.
 
-**`pixellab outfit` against `pixellab edit --match`.** Outfit takes one reference and
+**`pixellab-cli outfit` against `pixellab-cli edit --match`.** Outfit takes one reference and
 two to sixteen frames of one animation, and holds the outfit steady between frame
 three and frame four. `edit --match` matches a reference across unrelated images and
 makes no such promise.
 
-**`pixellab animate` against `pixellab character animate`.** The first animates a
+**`pixellab-cli animate` against `pixellab-cli character animate`.** The first animates a
 loose image and stores nothing. The second animates a managed character, once per
 direction, and keeps the animation on the account.
 
 ## When to reach for a recipe
 
-`pixellab recipe run` exists for the sequence nobody wants to type five times:
+`pixellab-cli recipe run` exists for the sequence nobody wants to type five times:
 
 - `sprite` — a concept image on fal, converted to pixel art, background removed.
 - `character` — that, then eight rotations, then one animation per `-a` action.
 
 Every step is an ordinary run with its own ledger lines, and a failed step keeps
-everything before it. Resume with `pixellab recipe resume <recipe.json>`.
+everything before it. Resume with `pixellab-cli recipe resume <recipe.json>`.
 
 ## Cheap moves before an expensive one
 
-- A reference image from the internet is almost always upscaled. `pixellab clean unzoom`
+- A reference image from the internet is almost always upscaled. `pixellab-cli clean unzoom`
   recovers the real grid for about a tenth of a generation; feeding the upscaled
   version to a generation route wastes most of the detail you paid for.
 - Frames that should share a palette — a whole animation, all eight rotations — go
-  through `pixellab clean colors` in **one** call. That is the point of the route.
-- If a result is nearly right, `pixellab edit` with one image costs about one
+  through `pixellab-cli clean colors` in **one** call. That is the point of the route.
+- If a result is nearly right, `pixellab-cli edit` with one image costs about one
   generation. Regenerating from scratch costs the same or more and loses what worked.
 
 ## Sizes that will be refused

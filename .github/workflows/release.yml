@@ -1,0 +1,79 @@
+name: Release
+
+# A tag publishes, and nothing else does. Merging a pull request cannot upload a
+# version by accident, which matters here more than usual: a version number on PyPI
+# is spent whether or not what it holds was right.
+# See docs/adr/0006-publish-to-pypi-from-a-tag.md.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    # Pushing a tag is authority to publish, and publishing cannot be undone. The
+    # environment is where a second pair of eyes goes: add required reviewers to
+    # `pypi` in the repository settings and a tag stops being enough on its own.
+    # Protecting `v*` from everyone but a maintainer is the other half, and is also
+    # settings rather than YAML.
+    environment: pypi
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Sync
+        run: uv sync --all-groups --locked
+
+      # Before anything is built: a wheel whose version disagrees with the tag that
+      # produced it cannot be traced back to a commit afterwards.
+      - name: The tag must match the declared version
+        run: |
+          declared="$(uv run python -c 'import tomllib,pathlib; print(tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["version"])')"
+          tagged="${GITHUB_REF_NAME#v}"
+          if [ "$declared" != "$tagged" ]; then
+            echo "tag $GITHUB_REF_NAME says $tagged, pyproject.toml says $declared" >&2
+            exit 1
+          fi
+          echo "releasing $declared"
+
+      - name: Format
+        run: uv run ruff format --check .
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Test
+        run: uv run python scripts/test_gate.py
+
+      - name: Build
+        run: uv build --out-dir dist
+
+      - name: Check the metadata PyPI will render
+        # Pinned: this runs on the same machine as the step that holds the token,
+        # and an unpinned tool is whatever PyPI served that minute.
+        run: uvx twine==7.0.0 check --strict dist/*
+
+      # The last thing checked is the artefact rather than the source it came from.
+      # A broken upload cannot be replaced.
+      - name: Install the wheel where nothing else is installed
+        run: |
+          uv venv /tmp/clean
+          VIRTUAL_ENV=/tmp/clean uv pip install dist/*.whl
+          /tmp/clean/bin/pixellab-cli --version
+          /tmp/clean/bin/pixellab-cli config path
+          /tmp/clean/bin/pixellab-cli --dry-run sprite "a smoke test" --size 64
+
+      - name: Publish to PyPI
+        # Pinned to a commit rather than to `release/v1`: this is the one step where
+        # the token exists, and a branch ref is a moving target. The comment carries
+        # the human-readable version so the next bump is a lookup rather than a guess.
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}

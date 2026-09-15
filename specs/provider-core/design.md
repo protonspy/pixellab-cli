@@ -39,7 +39,7 @@ tool's own repository is not special and is not consulted.
 credential, for a person whose secrets live in a manager. **That field is honoured in
 the home file and ignored in a project file** (`adr:0005-read-credentials-from-a-file-as-well-as-the-environment`):
 a project file arrives with a clone, and running a command out of one would turn
-`git clone && pixellab sprite` into arbitrary code execution. Ignoring it is said out
+`git clone && pixellab-cli sprite` into arbitrary code execution. Ignoring it is said out
 loud rather than done silently, because a person who wrote that field is otherwise left
 wondering why their key is missing.
 
@@ -49,10 +49,10 @@ already carries.
 
 ## Saying where a key came from without saying what it is
 
-`pixellab config show` prints one line per credential: present or not, and which of the
+`pixellab-cli config show` prints one line per credential: present or not, and which of the
 four sources it came from. With four places to look, "it is not picking up my key" is
 the failure people will actually have, and it has to be answerable without printing a
-secret. `pixellab config set fal-key` prompts without echo, so the value reaches neither
+secret. `pixellab-cli config set fal-key` prompts without echo, so the value reaches neither
 a shell history nor a transcript.
 
 The file is created `0600` where the platform has POSIX permissions. On Windows it is
