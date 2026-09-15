@@ -15,9 +15,10 @@ PixelLab's public pricing, and the tool records what each call actually reported
 | Base | ~1 | `sprite`, `animate`, `character animate` (per direction), `edit` with one image, `tiles isometric`, `tiles prop` |
 | Character | ~3–4 | `character new`, `rotate` |
 | Tilesets | ~3 | `tiles terrain`, `tiles platform` |
-| Pro Tools | 20–40 | `object new`, `ui`, `inpaint`, `tiles variants`, `edit` with several images or `--match`, `art`'s pixel-art conversion inside a recipe |
+| Pro Tools | 20–40 | `object new`, `ui`, `inpaint`, `tiles variants`, `character state`, `outfit`, `sprite` with several `--style`, `edit` with several images or `--match`, `art`'s pixel-art conversion inside a recipe |
 | Fonts | 25 fixed | `font` |
-| fal | unpriced | `art concept`, `art boxart`, `art edit` — fal reports no usage and no price is published, so the ledger records these as unknown rather than as a number nobody checked |
+| By generation time | 1–12 | `animate` above sixteen frames, which is `animate-pixminimax`: beta, tier 1 and above, and the one route whose estimate here is rough |
+| fal | unpriced | `art concept`, `art anchor`, `art boxart`, `art edit` — fal reports no usage and no price is published, so the ledger records these as unknown rather than as a number nobody checked |
 
 ## Pairs that are easy to confuse
 
@@ -37,6 +38,22 @@ most likely mean terrain.
 **`pixellab character new` against `pixellab rotate`.** Both give eight views. Only
 the first gives a `character_id`, a skeleton, and the ability to add animations later.
 If they will want a walk cycle, make a character.
+
+**`pixellab art anchor` against `pixellab art concept`.** The anchor is the picture
+that exists to be converted: one subject, facing the viewer, at rest. Concept is the
+picture that does what it is told. Everything downstream reads its input as the south
+frame, so a character built from a concept image in a dramatic pose gives eight
+rotations of a character permanently turned.
+
+**`pixellab character state` against `pixellab character new`.** A state keeps the
+character: same face, same proportions, new armour, across all eight directions, for
+Pro pricing. A second `character new` with a similar description gives a different
+person. If they said "the same knight but...", it is a state.
+
+**`pixellab outfit` against `pixellab edit --match`.** Outfit takes one reference and
+two to sixteen frames of one animation, and holds the outfit steady between frame
+three and frame four. `edit --match` matches a reference across unrelated images and
+makes no such promise.
 
 **`pixellab animate` against `pixellab character animate`.** The first animates a
 loose image and stores nothing. The second animates a managed character, once per

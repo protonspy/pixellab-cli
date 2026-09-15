@@ -16,6 +16,8 @@
   _Depends 2.1_
 - [x] 2.3 (Unit) Create an object in one direction or in eight — R1.4
   _Depends 1.2_
+- [x] 2.4 (Unit) Add pixellab character state — R1.5, R1.6
+  _Reason character states asked for after delivery_
 
 ## 3 · Animating and rotating
 
@@ -27,6 +29,10 @@
   _Depends 1.2_
 - [x] 3.4 (Unit) Rotate a loose image into eight directional views, each named after its direction — R3.1
   _Depends 1.2_
+- [x] 3.5 (TDD) Pick the animation route by frame count — R2.5, R2.6
+  _Reason PixMiniMax asked for after delivery_
+- [x] 3.6 (Unit) Expose --deflicker and the weaker estimate — R2.7
+  _Reason PixMiniMax asked for after delivery_
 
 ## 4 · Reading
 

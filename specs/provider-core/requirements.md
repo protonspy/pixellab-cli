@@ -1,9 +1,9 @@
 ---
 autonomy: auto
 ci: wait
-branch: feat/foundation
+branch: feat/asset-consistency
 delivery: in-review
-pr: 1
+pr: 2
 ---
 
 # Provider core — requirements

@@ -1,9 +1,9 @@
 ---
 autonomy: auto
 ci: wait
-branch: feat/foundation
+branch: feat/asset-consistency
 delivery: in-review
-pr: 1
+pr: 2
 ---
 
 # Image generation — requirements
@@ -21,8 +21,11 @@ settled — a description in, a file and a manifest out, a cost printed.
 - **R1.2** The image generation commands shall choose the route from the size and the inputs given, and shall name the route they chose.
 - **R1.3** Where the caller names a route explicitly, the image generation commands shall use that route rather than choosing one.
 - **R1.4** If the size given cannot be satisfied by any available route, then the image generation commands shall say so and name the sizes that can, before spending anything.
-- **R1.5** Where a style image is given, the image generation commands shall use a route that accepts one.
+- **R1.5** (MODIFIED) Where exactly one style image is given, the image generation commands shall use a base route that accepts one.
 - **R1.6** The image generation commands shall accept the shared style controls, and shall reject a value the chosen route does not allow.
+- **R1.7** (ADDED) Where more than one style image is given, the image generation commands shall use the style reference route, which accepts up to four, and shall say that it is priced as a Pro Tools route.
+- **R1.8** (ADDED) If a size is given together with more than one style image, then the image generation commands shall say that the style reference route takes its output size from the style images, before spending anything.
+- **R1.9** (ADDED) If more than four style images are given, then the image generation commands shall say so before spending anything.
 
 ## R2 · Cleaning up
 

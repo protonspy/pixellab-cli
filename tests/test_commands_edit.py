@@ -276,3 +276,192 @@ class TestBeforeSpending:
     @pytest.mark.parametrize("command", ["edit", "inpaint"])
     def test_both_commands_are_registered(self, command):
         assert runner.invoke(app, [command, "--help"]).exit_code == 0
+
+
+class TestOutfitTransferRefusals:
+    """The bounds are the whole reason to check locally: the route is Pro priced."""
+
+    def _frames(self, tmp_path, count: int, width: int = 64, height: int = 64):
+        paths = []
+        for index in range(count):
+            path = tmp_path / f"walk-{index}.png"
+            path.write_bytes(png_bytes(width, height))
+            paths.append(str(path))
+        return paths
+
+    def _reference(self, tmp_path):
+        path = tmp_path / "cloak.png"
+        path.write_bytes(png_bytes())
+        return str(path)
+
+    def test_one_frame_is_refused_with_the_floor(self, tmp_path, monkeypatch):
+        result = invoke(
+            [
+                "--dry-run",
+                "outfit",
+                *self._frames(tmp_path, 1),
+                "--from",
+                self._reference(tmp_path),
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 2
+        assert "2" in result.output
+
+    def test_seventeen_frames_are_refused_with_the_ceiling(self, tmp_path, monkeypatch):
+        result = invoke(
+            [
+                "--dry-run",
+                "outfit",
+                *self._frames(tmp_path, 17),
+                "--from",
+                self._reference(tmp_path),
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 2
+        assert "16" in result.output
+
+    def test_a_frame_over_the_size_ceiling_is_refused(self, tmp_path, monkeypatch):
+        frames = self._frames(tmp_path, 2)
+        oversized = tmp_path / "walk-big.png"
+        oversized.write_bytes(png_bytes(300, 64))
+
+        result = invoke(
+            [
+                "--dry-run",
+                "outfit",
+                *frames,
+                str(oversized),
+                "--from",
+                self._reference(tmp_path),
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 2
+
+    def test_a_missing_frame_is_refused_before_anything_is_sent(self, tmp_path, monkeypatch):
+        result = invoke(
+            [
+                "--dry-run",
+                "outfit",
+                str(tmp_path / "gone.png"),
+                *self._frames(tmp_path, 2),
+                "--from",
+                self._reference(tmp_path),
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 2
+
+
+class TestOutfitTransfer:
+    def _frames(self, tmp_path, count: int = 4):
+        paths = []
+        for index in range(count):
+            path = tmp_path / f"walk-{index}.png"
+            path.write_bytes(png_bytes())
+            paths.append(str(path))
+        return paths
+
+    def _reference(self, tmp_path):
+        path = tmp_path / "cloak.png"
+        path.write_bytes(png_bytes())
+        return str(path)
+
+    def test_the_route_is_the_outfit_route(self, tmp_path, monkeypatch):
+        result = invoke(
+            [
+                "--dry-run",
+                "--json",
+                "outfit",
+                *self._frames(tmp_path),
+                "--from",
+                self._reference(tmp_path),
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 0
+        assert json.loads(result.stdout)["route"] == "transfer-outfit-v2"
+
+    def test_every_frame_given_is_sent_once_and_in_order(self, tmp_path, monkeypatch):
+        result = invoke(
+            [
+                "--dry-run",
+                "--json",
+                "outfit",
+                *self._frames(tmp_path, 5),
+                "--from",
+                self._reference(tmp_path),
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        sent = json.loads(result.stdout)["arguments"]
+        assert len(sent["frames"]) == 5
+        assert sent["frames"][0]["size"] == {"width": 64, "height": 64}
+
+    def test_the_size_comes_from_the_first_frame_when_none_is_named(self, tmp_path, monkeypatch):
+        result = invoke(
+            [
+                "--dry-run",
+                "--json",
+                "outfit",
+                *self._frames(tmp_path),
+                "--from",
+                self._reference(tmp_path),
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert json.loads(result.stdout)["arguments"]["image_size"] == {
+            "width": 64,
+            "height": 64,
+        }
+
+    def test_the_pro_tier_is_announced_before_the_call(self, tmp_path, monkeypatch):
+        result = invoke(
+            [
+                "--dry-run",
+                "outfit",
+                *self._frames(tmp_path),
+                "--from",
+                self._reference(tmp_path),
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert "Pro Tools" in result.output
+
+    @respx.mock
+    def test_the_frames_that_come_back_are_written(self, tmp_path, monkeypatch):
+        mock_job("/transfer-outfit-v2", "job-outfit", images=4)
+
+        result = invoke(
+            [
+                "outfit",
+                *self._frames(tmp_path),
+                "--from",
+                self._reference(tmp_path),
+                "--name",
+                "cloaked",
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 0
+        assert len(list((tmp_path / "out").glob("*/cloaked*.png"))) == 4

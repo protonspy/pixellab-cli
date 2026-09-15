@@ -7,6 +7,8 @@
   _Depends 1.1_
 - [x] 1.3 (Unit) Add the box art form, with cover defaults that can still be overridden — R3.1
   _Depends 1.1_
+- [x] 1.4 (Unit) Add pixellab art anchor — R5.1, R5.2
+  _Reason anchor asked for after delivery_
 
 ## 2 · Editing
 

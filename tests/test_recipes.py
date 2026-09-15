@@ -15,6 +15,7 @@ from typer.testing import CliRunner
 from pixellab_cli import fal, recipes
 from pixellab_cli.cli import app
 from pixellab_cli.config import FAL_KEY_VAR, PIXELLAB_BASE_URL, PIXELLAB_SECRET_VAR
+from pixellab_cli.prompts import anchor_prompt
 
 runner = CliRunner()
 
@@ -400,3 +401,24 @@ class TestDryRun:
         )
 
         assert json.loads(result.stdout)["estimated_generations"] > 0
+
+
+class TestTheConceptStepIsAnAnchor:
+    """Both recipes rotate what the concept step drew, so it cannot be a hero pose."""
+
+    def test_the_concept_prompt_asks_for_a_front_facing_rest_pose(self):
+        step = next(
+            step for step in recipes.sprite_recipe("a knight").steps if step.name == "concept"
+        )
+
+        prompt = step.arguments({})["prompt"]
+        assert prompt.startswith("a knight")
+        assert "facing the viewer" in prompt
+        assert "at rest" in prompt
+
+    def test_the_character_recipe_uses_the_same_wording(self):
+        step = next(
+            step for step in recipes.character_recipe("a knight").steps if step.name == "concept"
+        )
+
+        assert step.arguments({})["prompt"] == anchor_prompt("a knight")

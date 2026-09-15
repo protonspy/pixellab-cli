@@ -8,7 +8,7 @@ ci: wait
 ## What changes
 
 ```
-commands/character.py   pixellab character new|animate|list|show|sheet
+commands/character.py   pixellab character new|state|animate|list|show|sheet
 commands/object.py      pixellab object new
 commands/motion.py      pixellab rotate, pixellab animate
 ```
@@ -64,6 +64,45 @@ is sent; `pixellab character templates` prints the catalogue; and a provider
 rejection prints it too, which is the moment the caller actually needed it. Refusing
 locally against a list known to be incomplete would block working requests, which is
 worse than the round trip it saves.
+
+## A state is a character, not a variant of one
+
+`create-character-state` takes a `character_id` and an edit description, applies that
+edit across every rotation the character has, and returns **a new `character_id`** joined
+to the source by a `group_id`. So `pixellab character state knight-id -p "wearing a red
+cloak"` collects exactly what `pixellab character new` collects — submit, poll, read the
+character, download the rotation URLs — and the only new thing is what goes in the
+manifest: the new `character_id`, the source the caller named, and the `group_id`
+**read off `GET /characters/{id}`** rather than assumed to be the source id — a
+character already in a group keeps that group, so a state of a state joins the group
+rather than starting one. A state whose group is lost is an orphan.
+
+It is Pro priced, twenty to forty generations, which puts it in the same announce-before-
+calling class as `pixellab object new` (R1.6).
+
+This is not paperdolling. Nothing is composited locally and no layer is kept; PixelLab
+redraws the rotations and hands back a second character. The out-of-scope line stands.
+
+## Two animation routes, and the frame count picks between them
+
+`animate-with-text-v3` takes four to sixteen frames, even. `animate-pixminimax` takes
+four to forty, in multiples of four, at up to 256 square, and is priced by generation
+time rather than by a tier.
+
+So the frame count is the router (R2.5): at most sixteen stays on v3, above sixteen is
+PixMiniMax, because it is the only route that reaches there. `--route` still overrides,
+and a count neither route accepts is refused with that route's own allowed counts named
+(R2.6) rather than with a generic complaint.
+
+PixMiniMax is in beta and needs a tier 1 subscription, which is an account fact this tool
+cannot read. It is said before the call rather than discovered as a rejection, and the
+estimate is labelled weaker than usual because the route's price moves with generation
+time (R2.7): three generations is a mid-range guess, and the reported `usage` is what the
+ledger keeps either way (`docs/wiki/pages/pixellab-cost-model.md`).
+
+Its `drift_threshold` is exposed as `--deflicker`: the route's own de-flicker pass, where
+0 corrects every frame toward the first and higher values correct fewer. Omitted by
+default, because PixelLab's default is a number this project has not measured.
 
 ## Listing
 

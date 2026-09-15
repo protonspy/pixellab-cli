@@ -39,9 +39,16 @@ public pricing page, reviewed 2026-09-12, and they move.
 | Base image | ~1 | $0.007–0.017 | `create-image-pixflux`, `create-image-pixen`, `create-image-bitforge` |
 | Base animation and rotation | ~1 | $0.011–0.042 | `animate-with-text-v3`, `generate-8-rotations-v3`, `create-character-v3`, `animate-character` in `template` or `v3` mode |
 | Tilesets | ~3 | $0.008–0.010 per tile size | `create-tileset`, `create-tileset-sidescroller` |
-| Pro Tools | 20–40 | $0.095–0.185 | everything named Pro: `generate-image-v2`, `edit-images-v2`, `inpaint-v3`, `create-character-pro`, the object routes, `create-tiles-pro`, `portrait-character-pro` |
+| Pro Tools | 20–40 | $0.095–0.185 | everything named Pro: `generate-image-v2`, `edit-images-v2`, `inpaint-v3`, `create-character-pro`, `create-character-state`, `generate-with-style-v2`, `transfer-outfit-v2`, the object routes, `create-tiles-pro`, `portrait-character-pro` |
 | Fonts | 25 fixed | at least $0.125 | `generate-font-pro` |
 | Free | 0 | 0 | `talking-gif`, `lip-sync`, setting a character portrait |
+
+`animate-pixminimax` is the one route priced by generation time rather than by a tier.
+Its published examples run from one generation at 32x32 over four frames to twelve at
+64x64 over forty, so a table entry would be a fiction: the tool estimates three, says
+the estimate is rougher than its others, and keeps the reported `usage`. It is also in
+beta behind a tier 1 subscription, which is an account fact no endpoint exposes — so it
+is stated before the call rather than discovered as a rejection.
 
 Three things cost more than their tier suggests and have to be computed per call rather
 than read off a table: `create-character-v3` in reference mode costs

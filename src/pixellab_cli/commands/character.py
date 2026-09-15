@@ -70,12 +70,16 @@ def ordered_rotations(urls: dict[str, str]) -> list[tuple[str, str]]:
 
 def fetch_rotations(
     client: PixelLabClient, character_id: str
-) -> tuple[list[bytes], list[str], dict[str, str]]:
-    """Read a character and download every rotation it has.
+) -> tuple[list[bytes], list[str], dict[str, str], dict[str, Any]]:
+    """Read a character, download every rotation it has, and keep what it said.
 
     Creating a character is three steps rather than one: the completed job says the
     work is done, it does not hand back eight PNGs. The rotations are URLs on
     `GET /characters/{id}`.
+
+    The whole detail comes back with them because it carries what the submit response
+    does not — `group_id` above all, which is how a state finds its way back to the
+    character it came from and is a field in its own right rather than the source id.
     """
     detail = client.call("character", character_id=character_id)
     urls = detail.raw.get("rotation_urls") or {}
@@ -84,6 +88,7 @@ def fetch_rotations(
         [client.download(url) for _, url in rotations],
         [name for name, _ in rotations],
         urls,
+        detail.raw,
     )
 
 
@@ -152,7 +157,7 @@ def _new(context, description, reference, size, view, template, name, seed) -> N
                 context={"response": result.raw},
                 secrets=app_context.credentials.secrets,
             )
-        frames, directions, urls = fetch_rotations(client, character_id)
+        frames, directions, urls, _ = fetch_rotations(client, character_id)
         result.images = frames
         result.raw = {**result.raw, "rotation_urls": urls}
         roles.extend(directions)
@@ -167,6 +172,100 @@ def _new(context, description, reference, size, view, template, name, seed) -> N
         translate=from_pixellab,
         estimate=estimate,
         name=name,
+        roles=roles,
+    )
+    output.emit(
+        output.run_payload(outcome),
+        [f"route: {route.name}", *output.describe_run(outcome)],
+        as_json=app_context.as_json,
+    )
+
+
+@app.command("state")
+def state(
+    context: typer.Context,
+    character_id: str = typer.Argument(..., help="The character to make a state of."),
+    edit: str = typer.Option(..., "--edit", "-p", help="'wearing a red cloak'."),
+    state_name: str = typer.Option(None, "--name", help="What to call the state."),
+    size: int = typer.Option(
+        None, "--size", help="A larger square canvas, for an edit that needs the room."
+    ),
+    palette: bool = typer.Option(
+        False, "--keep-palette", help="Take the colours from the source character."
+    ),
+    seed: int = typer.Option(None, "--seed", help="Repeat a previous generation."),
+) -> None:
+    """Make a new character from an existing one, edited across every rotation. Pro pricing."""
+    try:
+        _state(context, character_id, edit, state_name, size, palette, seed)
+    except PixellabCliError as failure:
+        output.handle(failure)
+
+
+def _state(context, character_id, edit, state_name, size, palette, seed) -> None:
+    app_context: AppContext = context.obj
+    route = catalog.route("create-character-state")
+
+    arguments: dict[str, Any] = {
+        "character_id": character_id,
+        "edit_description": edit,
+        "state_name": state_name,
+        "use_color_palette_from_reference": True if palette else None,
+        "seed": seed,
+    }
+    if size is not None:
+        arguments["override_frame_size"] = {"width": size, "height": size}
+
+    body = build_request(route, arguments)
+    estimate = Cost(generations=route.estimated_generations)
+
+    output.stderr(f"{route.name} is a Pro Tools route: about {estimate.generations:g} generations.")
+
+    if app_context.dry_run:
+        output.emit(
+            output.dry_run_payload("pixellab", route.name, body, estimate),
+            output.describe_dry_run("pixellab", route.name, estimate),
+            as_json=app_context.as_json,
+        )
+        return
+
+    client = app_context.pixellab()
+    roles: list[str] = []
+
+    def call() -> Result:
+        result = client.call(route.name, **arguments)
+        # The state is a second character with its own id, joined to the source by a
+        # group. Both go in the manifest: a state whose group is lost is an orphan
+        # nobody can find their way back from.
+        new_id = result.ids.get("character_id")
+        if not new_id:
+            raise ProviderError(
+                "PixelLab created no character id for the state",
+                context={"response": result.raw},
+                secrets=app_context.credentials.secrets,
+            )
+        frames, directions, urls, detail = fetch_rotations(client, new_id)
+        result.images = frames
+        result.raw = {**result.raw, "rotation_urls": urls, "source_character_id": character_id}
+        # `group_id` is PixelLab's own, and is not the source id: a source that already
+        # belongs to a group keeps that group, and a state of a state joins it too.
+        # Recording the id the caller typed instead would be a guess that reads as a fact.
+        result.ids = {**result.ids, "source_character_id": character_id}
+        group_id = detail.get("group_id")
+        if group_id:
+            result.ids["group_id"] = group_id
+        roles.extend(directions)
+        return result
+
+    outcome = app_context.runner.run(
+        description=f"{character_id} {edit}",
+        provider="pixellab",
+        route=route.name,
+        arguments=body,
+        call=call,
+        translate=from_pixellab,
+        estimate=estimate,
+        name=state_name,
         roles=roles,
     )
     output.emit(

@@ -43,8 +43,8 @@ class TestChooseImageRoute:
     def test_the_default_is_the_cheapest_widest_route(self):
         assert choose_image_route({"width": 64, "height": 64}).name == "create-image-pixflux"
 
-    def test_a_style_image_forces_the_only_route_with_a_style_slot(self):
-        route = choose_image_route({"width": 64, "height": 64}, has_style_image=True)
+    def test_one_style_image_forces_the_only_base_route_with_a_style_slot(self):
+        route = choose_image_route({"width": 64, "height": 64}, style_images=1)
 
         assert route.name == "create-image-bitforge"
         assert route.param("style_image") is not None
@@ -57,7 +57,7 @@ class TestChooseImageRoute:
 
     def test_a_style_image_at_a_size_bitforge_cannot_reach_is_refused(self):
         with pytest.raises(ValidationError) as raised:
-            choose_image_route({"width": 400, "height": 400}, has_style_image=True)
+            choose_image_route({"width": 400, "height": 400}, style_images=1)
 
         assert "style" in str(raised.value)
 
@@ -105,3 +105,68 @@ class TestChooseImageRoute:
         route = choose_image_route({"width": 510, "height": 400})
 
         assert route.name == "create-image-pixen"
+
+
+class TestTheStyleReferenceRoute:
+    """Two style images is a thirty-fold price step, so it is never chosen by accident."""
+
+    def test_more_than_one_style_image_reaches_the_pro_route(self):
+        route = choose_image_route(None, style_images=2)
+
+        assert route.name == "generate-with-style-v2"
+
+    def test_the_pro_route_is_priced_as_pro_tools(self):
+        route = choose_image_route(None, style_images=4)
+
+        assert route.estimated_generations >= 20
+
+    def test_one_style_image_stays_on_the_cheap_route(self):
+        route = choose_image_route({"width": 64, "height": 64}, style_images=1)
+
+        assert route.name == "create-image-bitforge"
+
+    def test_a_size_given_with_several_style_images_is_refused(self):
+        with pytest.raises(ValidationError) as raised:
+            choose_image_route({"width": 64, "height": 64}, style_images=2)
+
+        message = str(raised.value)
+        assert "size" in message
+        assert "style images" in message
+
+    def test_more_style_images_than_the_route_takes_is_refused_with_the_ceiling(self):
+        with pytest.raises(ValidationError) as raised:
+            choose_image_route(None, style_images=5)
+
+        assert "four" in str(raised.value) or "4" in str(raised.value)
+
+    def test_no_size_named_falls_back_to_the_default_on_a_base_route(self):
+        assert choose_image_route(None).name == "create-image-pixflux"
+
+
+class TestAnExplicitRouteWinsOverTheStyleCount:
+    """`--route` is a way to reach a route, not a hint. R1.3, and a price if ignored."""
+
+    def test_a_named_cheap_route_is_not_replaced_by_the_style_count(self):
+        with pytest.raises(ValidationError) as raised:
+            choose_image_route(None, style_images=2, route_name="create-image-pixflux")
+
+        message = str(raised.value)
+        assert "create-image-pixflux" in message
+        assert "generate-with-style-v2" in message
+
+    def test_the_style_route_can_be_named_with_one_style_image(self):
+        route = choose_image_route(None, style_images=1, route_name="generate-with-style-v2")
+
+        assert route.name == "generate-with-style-v2"
+
+    def test_the_named_style_route_still_refuses_a_size(self):
+        with pytest.raises(ValidationError):
+            choose_image_route(
+                {"width": 64, "height": 64}, style_images=2, route_name="generate-with-style-v2"
+            )
+
+    def test_the_style_route_is_named_among_the_image_routes_in_a_refusal(self):
+        with pytest.raises(ValidationError) as raised:
+            choose_image_route(None, route_name="make-art")
+
+        assert "generate-with-style-v2" in str(raised.value)

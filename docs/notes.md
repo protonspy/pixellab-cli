@@ -43,3 +43,6 @@ over this file answers with the example above as well as with the notes. -->
 - n-0003 2026-09-14 #gotcha @src/pixellab_cli/recipe.py — a resumed recipe step reads its outputs back from disk because the bytes the next step needs live only in the files the earlier run wrote
 - n-0004 2026-09-14 #security @src/pixellab_cli/recipe.py — a recipe manifest is a document somebody can hand you, so every path in it is resolved against the workspace root before it is read or written
 - n-0005 2026-09-14 #security @src/pixellab_cli/workspace.py — the --name option reaches a filename directly, so it is slugified like a description: pathlib does not collapse .. on join and the filesystem resolves it at write time
+- n-0006 2026-09-15 #ceiling @src/pixellab_cli/catalog.py — animate-pixminimax is priced by generation time; the 3.0 estimate is a mid-range guess from published examples, not a tier
+- n-0007 2026-09-15 #gotcha @src/pixellab_cli/routing.py — a style spread over several pictures costs thirty times one style image, so the second --style is the only thing that reaches it
+- n-0008 2026-09-15 #ceiling @src/pixellab_cli/catalog.py — transfer-outfit-v2 caps frames by size (15 at 64px, 8 at 80px, 3 at 256px); the local check is the flat 2-16 and the rest is a free 422

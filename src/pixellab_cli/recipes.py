@@ -17,6 +17,7 @@ from typing import Any
 
 from pixellab_cli import images
 from pixellab_cli.errors import ProviderError
+from pixellab_cli.prompts import anchor_prompt
 from pixellab_cli.recipe import Recipe, Step
 
 CONCEPT_MODEL = "concept"
@@ -34,10 +35,10 @@ def _first_image(carried: dict[str, Any], step: str) -> bytes:
 def _concept_arguments(description: str, transparent: bool):
     def build(carried: dict[str, Any]) -> dict[str, Any]:
         return {
-            "prompt": (
-                f"{description}, a single subject, centred, clean silhouette, "
-                f"flat lighting, plain background"
-            ),
+            # The same wording `pixellab art anchor` uses, from the same place. Both
+            # recipes rotate or animate what this step drew, and those routes read
+            # the image as the south frame.
+            "prompt": anchor_prompt(description),
             "background": "transparent" if transparent else None,
             "quality": "high",
         }

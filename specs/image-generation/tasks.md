@@ -4,6 +4,8 @@
 
 - [x] 1.1 (TDD) Choose an image route from the size, the style image and the explicit override, and refuse a size no route can satisfy with the ceilings of all of them — R1.2, R1.3, R1.4, R1.5
 - [x] 1.2 (Unit) Parse a size argument written as `WxH` or as one number meaning a square — R1.1
+- [x] 1.3 (TDD) Route more than one style image to the Pro route — R1.5, R1.7, R1.8, R1.9
+  _Reason style reference route added after delivery_
 
 ## 2 · The sprite command
 
@@ -15,6 +17,9 @@
   _Depends 2.1_
 - [x] 2.4 (Unit) Report the route, the arguments and the estimate under a dry run, sending nothing and recording nothing — R3.1
   _Depends 2.1_
+- [x] 2.5 (Unit) Accept repeated --style and announce the tier — R1.7
+  _Depends 1.3_
+  _Reason style reference route added after delivery_
 
 ## 3 · The clean commands
 

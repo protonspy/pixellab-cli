@@ -306,3 +306,58 @@ class TestRedaction:
             )
 
         assert "AAAA" not in str(raised.value)
+
+
+FRAMES = Route(
+    name="transfer-outfit-v2",
+    method="POST",
+    path="/transfer-outfit-v2",
+    kind=RouteKind.BACKGROUND_JOB,
+    result_id_field="background_job_id",
+    poll_path="/background-jobs/{id}",
+    params=(
+        Param(
+            "frames",
+            ParamKind.IMAGE_LIST,
+            required=True,
+            min_items=2,
+            max_items=16,
+            size=SizeLimit(max_side=256),
+        ),
+    ),
+)
+
+
+def _frame(width: int, height: int) -> dict:
+    """A frame in the shape this route takes it: the size beside the image, not on it."""
+    return {"image": {"base64": "AAAA"}, "size": {"width": width, "height": height}}
+
+
+class TestAListOfImages:
+    def test_a_list_below_the_floor_is_rejected(self):
+        with pytest.raises(ValidationError) as raised:
+            build_request(FRAMES, {"frames": [_frame(64, 64)]})
+
+        assert "at least 2" in str(raised.value)
+
+    def test_a_list_over_the_ceiling_is_rejected(self):
+        with pytest.raises(ValidationError) as raised:
+            build_request(FRAMES, {"frames": [_frame(64, 64)] * 17})
+
+        assert "at most 16" in str(raised.value)
+
+    def test_one_oversized_frame_is_rejected_although_the_others_fit(self):
+        with pytest.raises(ValidationError) as raised:
+            build_request(FRAMES, {"frames": [_frame(64, 64), _frame(300, 64)]})
+
+        assert "300x64" in str(raised.value)
+
+    def test_a_list_within_both_bounds_is_accepted(self):
+        body = build_request(FRAMES, {"frames": [_frame(64, 64), _frame(64, 64)]})
+
+        assert len(body["frames"]) == 2
+
+    def test_a_frame_whose_size_is_unreadable_is_left_to_the_route(self):
+        body = build_request(FRAMES, {"frames": [{"base64": "AAAA"}, {"base64": "BBBB"}]})
+
+        assert len(body["frames"]) == 2

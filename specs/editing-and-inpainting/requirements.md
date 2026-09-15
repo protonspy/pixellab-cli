@@ -1,9 +1,9 @@
 ---
 autonomy: auto
 ci: wait
-branch: feat/foundation
+branch: feat/asset-consistency
 delivery: in-review
-pr: 1
+pr: 2
 ---
 
 # Editing and inpainting — requirements
@@ -21,6 +21,8 @@ one is not.
 - **R1.1** When asked to edit one image with an instruction, the editing commands shall use the route that preserves its pose and pixel style.
 - **R1.2** Where more than one image is given, or a reference image to match, the editing commands shall use the batch route and shall say that it is priced as a Pro Tools route.
 - **R1.3** The editing commands shall report the route chosen and what the call cost.
+- **R1.4** (ADDED) When asked to transfer an outfit, the editing commands shall send the reference image together with the frames it is applied to, shall write the frames back in the order they were given, and shall say that the route is priced as a Pro Tools route.
+- **R1.5** (ADDED) If fewer than two frames or more than sixteen are given to an outfit transfer, then the editing commands shall say so before spending anything.
 
 ## R2 · Inpainting
 
@@ -36,4 +38,4 @@ one is not.
 ## Out of scope
 
 - Editing on fal — `specs/concept-art/`.
-- Editing an animation frame by frame.
+- Editing an animation frame by frame. An outfit transfer edits a whole set of frames in one call, which is the opposite shape.
