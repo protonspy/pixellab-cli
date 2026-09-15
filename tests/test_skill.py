@@ -174,3 +174,32 @@ class TestRoutingAdvice:
 
     def test_it_says_where_the_output_lands(self):
         assert "pixellab-out/" in skill_text()
+
+
+PACKAGED = Path(__file__).resolve().parents[1] / "src" / "pixellab_cli" / "skill"
+
+
+class TestTheInstalledCopyMatchesThePackagedOne:
+    """This repository's own skill is the output of `pixellab setup --claude` run here.
+
+    Two copies of anything drift. The packaged one is what ships and what every other
+    project gets; if they ever disagree, this repository is testing a skill nobody
+    else has.
+    """
+
+    def test_the_bodies_are_identical(self):
+        assert SKILL.read_text(encoding="utf-8") == (PACKAGED / "SKILL.md").read_text(
+            encoding="utf-8"
+        )
+
+    def test_the_same_reference_files_are_present(self):
+        installed = {path.name for path in REFERENCES.glob("*.md")}
+        packaged = {path.name for path in (PACKAGED / "references").glob("*.md")}
+
+        assert installed == packaged
+
+    @pytest.mark.parametrize("name", sorted(path.name for path in PACKAGED.glob("references/*.md")))
+    def test_each_reference_is_identical(self, name):
+        assert (REFERENCES / name).read_text(encoding="utf-8") == (
+            PACKAGED / "references" / name
+        ).read_text(encoding="utf-8")

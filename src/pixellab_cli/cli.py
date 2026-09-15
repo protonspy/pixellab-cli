@@ -19,11 +19,13 @@ from pixellab_cli.commands import (
     art,
     character,
     clean,
+    config_command,
     edit,
     interface,
     motion,
     prop,
     recipe_command,
+    setup,
     sprite,
     tiles,
 )
@@ -36,12 +38,14 @@ app = typer.Typer(
     add_completion=False,
 )
 app.add_typer(account.app)
+app.add_typer(config_command.app)
 app.add_typer(art.app)
 app.add_typer(character.app)
 app.add_typer(prop.app)
 app.add_typer(clean.app)
 app.add_typer(tiles.app)
 app.add_typer(recipe_command.app)
+setup.register(app)
 sprite.register(app)
 motion.register(app)
 edit.register(app)

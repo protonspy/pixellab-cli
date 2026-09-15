@@ -37,5 +37,7 @@ findings.
 
 ## The tool
 
+- **harness** — the agent runtime this tool's instructions are installed into: Claude Code, Codex or opencode. An agent runs inside one; the word for the agent itself is agent.
+- **managed block** — the region of a file this tool owns, delimited by `<!-- pixellab-cli:begin -->` and `<!-- pixellab-cli:end -->`, replaced on every install and never read for anything outside it. Avoid: managed section, generated block
 - **route** — one provider endpoint the tool can call, PixelLab or fal, named in the ledger exactly as the provider names it. Avoid: provider operation
 - **recipe** — a named multi-step workflow the CLI runs end to end, such as concept image then pixel conversion then eight rotations. Avoid: blueprint
