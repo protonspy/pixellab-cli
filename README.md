@@ -13,8 +13,14 @@ resolves, and written to disk beside a manifest that says how the file was produ
 Requires [uv](https://docs.astral.sh/uv/) and Python 3.12 or newer.
 
 ```bash
-uv tool install git+https://github.com/protonspy/pixellab-cli
+uv tool install pixellab-cli
 pixellab --version
+```
+
+Before the first published release, or to run what is on `main`:
+
+```bash
+uv tool install git+https://github.com/protonspy/pixellab-cli
 ```
 
 From a clone, for development:
@@ -133,6 +139,28 @@ uv run python scripts/refresh_reference.py # report provider schema drift
 ```
 
 No test touches the network: provider traffic is replayed through `respx`.
+
+## Releasing
+
+A tag publishes, and nothing else does — see
+`docs/adr/0006-publish-to-pypi-from-a-tag.md`.
+
+1. Bump `version` in `pyproject.toml`, and commit it.
+2. `git tag v0.2.0 && git push --tags`, with the tag matching that version. The
+   pipeline refuses a tag that does not.
+3. The workflow runs the four gates, builds a wheel and an sdist, checks the metadata
+   PyPI will render, installs the built wheel into a clean environment and runs
+   `pixellab` from it, and only then uploads.
+
+Uploading needs `PYPI_API_TOKEN` as a repository secret — a token from
+`https://pypi.org/manage/account/token/`, scoped to this project once it exists:
+
+```bash
+gh secret set PYPI_API_TOKEN
+```
+
+That prompts for the value rather than taking it as an argument, so the token stays
+out of your shell history.
 
 ## Licence
 

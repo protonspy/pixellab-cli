@@ -5,6 +5,17 @@ description = "Generate 2D game assets from PixelLab and concept art from fal, f
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
+keywords = ["pixel-art", "game-assets", "pixellab", "fal", "sprites", "tilesets", "cli"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Graphics",
+    "Topic :: Games/Entertainment",
+]
 dependencies = [
     "typer>=0.15",
     "httpx>=0.28",
@@ -17,7 +28,9 @@ dependencies = [
 pixellab = "pixellab_cli.cli:app"
 
 [project.urls]
-Repository = "https://github.com/prode/pixellab-cli"
+Homepage = "https://github.com/protonspy/pixellab-cli"
+Repository = "https://github.com/protonspy/pixellab-cli"
+Issues = "https://github.com/protonspy/pixellab-cli/issues"
 
 [dependency-groups]
 dev = [
