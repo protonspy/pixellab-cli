@@ -201,6 +201,12 @@ gh secret set PYPI_API_TOKEN
 That prompts for the value rather than taking it as an argument, so the token stays
 out of your shell history.
 
+**0.1.0 was published by hand**, from a checkout, before this pipeline existed — that
+upload is what created the project on PyPI. A version cannot be uploaded twice, so
+tagging `v0.1.0` now would run the pipeline and fail at the upload step. The next
+release is the first one the tag flow actually performs, and it starts from a bumped
+version.
+
 ### The first release, and a key that is not account-wide
 
 A token scoped to one project can only be made after that project exists, and a
