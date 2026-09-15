@@ -1,40 +1,39 @@
-# Interface portrait and font — design
+---
+autonomy: auto
+ci: wait
+---
 
-<!-- The design must fit the decision being made. Every heading below except
-     "What changes" is OPTIONAL: delete the ones this change does not decide.
-
-     A heading filled with "N/A", or with prose written to satisfy the heading, is
-     worse than an absent heading — the next session reads invented architecture as
-     a decision somebody made, and honors it. Filler becomes binding.
-
-     Delete this comment too. -->
+# Interface, portrait and font — design
 
 ## What changes
 
-Serves R1.1.
+One module, `commands/interface.py`, three commands:
 
-<!-- Required. What changes, where, and why. For a change that decides nothing
-     structural, this section is the whole design and that is the correct outcome.
+```
+pixellab ui "wooden RPG panel with gold trim"     create-ui-asset     (Pro)   R1.1
+pixellab font "warm orange arcade font" --bold    generate-font-pro   (25)    R2.1
+pixellab portrait knight.png                      portrait-character-pro (Pro) R3.1
+```
 
-     Keep the "Serves" line above and make it real: the design has to name the
-     requirements it answers, or the trace from what to how is unreadable — and
-     `scc spec validate` says so. -->
+## The font comes back as two files
 
-## Boundaries and contracts <!-- optional -->
+`generate-font-pro` finishes with a glyph atlas and a TTF, returned as separate
+download URLs on the job rather than as images in the body. The command downloads
+both and writes them with the right extensions (R2.1) — a `.ttf` written as `.png`
+is a file nobody can use and nothing would warn about.
 
-<!-- Only if this change moves a boundary or an external contract, and only for the
-     parts that actually move. -->
+`--bold` and `--regular` are two flags rather than a `--weight` string, because the
+route takes exactly two values and requires one (R2.2).
 
-## Data <!-- optional -->
+## Announcing the price
 
-<!-- Only if a data shape changes. -->
+A panel is Pro Tools and a font is a fixed twenty-five generations (R1.2, R2.3).
+Both say so on stderr before the call, the same way `pixellab object new` does —
+these are the three most expensive things in the tool per unit of output, and none
+of them looks expensive from its command line.
 
-## Alternatives considered <!-- optional -->
+## Portrait direction
 
-<!-- Only where there were real alternatives with trade-offs. Say which won and why.
-     If the decision is hard to reverse, write an ADR under docs/adr/ and cite it
-     here instead of arguing it twice. -->
-
-## Risks <!-- optional -->
-
-<!-- What could go wrong that the task list does not already cover. -->
+`--to-portrait` and `--to-character` set `direction` explicitly rather than guessing
+from the image (R3.1). The route cannot tell a bust from a full body either, and a
+wrong guess is a paid wrong guess.

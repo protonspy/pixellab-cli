@@ -1,40 +1,34 @@
+---
+autonomy: auto
+ci: wait
+---
+
 # Editing and inpainting — design
-
-<!-- The design must fit the decision being made. Every heading below except
-     "What changes" is OPTIONAL: delete the ones this change does not decide.
-
-     A heading filled with "N/A", or with prose written to satisfy the heading, is
-     worse than an absent heading — the next session reads invented architecture as
-     a decision somebody made, and honors it. Filler becomes binding.
-
-     Delete this comment too. -->
 
 ## What changes
 
-Serves R1.1.
+One module, `commands/edit.py`, with two commands:
 
-<!-- Required. What changes, where, and why. For a change that decides nothing
-     structural, this section is the whole design and that is the correct outcome.
+```
+pixellab edit sprite.png -p "give him a red cape"      edit-image-pixen
+pixellab edit a.png b.png c.png -p "make them gold"    edit-images-v2   (Pro)
+pixellab inpaint sprite.png --mask mask.png -p "..."   inpaint-v3       (Pro)
+```
 
-     Keep the "Serves" line above and make it real: the design has to name the
-     requirements it answers, or the trace from what to how is unreadable — and
-     `scc spec validate` says so. -->
+## The route choice, and why it is a price
 
-## Boundaries and contracts <!-- optional -->
+`edit-image-pixen` costs about one generation. `edit-images-v2` costs twenty to
+forty. They are not tiers of the same thing — pixen preserves the pose and the pixel
+style of the image given, and v2 edits a batch or matches a reference — but a caller
+asking to change one sprite wants the first, every time.
 
-<!-- Only if this change moves a boundary or an external contract, and only for the
-     parts that actually move. -->
+So one image and no reference picks pixen; more than one image, or `--match`, picks
+v2 and says the tier out loud before calling. The same shape as
+`pixellab object new`: the expensive route announces itself.
 
-## Data <!-- optional -->
+## The mask
 
-<!-- Only if a data shape changes. -->
-
-## Alternatives considered <!-- optional -->
-
-<!-- Only where there were real alternatives with trade-offs. Say which won and why.
-     If the decision is hard to reverse, write an ADR under docs/adr/ and cite it
-     here instead of arguing it twice. -->
-
-## Risks <!-- optional -->
-
-<!-- What could go wrong that the task list does not already cover. -->
+`inpaint-v3` requires the mask to be the same size as the image, and white is where
+the model may draw. Both are checked and stated locally: the size from the file
+headers before anything is sent (R2.3), and the convention in the help text, because
+a mask drawn the wrong way round produces a confident, wrong, paid result.

@@ -14,7 +14,18 @@ from pathlib import Path
 import typer
 
 from pixellab_cli import __version__
-from pixellab_cli.commands import account, art, character, clean, motion, prop, sprite
+from pixellab_cli.commands import (
+    account,
+    art,
+    character,
+    clean,
+    edit,
+    interface,
+    motion,
+    prop,
+    sprite,
+    tiles,
+)
 from pixellab_cli.context import AppContext
 
 app = typer.Typer(
@@ -28,8 +39,11 @@ app.add_typer(art.app)
 app.add_typer(character.app)
 app.add_typer(prop.app)
 app.add_typer(clean.app)
+app.add_typer(tiles.app)
 sprite.register(app)
 motion.register(app)
+edit.register(app)
+interface.register(app)
 
 
 def _version_callback(value: bool) -> None:

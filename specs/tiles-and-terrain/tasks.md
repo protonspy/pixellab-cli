@@ -1,25 +1,26 @@
 # Tiles and terrain — tasks
 
-<!-- Grammar, per task, all four parts required:
+## 1 · Terrain
 
-       - [ ] <number> (Unit|TDD) <description> — <requirement ids>
+- [x] 1.1 (Unit) Generate a top-down tileset from a lower and an upper description, writing every tile returned — R1.1, R1.3
+- [x] 1.2 (Unit) Generate a platformer tileset from a platform material — R1.2, R1.3
+  _Depends 1.1_
 
-     (Unit) writes the code, then a unit test per function, immediately, asserting
-     the requirement rather than the implementation. (TDD) writes the failing test
-     first and watches it fail — mandatory for money, complex algorithms, and
-     hypothesis validation.
+## 2 · Tiles
 
-     A task is the right size when it can be verified on its own.
+- [x] 2.1 (Unit) Generate tile variants from a numbered description, announcing the Pro Tools price — R2.1
+  _Depends 1.1_
+- [x] 2.2 (Unit) Pass the connectable-set feature when a road, terrain or building set is asked for — R2.2
+  _Depends 2.1_
+- [x] 2.3 (Unit) Generate one isometric tile within the sizes that route accepts — R2.3
+  _Depends 1.1_
 
-     Every requirement must reach at least one task, and every task must cite a
-     requirement that exists. `scc spec validate` checks both directions.
-     Delete this comment. -->
+## 3 · Map objects
 
-## 1 · <group name>
+- [x] 3.1 (Unit) Generate a transparent map prop, style-matched to a map image where one is given — R3.1
+  _Depends 1.1_
 
-- [ ] 1.1 (Unit) <description> — R1.1
-- [ ] 1.2 (TDD) <description> — R1.2, R1.3
+## 4 · Reporting
 
-## 2 · <group name>
-
-- [ ] 2.1 (Unit) <description> — R1.1
+- [x] 4.1 (Unit) Report the route, the cost and where the tiles landed, and send nothing under a dry run — R4.1, R4.2
+  _Depends 1.1_

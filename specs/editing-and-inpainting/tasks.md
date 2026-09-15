@@ -1,25 +1,21 @@
 # Editing and inpainting — tasks
 
-<!-- Grammar, per task, all four parts required:
+## 1 · Editing
 
-       - [ ] <number> (Unit|TDD) <description> — <requirement ids>
+- [x] 1.1 (TDD) Choose between the cheap single-image route and the Pro batch route from the number of images and the presence of a reference, and say the tier before calling the expensive one — R1.1, R1.2
+- [x] 1.2 (Unit) Edit one image with an instruction, writing the result and reporting the route and the cost — R1.1, R1.3
+  _Depends 1.1_
+- [x] 1.3 (Unit) Edit several images at once, or match a reference image — R1.2
+  _Depends 1.2_
 
-     (Unit) writes the code, then a unit test per function, immediately, asserting
-     the requirement rather than the implementation. (TDD) writes the failing test
-     first and watches it fail — mandatory for money, complex algorithms, and
-     hypothesis validation.
+## 2 · Inpainting
 
-     A task is the right size when it can be verified on its own.
+- [x] 2.1 (Unit) Send the image and the mask together and write what came back, stating the white-is-redrawn convention in the help — R2.1, R2.2
+  _Depends 1.2_
+- [x] 2.2 (TDD) Refuse a mask that is not the same size as the image, before anything is sent — R2.3
+  _Depends 2.1_
 
-     Every requirement must reach at least one task, and every task must cite a
-     requirement that exists. `scc spec validate` checks both directions.
-     Delete this comment. -->
+## 3 · Before spending
 
-## 1 · <group name>
-
-- [ ] 1.1 (Unit) <description> — R1.1
-- [ ] 1.2 (TDD) <description> — R1.2, R1.3
-
-## 2 · <group name>
-
-- [ ] 2.1 (Unit) <description> — R1.1
+- [x] 3.1 (Unit) Refuse a file that does not exist, and report the route and arguments under a dry run without sending anything — R3.1, R3.2
+  _Depends 1.2_

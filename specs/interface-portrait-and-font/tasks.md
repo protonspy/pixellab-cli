@@ -1,25 +1,22 @@
-# Interface portrait and font — tasks
+# Interface, portrait and font — tasks
 
-<!-- Grammar, per task, all four parts required:
+## 1 · Interface
 
-       - [ ] <number> (Unit|TDD) <description> — <requirement ids>
+- [x] 1.1 (Unit) Generate a UI panel from a style description with optional named elements, announcing the Pro Tools price — R1.1, R1.2
 
-     (Unit) writes the code, then a unit test per function, immediately, asserting
-     the requirement rather than the implementation. (TDD) writes the failing test
-     first and watches it fail — mandatory for money, complex algorithms, and
-     hypothesis validation.
+## 2 · Fonts
 
-     A task is the right size when it can be verified on its own.
+- [x] 2.1 (Unit) Generate a pixel font with an explicit weight, announcing the fixed price — R2.2, R2.3
+  _Depends 1.1_
+- [x] 2.2 (TDD) Download the atlas and the font file from the finished job and write each with the right extension — R2.1
+  _Depends 2.1_
 
-     Every requirement must reach at least one task, and every task must cite a
-     requirement that exists. `scc spec validate` checks both directions.
-     Delete this comment. -->
+## 3 · Portraits
 
-## 1 · <group name>
+- [x] 3.1 (Unit) Convert between a portrait and a character in the direction asked for, rejecting a size the route does not offer — R3.1, R3.2
+  _Depends 1.1_
 
-- [ ] 1.1 (Unit) <description> — R1.1
-- [ ] 1.2 (TDD) <description> — R1.2, R1.3
+## 4 · Consent
 
-## 2 · <group name>
-
-- [ ] 2.1 (Unit) <description> — R1.1
+- [x] 4.1 (Unit) Report the route and the arguments under a dry run, sending nothing — R4.1
+  _Depends 1.1_

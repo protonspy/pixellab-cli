@@ -5,31 +5,32 @@ ci: wait
 
 # Editing and inpainting — requirements
 
-<!-- EARS, numbered R<group>.<item>. All five patterns are valid; use the one the
-     requirement actually is, and do not invent a trigger for something that is
-     simply always true:
-
-       The <system> shall <response>                                  ubiquitous
-       While <precondition>, the <system> shall <response>          state-driven
-       When <trigger>, the <system> shall <response>                event-driven
-       Where <feature>, the <system> shall <response>           optional feature
-       If <trigger>, then the <system> shall <response>       unwanted behavior
-
-     Omit, don't fill: specify what this feature decides, and nothing else.
-     Over-specification measurably makes generated code worse, not just longer.
-     Delete this comment. -->
-
 ## Purpose
 
-<!-- One paragraph: what this feature is for, and who it is for. -->
+Changing pixel art that already exists, without losing the grid. Three routes with
+genuinely different jobs: a text instruction that preserves pose and pixel style, a
+batch edit or style match across up to sixteen images, and a redraw confined to a
+mask. Choosing between them is the work, because two of the three are Pro Tools and
+one is not.
 
-## R1 · <group name>
+## R1 · Editing
 
-- **R1.1** The <system> shall <response>
-- **R1.2** When <trigger>, the <system> shall <response>
-- **R1.3** If <trigger>, then the <system> shall <response>
+- **R1.1** When asked to edit one image with an instruction, the editing commands shall use the route that preserves its pose and pixel style.
+- **R1.2** Where more than one image is given, or a reference image to match, the editing commands shall use the batch route and shall say that it is priced as a Pro Tools route.
+- **R1.3** The editing commands shall report the route chosen and what the call cost.
+
+## R2 · Inpainting
+
+- **R2.1** When asked to inpaint, the editing commands shall send the image and the mask together, and shall write only what came back.
+- **R2.2** The editing commands shall state that white in the mask is the area to redraw.
+- **R2.3** If the mask is not the same size as the image, then the editing commands shall say so before spending anything.
+
+## R3 · Before spending
+
+- **R3.1** If a file given does not exist or is not an image, then the editing commands shall say so before any call.
+- **R3.2** While a dry run is asked for, the editing commands shall report the route and the arguments and shall send nothing.
 
 ## Out of scope
 
-<!-- What a reader might reasonably expect here and will not find, so nobody
-     builds it by accident. Delete the heading if there is nothing to say. -->
+- Editing on fal — `specs/concept-art/`.
+- Editing an animation frame by frame.

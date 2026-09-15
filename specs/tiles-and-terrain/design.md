@@ -1,40 +1,36 @@
+---
+autonomy: auto
+ci: wait
+---
+
 # Tiles and terrain — design
-
-<!-- The design must fit the decision being made. Every heading below except
-     "What changes" is OPTIONAL: delete the ones this change does not decide.
-
-     A heading filled with "N/A", or with prose written to satisfy the heading, is
-     worse than an absent heading — the next session reads invented architecture as
-     a decision somebody made, and honors it. Filler becomes binding.
-
-     Delete this comment too. -->
 
 ## What changes
 
-Serves R1.1.
+One module, `commands/tiles.py`:
 
-<!-- Required. What changes, where, and why. For a change that decides nothing
-     structural, this section is the whole design and that is the correct outcome.
+```
+pixellab tiles terrain --lower grass --upper stone      create-tileset
+pixellab tiles platform --material "stone bricks"       create-tileset-sidescroller
+pixellab tiles variants "1). grass 2). lava"            create-tiles-pro   (Pro)
+pixellab tiles isometric "grass on soil"                create-isometric-tile
+pixellab tiles prop "a wooden barrel"                   map-objects
+```
 
-     Keep the "Serves" line above and make it real: the design has to name the
-     requirements it answers, or the trace from what to how is unreadable — and
-     `scc spec validate` says so. -->
+Five commands (R1.1, R1.2, R2.1, R2.3, R3.1) rather than one with a mode flag,
+because the arguments genuinely do not overlap: terrain takes two descriptions, a platform takes one, variants take a
+numbered list and a tile shape, and a prop takes a background image to blend into.
 
-## Boundaries and contracts <!-- optional -->
+## Where the tiles come back
 
-<!-- Only if this change moves a boundary or an external contract, and only for the
-     parts that actually move. -->
+`create-tileset` and the others return a resource id and are polled on their own
+path — `/tilesets/{id}`, `/tiles-pro/{id}`, `/isometric-tiles/{id}` — not on
+`/background-jobs`. The catalogue already carries that per route; nothing here is a
+special case.
 
-## Data <!-- optional -->
+## What is not abstracted
 
-<!-- Only if a data shape changes. -->
-
-## Alternatives considered <!-- optional -->
-
-<!-- Only where there were real alternatives with trade-offs. Say which won and why.
-     If the decision is hard to reverse, write an ADR under docs/adr/ and cite it
-     here instead of arguing it twice. -->
-
-## Risks <!-- optional -->
-
-<!-- What could go wrong that the task list does not already cover. -->
+`tile_size` is a `{width, height}` pair on the tileset routes and a single integer on
+`create-tiles-pro`, and the two routes mean different things by it. They are passed
+through as the route declares them rather than unified (R1.3): a shared `--tile-size`
+that meant two things would be a lie in the help text.
