@@ -97,6 +97,10 @@ class RecipeRun:
     recipe: str
     directory: Path
     states: list[StepState]
+    # What the person asked for, kept verbatim. A resumed step whose arguments are
+    # built from it has to be sent those words and not a stand-in reconstructed from
+    # the directory name.
+    description: str = ""
     context: dict[str, Any] = field(default_factory=dict)
     outcomes: list[RunOutcome] = field(default_factory=list)
 
@@ -111,6 +115,7 @@ class RecipeRun:
                 {
                     "schema": MANIFEST_SCHEMA,
                     "recipe": self.recipe,
+                    "description": self.description,
                     "directory": str(self.directory),
                     "steps": [state.as_json() for state in self.states],
                 },
@@ -162,7 +167,13 @@ def run_recipe(
     states = [
         already.get(step.name, StepState(name=step.name, route=step.route)) for step in recipe.steps
     ]
-    run = RecipeRun(recipe=recipe.name, directory=directory, states=states, context=carried)
+    run = RecipeRun(
+        recipe=recipe.name,
+        directory=directory,
+        states=states,
+        description=description,
+        context=carried,
+    )
 
     for step, state in zip(recipe.steps, states, strict=True):
         if state.state == DONE:

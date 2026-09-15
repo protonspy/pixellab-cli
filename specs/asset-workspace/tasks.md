@@ -32,3 +32,9 @@
   _Depends 4.1_
 - [x] 4.3 (Unit) Filter the summary to a period the user names — R4.1
   _Depends 4.1_
+
+## 5 · The boundary
+
+- [x] 5.1 (TDD) Resolve every read and write against the workspace root and refuse anything outside it — R5.1, R5.3
+- [x] 5.2 (TDD) Reduce a caller-supplied file name to letters, digits and hyphens before it reaches the filesystem — R5.2
+  _Depends 5.1_

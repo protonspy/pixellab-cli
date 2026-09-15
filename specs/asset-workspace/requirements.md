@@ -21,6 +21,12 @@ A file nobody can account for is worth less than the same file with a manifest.
 - **R1.3** If a file it is about to write already exists, then the asset workspace shall write alongside it under a distinct name rather than overwriting it.
 - **R1.4** The asset workspace shall name the files it writes after the asset, not after the provider's identifier.
 
+## R5 · The workspace as a boundary
+
+- **R5.1** (ADDED) The asset workspace shall resolve every path it reads or writes and shall refuse any that falls outside the workspace root.
+- **R5.2** (ADDED) The asset workspace shall reduce a caller-supplied file name to letters, digits and hyphens before it reaches the filesystem.
+- **R5.3** (ADDED) If a path supplied from outside this process falls outside the workspace, then the asset workspace shall refuse it and name it, rather than reading or writing through it.
+
 ## R2 · The manifest
 
 - **R2.1** When a run writes an asset, the asset workspace shall write a manifest beside it holding the run identifier, the provider and route, the parameters sent, the seed, and the identifiers the provider assigned.

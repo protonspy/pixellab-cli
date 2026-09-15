@@ -1,9 +1,18 @@
-"""Where generated files land.
+"""Where generated files land, and the boundary that keeps them there.
 
-Two rules do most of the work here. Nothing is ever overwritten, because
-regenerating an asset is cheap to ask for and impossible to undo. And a file is
-named after the asset, never after a `background_job_id` — the provider's
-identifiers are useful in the manifest and unreadable in a filename.
+Three rules do the work here.
+
+Nothing is ever overwritten, because regenerating an asset is cheap to ask for and
+impossible to undo. A file is named after the asset, never after a
+`background_job_id` — the provider's identifiers are useful in the manifest and
+unreadable in a filename.
+
+And **the workspace is a boundary, not a suggestion**. Every path this tool reads or
+writes is resolved and proven to be inside the root first. The inputs that reach the
+filesystem are not trustworthy: `--name` is free text a person or an agent supplies,
+and a resumed `recipe.json` is a document the skill explicitly tells an agent to pick
+up from disk. A file read outside the workspace does not stay there — its bytes
+become the next step's `image` argument and are posted to a third-party API.
 """
 
 from __future__ import annotations
@@ -14,6 +23,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+
+from pixellab_cli.errors import ValidationError
 
 DEFAULT_ROOT = Path("pixellab-out")
 LEDGER_NAME = "ledger.jsonl"
@@ -49,12 +60,15 @@ def asset_filename(
 ) -> str:
     """The name one generated file gets.
 
+    Every component goes through `slugify`, which keeps only letters, digits and
+    hyphens. `--name` is free text a person or an agent supplies, and `..` or a
+    separator in it would otherwise be resolved by the filesystem at write time.
     Frames are zero-padded to the width of the set, so a directory listing is in
     playback order without anything having to sort numerically.
     """
-    parts = [base]
+    parts = [slugify(base)]
     if role:
-        parts.append(role)
+        parts.append(slugify(role))
     if index is not None:
         width = max(2, len(str((total or 0) - 1)))
         parts.append(str(index).zfill(width))
@@ -71,6 +85,31 @@ class Workspace:
     @property
     def ledger_path(self) -> Path:
         return self.root / LEDGER_NAME
+
+    def inside(self, candidate: Path | str) -> Path:
+        """Resolve `candidate` and prove it is within the workspace root.
+
+        Symlinks and `..` are resolved before the comparison, so neither can be used
+        to step outside. Raises rather than returning a fallback: a path that was
+        meant to be inside and is not is a request to act on someone else's file.
+        """
+        root = Path(self.root).resolve()
+        resolved = Path(candidate).resolve()
+        if resolved != root and root not in resolved.parents:
+            raise ValidationError(
+                f"{candidate} is outside the workspace at {self.root}",
+                context={"path": str(candidate), "workspace": str(self.root)},
+            )
+        return resolved
+
+    def read_inside(self, candidate: Path | str) -> bytes:
+        """Read a file, but only if it is one of ours.
+
+        Used where a path came from a document rather than from this process — a
+        resumed recipe manifest names the files its earlier steps wrote, and that
+        manifest is shareable, therefore untrusted.
+        """
+        return self.inside(candidate).read_bytes()
 
     def run_directory(self, description: str) -> Path:
         """Make and return a fresh directory for one run.
@@ -91,15 +130,15 @@ class Workspace:
         return directory
 
     def write(self, directory: Path, filename: str, data: bytes) -> Path:
-        """Write bytes, never over something already there."""
-        path = _free_path(directory, filename)
+        """Write bytes, never over something already there and never outside."""
+        path = self.inside(_free_path(self.inside(directory), filename))
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
         return path
 
     def write_text(self, directory: Path, filename: str, text: str) -> Path:
-        """Write text as UTF-8, never over something already there."""
-        path = _free_path(directory, filename)
+        """Write text as UTF-8, never over something already there and never outside."""
+        path = self.inside(_free_path(self.inside(directory), filename))
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8")
         return path

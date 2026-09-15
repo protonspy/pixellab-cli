@@ -294,6 +294,36 @@ class TestResuming:
         assert result.exit_code == 0
         assert "nothing to pay for" in result.stdout
 
+    @respx.mock
+    def test_a_step_redone_on_resume_is_sent_the_original_description(
+        self, tmp_path, monkeypatch, fal_calls
+    ):
+        # The first step is the one that costs money on fal. If the recipe stops
+        # there and is resumed, the prompt it is sent again has to be the words the
+        # person asked for — not something reconstructed from a directory name.
+        respx.get(CONCEPT_URL).respond(500)
+        invoke(["recipe", "run", "sprite", "a brave knight with a sword"], tmp_path, monkeypatch)
+        [manifest_path] = list((tmp_path / "out").glob("*/recipe.json"))
+        fal_calls.clear()
+
+        respx.get(CONCEPT_URL).respond(content=png_bytes())
+        mock_pixellab()
+        invoke(["recipe", "resume", str(manifest_path)], tmp_path, monkeypatch)
+
+        [(_, arguments)] = fal_calls
+        assert arguments["prompt"].startswith("a brave knight with a sword,")
+
+    @respx.mock
+    def test_the_manifest_records_what_was_asked_for(self, tmp_path, monkeypatch, fal_calls):
+        mock_pixellab()
+
+        invoke(["recipe", "run", "sprite", "a brave knight"], tmp_path, monkeypatch)
+
+        [manifest_path] = list((tmp_path / "out").glob("*/recipe.json"))
+        assert json.loads(manifest_path.read_text(encoding="utf-8"))["description"] == (
+            "a brave knight"
+        )
+
     def test_a_manifest_that_is_not_there_is_reported(self, tmp_path, monkeypatch):
         result = invoke(["recipe", "resume", str(tmp_path / "gone.json")], tmp_path, monkeypatch)
 

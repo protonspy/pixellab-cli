@@ -27,3 +27,9 @@
   _Depends 3.2_
 - [x] 3.5 (Unit) Resume a recipe from its manifest — R2.3
   _Depends 1.3, 3.2_
+
+## 4 · A manifest is a document, not a memory
+
+- [x] 4.1 (TDD) Record the description in the manifest and send it to a step redone on resume, rather than a name derived from the directory — R2.4
+- [x] 4.2 (TDD) Refuse a manifest naming a directory or a file outside the workspace, before anything is read, written or sent — R2.5
+  _Depends 4.1_

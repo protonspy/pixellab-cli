@@ -28,6 +28,8 @@ got.
 - **R2.1** If a step fails, then the recipe commands shall stop, report which step failed, and keep everything the earlier steps produced.
 - **R2.2** The recipe commands shall write a recipe manifest naming every step, its state, and the identifiers it produced.
 - **R2.3** When a recipe is resumed from its manifest, the recipe commands shall skip the steps that already completed and shall not pay for them again.
+- **R2.4** (ADDED) The recipe manifest shall record what the recipe was asked to make, so that a step redone on resume is sent what was originally asked for.
+- **R2.5** (ADDED) The recipe commands shall treat a manifest as an untrusted document, and shall refuse one that names a directory or a file outside the workspace.
 
 ## R3 · Consent
 

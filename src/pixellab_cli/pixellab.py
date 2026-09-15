@@ -236,6 +236,7 @@ class PixelLabClient:
             raise ProviderError(
                 f"{route.name} returned no {route.result_id_field} to poll",
                 context={"route": route.name, "response": result.raw},
+                secrets=self._credentials.secrets,
             )
 
         path = (route.poll_path or "").replace("{id}", job_id)

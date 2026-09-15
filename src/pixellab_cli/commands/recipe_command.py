@@ -112,7 +112,12 @@ def resume(
 def _resume(context, manifest_path, actions) -> None:
     app_context: AppContext = context.obj
     manifest = read_manifest(manifest_path)
-    directory = Path(manifest.get("directory") or manifest_path.parent)
+
+    # Everything below came out of a file, and the skill tells agents to pick one of
+    # these up and resume it — so the manifest is a document, not this process's own
+    # memory. The directory it names is where the resumed run will write; prove it
+    # is inside the workspace before anything is read or written through it.
+    directory = app_context.workspace.inside(manifest.get("directory") or manifest_path.parent)
 
     states = {
         entry["name"]: StepState(
@@ -129,6 +134,10 @@ def _resume(context, manifest_path, actions) -> None:
 
     description = manifest.get("description") or directory.name
     recipe = recipes.build(manifest.get("recipe", "sprite"), description, actions)
+
+    for state in states.values():
+        for path in state.files:
+            app_context.workspace.inside(path)
 
     remaining = [step for step in recipe.steps if step.name not in finished]
     if not remaining:

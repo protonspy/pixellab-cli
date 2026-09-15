@@ -148,7 +148,9 @@ def _new(context, description, reference, size, view, template, name, seed) -> N
         character_id = result.ids.get("character_id")
         if not character_id:
             raise ProviderError(
-                "PixelLab created no character id", context={"response": result.raw}
+                "PixelLab created no character id",
+                context={"response": result.raw},
+                secrets=app_context.credentials.secrets,
             )
         frames, directions, urls = fetch_rotations(client, character_id)
         result.images = frames

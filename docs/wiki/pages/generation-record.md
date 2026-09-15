@@ -30,6 +30,20 @@ A seed in the manifest is what was sent, not a promise of a byte-identical repea
 Pro Flash family says outright that its seed is recorded rather than deterministic, and
 nothing else promises more than PixelLab's own wording does ([[pixellab-style-controls]]).
 
+## The manifest is a document, not a memory
+
+A recipe manifest is meant to be picked up again — `pixellab recipe resume` reads one,
+and the agent skill tells an agent to. That makes it a file somebody can hand you, and
+every path inside it is therefore untrusted input: the `directory` it names is where
+the resumed run would write, and the `files` its completed steps list are read back so
+the next step has the bytes it needs.
+
+Both are resolved against the workspace root and refused if they fall outside it. The
+failure that check prevents is specific and quiet: a path outside the workspace is
+read, its bytes become the next step's `image` argument, and they are posted to a
+third-party API. The same rule covers `--name`, which reaches a filename directly and
+is reduced to letters, digits and hyphens before it gets there.
+
 ## What is never written
 
 The `PIXELLAB_SECRET` value, the `FAL_KEY` value, and any `Authorization` header — not in

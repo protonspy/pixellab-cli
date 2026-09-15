@@ -184,6 +184,7 @@ class FalClient:
             raise ProviderError(
                 f"could not download the fal result: {failure}",
                 context={"url": url},
+                secrets=self._credentials.secrets,
             ) from failure
 
 
