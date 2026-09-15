@@ -2,7 +2,8 @@
 autonomy: auto
 ci: wait
 branch: feat/foundation
-delivery: in-progress
+delivery: in-review
+pr: 1
 ---
 
 # Recipes — requirements
