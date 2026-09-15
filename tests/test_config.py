@@ -323,3 +323,62 @@ class TestAFileThatCannotBeUsed:
 
         assert credentials.fal_key is None
         assert credentials.warnings
+
+
+class TestTheSearchStopsAtTheProject:
+    """A file above the project is not this project's, and may not be this user's."""
+
+    def test_a_file_above_the_project_root_is_not_read(self, tmp_path):
+        shared = tmp_path / "shared"
+        project = shared / "game"
+        project.mkdir(parents=True)
+        (project / ".git").mkdir()
+        write_config(shared, fal_key="planted-by-somebody-else")
+
+        credentials = load_credentials({}, start=project, home=tmp_path / "home")
+
+        assert credentials.fal_key is None
+
+    def test_a_file_at_the_project_root_is_read_from_a_subdirectory(self, tmp_path):
+        project = tmp_path / "game"
+        deep = project / "assets" / "characters"
+        deep.mkdir(parents=True)
+        (project / ".git").mkdir()
+        write_config(project, fal_key="fal-project")
+
+        credentials = load_credentials({}, start=deep, home=tmp_path / "home")
+
+        assert credentials.fal_key == "fal-project"
+
+    def test_with_no_project_marker_only_the_working_directory_is_read(self, tmp_path):
+        parent = tmp_path / "somewhere"
+        working = parent / "inner"
+        working.mkdir(parents=True)
+        write_config(parent, fal_key="one-level-up")
+
+        credentials = load_credentials({}, start=working, home=tmp_path)
+
+        assert credentials.fal_key is None
+
+    def test_the_home_file_is_still_read_from_anywhere(self, tmp_path):
+        home = tmp_path / "home"
+        home.mkdir()
+        write_config(home, fal_key="fal-home")
+        shared = tmp_path / "shared" / "game"
+        shared.mkdir(parents=True)
+
+        credentials = load_credentials({}, start=shared, home=home)
+
+        assert credentials.fal_key == "fal-home"
+
+    def test_a_marker_other_than_git_also_bounds_the_search(self, tmp_path):
+        project = tmp_path / "game"
+        deep = project / "src"
+        deep.mkdir(parents=True)
+        (project / "package.json").write_text("{}", encoding="utf-8")
+        write_config(project, fal_key="fal-project")
+        write_config(tmp_path, fal_key="planted")
+
+        credentials = load_credentials({}, start=deep, home=tmp_path)
+
+        assert credentials.fal_key == "fal-project"

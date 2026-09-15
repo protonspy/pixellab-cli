@@ -28,6 +28,13 @@ Three things make a file safe enough to be worth it, and all three are load-bear
   from the home file and ignored in a project file**, because a project file arrives
   with a clone: honouring a command there would make `git clone && pixellab sprite`
   arbitrary code execution.
+- **The upward search stops at the project root**, and at the home directory. A value
+  is not harmless just because it is not a command: a `.pixellab.json` planted in a
+  shared parent — a build agent's workspace, `/tmp`, a drive root — would make this
+  tool authenticate as whoever planted it, and their dashboard would hold the prompts
+  and the art. Above the project, only the home file answers.
+- Where the platform enforces file permissions, a credentials file another user owns,
+  or that its group or everyone can write, is skipped and said out loud.
 - The environment still wins. CI exports a variable and no file on a runner can
   quietly take precedence over it.
 
