@@ -2,19 +2,19 @@
 
 ## 1 · The packaged skill
 
-- [ ] 1.1 (Unit) Move the skill into the package as data, and keep this repository's copy in step with a test — R1.1
+- [x] 1.1 (Unit) Move the skill into the package as data, and keep this repository's copy in step with a test — R1.1
 
 ## 2 · Writing a harness
 
-- [ ] 2.1 (TDD) Replace a managed block in a file, append it when absent, and leave the rest alone — R1.4, R1.5
+- [x] 2.1 (TDD) Replace a managed block in a file, append it when absent, and leave the rest alone — R1.4, R1.5
   _Depends 1.1_
-- [ ] 2.2 (Unit) Install the skill directory for Claude Code, project and global — R1.1, R1.3
+- [x] 2.2 (Unit) Install the skill directory for Claude Code, project and global — R1.1, R1.3
   _Depends 1.1_
-- [ ] 2.3 (Unit) Install the block and the references for Codex and opencode — R1.1, R1.3
+- [x] 2.3 (Unit) Install the block and the references for Codex and opencode — R1.1, R1.3
   _Depends 2.1_
-- [ ] 2.4 (Unit) Add the opencode instructions entry where a config file exists — R1.1
+- [x] 2.4 (Unit) Add the opencode instructions entry where a config file exists — R1.1
   _Depends 2.3_
-- [ ] 2.5 (Unit) Report an unwritable path and carry on with the rest — R1.6
+- [x] 2.5 (Unit) Report an unwritable path and carry on with the rest — R1.6
   _Depends 2.2_
 
 ## 3 · The command
