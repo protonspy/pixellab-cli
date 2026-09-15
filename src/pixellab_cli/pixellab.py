@@ -1,0 +1,373 @@
+"""The PixelLab client: one request, its retries, and the wait for a job.
+
+One retry policy for every route, and one polling loop for the two polling shapes,
+because a policy per route is a policy nobody can reason about. What varies per
+route is data in the catalogue, not code here.
+"""
+
+from __future__ import annotations
+
+import random
+import time
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from typing import Any
+
+import httpx
+
+from pixellab_cli import catalog, images
+from pixellab_cli.config import PIXELLAB_BASE_URL, Credentials
+from pixellab_cli.errors import JobFailed, PollTimeout, ProviderError, RateLimited
+from pixellab_cli.routes import Route, RouteKind
+from pixellab_cli.validate import build_request
+
+# A synchronous generation route holds the connection open while it generates, so
+# its timeout is measured in minutes; everything else should answer at once.
+REQUEST_TIMEOUT = 30.0
+GENERATION_TIMEOUT = 300.0
+
+DEFAULT_MAX_ATTEMPTS = 4
+DEFAULT_BACKOFF = 1.0
+DEFAULT_POLL_INTERVAL = 3.0
+DEFAULT_MAX_POLL_SECONDS = 900.0
+
+RETRY_STATUSES = frozenset({429, 500, 502, 503, 504, 529})
+RATE_LIMIT_STATUSES = frozenset({429, 529})
+
+
+@dataclass(frozen=True)
+class Usage:
+    """What a call cost. `estimated` says whether the provider or the table said so."""
+
+    generations: float = 0.0
+    usd: float = 0.0
+    estimated: bool = False
+
+
+@dataclass
+class Result:
+    """Everything one call produced."""
+
+    route: str
+    images: list[bytes] = field(default_factory=list)
+    ids: dict[str, str] = field(default_factory=dict)
+    usage: Usage = field(default_factory=Usage)
+    job_id: str | None = None
+    raw: dict[str, Any] = field(default_factory=dict)
+
+
+class PixelLabClient:
+    """Calls PixelLab REST v2. Knows nothing about files, commands or the ledger."""
+
+    def __init__(
+        self,
+        credentials: Credentials,
+        *,
+        base_url: str = PIXELLAB_BASE_URL,
+        client: httpx.Client | None = None,
+        sleep: Callable[[float], None] = time.sleep,
+        max_attempts: int = DEFAULT_MAX_ATTEMPTS,
+        backoff: float = DEFAULT_BACKOFF,
+        poll_interval: float = DEFAULT_POLL_INTERVAL,
+        max_poll_seconds: float = DEFAULT_MAX_POLL_SECONDS,
+    ) -> None:
+        self._credentials = credentials
+        self._base_url = base_url.rstrip("/")
+        self._client = client
+        self._sleep = sleep
+        self._max_attempts = max_attempts
+        self._backoff = backoff
+        self._poll_interval = poll_interval
+        self._max_poll_seconds = max_poll_seconds
+
+    # ------------------------------------------------------------------ calling
+
+    def call(self, route_name: str, *, wait: bool = True, **arguments: Any) -> Result:
+        """Run a route end to end: validate, send, and wait for the result.
+
+        `wait=False` submits and returns the job id without polling — for a batch
+        that puts several jobs in flight before collecting any of them.
+        """
+        route = catalog.route(route_name)
+        body = build_request(route, arguments)
+        path, body = _split_path(route, body)
+
+        if route.returns_bytes:
+            return Result(route=route.name, images=[self._fetch(f"{self._base_url}{path}")])
+
+        payload = self._request(route.method, path, body, route=route)
+
+        result = Result(route=route.name, raw=payload)
+        self._collect_ids(route, payload, result)
+        self._collect_usage(route, payload, result)
+
+        if route.kind is RouteKind.SYNCHRONOUS:
+            result.images = _decode_images(payload)
+            return result
+
+        result.job_id = _poll_id(route, payload)
+        if not wait:
+            return result
+        return self._await(route, result)
+
+    def download(self, url: str) -> bytes:
+        """Fetch a generated asset from the URL PixelLab returned.
+
+        These links are unauthenticated: the unguessable identifier in them is the
+        access key. They are treated as intentional share links — fetched without a
+        bearer token, recorded in the manifest, and not committed anywhere.
+        """
+        return self._fetch(url, authenticated=False)
+
+    def _fetch(self, url: str, *, authenticated: bool = True) -> bytes:
+        headers = (
+            {"Authorization": f"Bearer {self._credentials.require_pixellab()}"}
+            if authenticated
+            else {}
+        )
+        try:
+            if self._client is not None:
+                response = self._client.get(url, headers=headers, timeout=GENERATION_TIMEOUT)
+            else:
+                with httpx.Client(timeout=GENERATION_TIMEOUT) as client:
+                    response = client.get(url, headers=headers)
+            response.raise_for_status()
+            return response.content
+        except httpx.HTTPError as failure:
+            raise ProviderError(
+                f"could not download from PixelLab: {failure}",
+                context={"url": url},
+                secrets=self._credentials.secrets,
+            ) from failure
+
+    # ------------------------------------------------------------------ requests
+
+    def _request(
+        self,
+        method: str,
+        path: str,
+        body: dict[str, Any] | None,
+        *,
+        route: Route | None = None,
+    ) -> dict[str, Any]:
+        token = self._credentials.require_pixellab()
+        timeout = (
+            GENERATION_TIMEOUT
+            if route is not None and route.kind is RouteKind.SYNCHRONOUS and method == "POST"
+            else REQUEST_TIMEOUT
+        )
+        url = f"{self._base_url}{path}"
+        headers = {"Authorization": f"Bearer {token}"}
+        context = {"route": route.name if route else path, "arguments": body}
+
+        last: ProviderError | None = None
+        for attempt in range(1, self._max_attempts + 1):
+            try:
+                response = self._send(method, url, headers, body, timeout)
+            except httpx.HTTPError as failure:
+                last = ProviderError(
+                    f"could not reach PixelLab: {failure}",
+                    context=context,
+                    secrets=self._credentials.secrets,
+                )
+                self._wait_before_retry(attempt, None)
+                continue
+
+            if response.status_code < 400:
+                return _json(response)
+
+            last = self._failure(response, context)
+            if response.status_code not in RETRY_STATUSES:
+                raise last
+            if attempt == self._max_attempts:
+                break
+            self._wait_before_retry(attempt, _retry_after(response))
+
+        raise last if last else ProviderError("PixelLab could not be reached", context=context)
+
+    def _send(
+        self,
+        method: str,
+        url: str,
+        headers: dict[str, str],
+        body: dict[str, Any] | None,
+        timeout: float,
+    ) -> httpx.Response:
+        request_body = body if method != "GET" and body else None
+        if self._client is not None:
+            return self._client.request(
+                method, url, headers=headers, json=request_body, timeout=timeout
+            )
+        with httpx.Client(timeout=timeout) as client:
+            return client.request(method, url, headers=headers, json=request_body)
+
+    def _failure(self, response: httpx.Response, context: dict[str, Any]) -> ProviderError:
+        detail = _detail(response)
+        message = f"PixelLab returned {response.status_code}: {detail}"
+        if response.status_code in RATE_LIMIT_STATUSES:
+            return RateLimited(
+                message,
+                status=response.status_code,
+                retry_after=_retry_after(response),
+                context=context,
+                secrets=self._credentials.secrets,
+            )
+        return ProviderError(
+            message,
+            status=response.status_code,
+            context=context,
+            secrets=self._credentials.secrets,
+        )
+
+    def _wait_before_retry(self, attempt: int, retry_after: float | None) -> None:
+        if retry_after is not None:
+            self._sleep(retry_after)
+            return
+        # Exponential, with jitter, so a batch that hits the ceiling together does
+        # not come back together.
+        delay = self._backoff * (2 ** (attempt - 1))
+        self._sleep(delay + random.random() * self._backoff)
+
+    # ------------------------------------------------------------------- polling
+
+    def _await(self, route: Route, result: Result) -> Result:
+        job_id = result.job_id
+        if not job_id:
+            raise ProviderError(
+                f"{route.name} returned no {route.result_id_field} to poll",
+                context={"route": route.name, "response": result.raw},
+                secrets=self._credentials.secrets,
+            )
+
+        path = (route.poll_path or "").replace("{id}", job_id)
+        waited = 0.0
+        while True:
+            payload = self._request("GET", path, None)
+            status = str(payload.get("status", "")).lower()
+            if status == "completed":
+                return _complete(route, payload, result)
+            if status == "failed":
+                raise JobFailed(
+                    f"{route.name} failed: {_job_error(payload)}",
+                    job_id=job_id,
+                    context={"route": route.name},
+                )
+            if waited + self._poll_interval > self._max_poll_seconds:
+                raise PollTimeout(
+                    f"{route.name} was still running after {waited:.0f}s. "
+                    f"It has been charged either way.",
+                    job_id=job_id,
+                    resume_command=f"pixellab job show {job_id}",
+                    context={"route": route.name},
+                )
+            self._sleep(self._poll_interval)
+            waited += self._poll_interval
+
+    # ------------------------------------------------------------------ results
+
+    def _collect_ids(self, route: Route, payload: dict[str, Any], result: Result) -> None:
+        for field_name in (route.asset_id_field, route.result_id_field):
+            value = payload.get(field_name) if field_name else None
+            if isinstance(value, str):
+                result.ids[field_name] = value
+
+    def _collect_usage(self, route: Route, payload: dict[str, Any], result: Result) -> None:
+        result.usage = _usage(payload) or Usage(
+            generations=route.estimated_generations, estimated=True
+        )
+
+
+def _complete(route: Route, payload: dict[str, Any], result: Result) -> Result:
+    """Fold a completed job's payload into the result built from the submit call."""
+    body = payload.get("last_response") or payload
+    result.images = _decode_images(body)
+    reported = _usage(payload) or _usage(body)
+    if reported is not None:
+        result.usage = reported
+    for key, value in body.items():
+        if key.endswith("_id") and isinstance(value, str):
+            result.ids.setdefault(key, value)
+    result.raw = payload
+    return result
+
+
+def _decode_images(payload: dict[str, Any]) -> list[bytes]:
+    """Every image in a response, whether it arrived as `image` or as `images`."""
+    found: list[Any] = []
+    single = payload.get("image")
+    if single:
+        found.append(single)
+    many = payload.get("images")
+    if isinstance(many, list):
+        found.extend(many)
+    return [images.decode(item) for item in found]
+
+
+def _usage(payload: dict[str, Any]) -> Usage | None:
+    reported = payload.get("usage")
+    if not isinstance(reported, dict):
+        return None
+    return Usage(
+        generations=float(reported.get("generations") or 0.0),
+        usd=float(reported.get("usd") or 0.0),
+        estimated=False,
+    )
+
+
+def _poll_id(route: Route, payload: dict[str, Any]) -> str | None:
+    value = payload.get(route.result_id_field) if route.result_id_field else None
+    if isinstance(value, str):
+        return value
+    # `characters/animations` returns one job per direction; the first is the one to
+    # follow, and the rest are recorded in the raw payload.
+    if isinstance(value, list) and value:
+        return str(value[0])
+    return None
+
+
+def _split_path(route: Route, body: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+    """Move the path parameters out of the body and into the URL."""
+    if not route.path_params:
+        return route.path, body
+    remaining = dict(body)
+    values = {name: remaining.pop(name, "") for name in route.path_params}
+    return route.path.format(**values), remaining
+
+
+def _retry_after(response: httpx.Response) -> float | None:
+    raw = response.headers.get("Retry-After")
+    if not raw:
+        return None
+    try:
+        return float(raw)
+    except ValueError:
+        return None
+
+
+def _json(response: httpx.Response) -> dict[str, Any]:
+    try:
+        payload = response.json()
+    except ValueError:
+        return {}
+    return payload if isinstance(payload, dict) else {"result": payload}
+
+
+def _detail(response: httpx.Response) -> str:
+    """The provider's own words, which are the only useful part of a 4xx."""
+    try:
+        payload = response.json()
+    except ValueError:
+        return (response.text or "no detail").strip()[:500]
+    if isinstance(payload, dict):
+        detail = payload.get("detail") or payload.get("message") or payload
+        return str(detail)[:500]
+    return str(payload)[:500]
+
+
+def _job_error(payload: dict[str, Any]) -> str:
+    body = payload.get("last_response")
+    if isinstance(body, dict):
+        for key in ("error", "detail", "message"):
+            if body.get(key):
+                return str(body[key])
+    return str(payload.get("error") or payload.get("detail") or "no reason given")

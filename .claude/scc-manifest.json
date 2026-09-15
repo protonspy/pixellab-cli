@@ -1,0 +1,178 @@
+{
+  "check": {
+    "build": "uv build --wheel --out-dir dist",
+    "format": "uv run ruff format --check .",
+    "lint": "uv run ruff check .",
+    "test": "uv run python scripts/test_gate.py"
+  },
+  "codegraph": [],
+  "files": [
+    {
+      "hash": "4b40900366093c80ea0b97f51dbbb01e451189f6395d2d0c65fcd1a659cb0770",
+      "path": ".claude/agents/code-review.md",
+      "version": "25"
+    },
+    {
+      "hash": "96042c83eb675680617782022d1590e3f827b1c246073696406b83ee79109277",
+      "path": ".claude/agents/security-review.md",
+      "version": "25"
+    },
+    {
+      "hash": "9d5f7c92e706247690fdbbed4fa74a34b1c10ed790f3984d3e593e591e3a8f24",
+      "path": ".claude/commands/scc-adr.md",
+      "version": "25"
+    },
+    {
+      "hash": "6ee3a8ce85c76c6f3c1d83fa1124f092bbe37793fea01ab79dabe9986ddc23d9",
+      "path": ".claude/commands/scc-codewiki.md",
+      "version": "25"
+    },
+    {
+      "hash": "6139363a873cc0ab8909351290bb2ed974cb8da1d61fe255e6fbe500f4bd34b5",
+      "path": ".claude/commands/scc-glossary.md",
+      "version": "25"
+    },
+    {
+      "hash": "611f1f16576d9f3eaa39cda3b09617de44af327f3b848b47b7e209c1ce1b3654",
+      "path": ".claude/commands/scc-init.md",
+      "version": "25"
+    },
+    {
+      "hash": "3dd1b39a83b47f8e738ced47f9c6c111fad0e6d9d34fad6316a32fef26ad2f2c",
+      "path": ".claude/commands/scc-plan-run.md",
+      "version": "25"
+    },
+    {
+      "hash": "2a7e1f3e6dd1be62f81e2ceedf0bd6c7361e83fc49bbfdedcbdf4825a2223208",
+      "path": ".claude/commands/scc-prd.md",
+      "version": "25"
+    },
+    {
+      "hash": "304b1ce1ec486edc0cffb85671810c19ca4343a8ddb048805cdbd97755633e35",
+      "path": ".claude/commands/scc-stack.md",
+      "version": "25"
+    },
+    {
+      "hash": "f0bba07b8e2cd1d67dcadd827843e21316de1a2c870171d7c13ad72fd58f5697",
+      "path": ".claude/commands/scc-wiki.md",
+      "version": "25"
+    },
+    {
+      "hash": "4d497f72b2fe6d596351b36c00d31482eb52aa10a4c89c3ab09c5bd9360d9cb8",
+      "path": ".claude/rules/artifacts.md",
+      "version": "25"
+    },
+    {
+      "hash": "6d277b3c9be7f444857b4c15afc4d2d57b1fc4502ab643a212b8725acf6a950f",
+      "path": ".claude/rules/autonomy.md",
+      "version": "25"
+    },
+    {
+      "hash": "8eee2d450faada83295a4a04e5a1267bf5f717df9e7ac7da5fddd7649c666499",
+      "path": ".claude/rules/caveman.md",
+      "version": "25"
+    },
+    {
+      "hash": "d7b7c6b4e36b1f7a23349c3300b240f674fa4b2fc369f7636fbd06bd0564f2d8",
+      "path": ".claude/rules/code-search.md",
+      "version": "25"
+    },
+    {
+      "hash": "244bdcd70659c2e743d69d13572b2c2ccb125e3d8c83c3be4b906f05f5d7b281",
+      "path": ".claude/rules/delivery.md",
+      "version": "25"
+    },
+    {
+      "hash": "a1ae9fa25877b9291d208d0c5146281e6d40fe422f22626f4f63b8e69c90e4fb",
+      "path": ".claude/rules/knowledge-base.md",
+      "version": "25"
+    },
+    {
+      "hash": "79d5cbf1ab7fd09d26e9ea9119f3f283615467dbc35d3a4b1d4a030044b3598f",
+      "path": ".claude/rules/methodology.md",
+      "version": "25"
+    },
+    {
+      "hash": "7dcbf5cd9d2e9e8d08aed4eeaa96ee28af85da1d6de51fc35870b8430e30f331",
+      "path": ".claude/rules/notes.md",
+      "version": "25"
+    },
+    {
+      "hash": "52c5033fc427445b4e669c7865dbd8d5c2fc27d57f7200aeeb2cc48bc8e050d3",
+      "path": ".claude/rules/prior-art.md",
+      "version": "25"
+    },
+    {
+      "hash": "ae0030df2e1f053642a84953648e1d6038b0f0fbae831edf1c349badfb00485c",
+      "path": ".claude/rules/project.md",
+      "version": "25"
+    },
+    {
+      "hash": "c8502ace5978c7b9c0543c49ebb5c9550584b1a3405e12c0217b595647e27722",
+      "path": ".claude/rules/routing.md",
+      "version": "25"
+    },
+    {
+      "hash": "9d2cb860de6426ac350124d1b83dd75783ad6b00c583fe3d9590eff9a6f33cf8",
+      "path": ".claude/rules/specs.md",
+      "version": "25"
+    },
+    {
+      "hash": "350bfe758d894f0318517fa8000ce7160094ef71e15bd41e3771b492de14fcf6",
+      "path": ".claude/rules/tasks.md",
+      "version": "25"
+    },
+    {
+      "hash": "67817671b75ab832f8b3c7dd0d25d59289ed688da31cf78931ce3de56918399a",
+      "path": ".claude/rules/verification.md",
+      "version": "25"
+    },
+    {
+      "hash": "d79136eed898f20dfb3db233ab4deb4021aa1a7b3350201c06a6d7129e48bb15",
+      "path": ".claude/skills/adr/SKILL.md",
+      "version": "25"
+    },
+    {
+      "hash": "4cc0b1ac151610cfb6a9e4cf5735d44b1351d9bc24c5ff53ba2aac01035cec12",
+      "path": ".claude/skills/codewiki/SKILL.md",
+      "version": "25"
+    },
+    {
+      "hash": "88b152ef75a40b6691554730d86a58e240152ed7683333a8638fec5107474f09",
+      "path": ".claude/skills/glossary/SKILL.md",
+      "version": "25"
+    },
+    {
+      "hash": "ef9bef5dd84dc63ed9b62ac4b87a36319f42b850c8b7de133cec9e198b308d64",
+      "path": ".claude/skills/init/SKILL.md",
+      "version": "25"
+    },
+    {
+      "hash": "de8a01ad55219f152ec682d4a49a452f61cdd3379c08f932e3cccbcf87f7b0b8",
+      "path": ".claude/skills/plan-run/SKILL.md",
+      "version": "25"
+    },
+    {
+      "hash": "1e9206e87770898bc7382348db30f6446f63c8716770669c1d84f0df9b413275",
+      "path": ".claude/skills/prd/SKILL.md",
+      "version": "25"
+    },
+    {
+      "hash": "865f88cef91fa59f6a42650ef1c518141f662d194058caf5fa8a1cc6093bc1dc",
+      "path": ".claude/skills/stack/SKILL.md",
+      "version": "25"
+    },
+    {
+      "hash": "15aa510d8b7af6f7b72c1093ae772b66135c63e8192af1d0662f1e17de232765",
+      "path": ".claude/skills/wiki/SKILL.md",
+      "version": "25"
+    },
+    {
+      "hash": "46bb562416f35061b5f34fb52ab1d8f5ec33455715b1094cb19e560b13bfac2d",
+      "path": "CLAUDE.md",
+      "version": "25"
+    }
+  ],
+  "harness": "claude",
+  "scc": "v0.23.0"
+}
