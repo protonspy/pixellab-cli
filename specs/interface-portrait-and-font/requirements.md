@@ -1,6 +1,8 @@
 ---
 autonomy: auto
 ci: wait
+branch: feat/foundation
+delivery: in-progress
 ---
 
 # Interface, portrait and font — requirements

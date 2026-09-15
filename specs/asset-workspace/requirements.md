@@ -1,6 +1,8 @@
 ---
 autonomy: auto
 ci: wait
+branch: feat/foundation
+delivery: in-progress
 ---
 
 # Asset workspace — requirements
