@@ -12,6 +12,7 @@ and never guess where they would have been.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 from dataclasses import dataclass
 from enum import StrEnum
@@ -44,6 +45,44 @@ class Written:
     skipped: str | None = None
 
 
+def refuse_symlink(path: Path) -> None:
+    """Never write through a link.
+
+    A link left where this is about to write redirects the write somewhere else
+    entirely, and `AGENTS.md` in a repository somebody cloned is a path an attacker
+    can choose. The credentials file defends itself the same way; this is that rule
+    carried to the files `setup` writes.
+    """
+    if path.is_symlink():
+        raise ValueError(
+            f"{path} is a symbolic link. This writes files rather than through links: "
+            f"remove it, or install somewhere else."
+        )
+
+
+def write_text(path: Path, body: str, *, newline: str = "\n") -> None:
+    """Write `body`, refusing a link and keeping the line endings it was given."""
+    refuse_symlink(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0)
+    descriptor = os.open(path, flags, 0o644)
+    with os.fdopen(descriptor, "w", encoding="utf-8", newline=newline) as handle:
+        handle.write(body)
+
+
+def read_text(path: Path) -> tuple[str, str]:
+    """The file's text with `\n` endings, and the endings it actually uses.
+
+    Read and written back as it was found: rewriting a Windows file with Unix endings
+    turns one appended block into a diff of every line somebody else wrote.
+    """
+    if not path.is_file():
+        return "", os.linesep if os.name == "nt" else "\n"
+    raw = path.read_bytes().decode("utf-8")
+    newline = "\r\n" if raw.count("\r\n") > raw.count("\n") - raw.count("\r\n") else "\n"
+    return raw.replace("\r\n", "\n"), newline
+
+
 def write_block(path: Path, body: str) -> bool:
     """Put `body` between the markers in `path`. True when the file changed.
 
@@ -51,15 +90,19 @@ def write_block(path: Path, body: str) -> bool:
     refuses when it finds a beginning without an end — half a marker means somebody
     edited inside the region, and guessing where it ends would eat their text.
     """
-    existing = path.read_text(encoding="utf-8") if path.is_file() else ""
+    existing, newline = read_text(path)
     block = f"{BEGIN}\n{body.strip()}\n{END}"
 
     start = existing.find(BEGIN)
-    stop = existing.find(END)
+    # Searched after the beginning, never from the top: a document that quotes the
+    # end marker in its own prose — this project's own wiki does — would otherwise
+    # give a stop that sits before the start, and the slice would duplicate whatever
+    # lies between them.
+    stop = existing.find(END, start + len(BEGIN)) if start != -1 else -1
     if start != -1 and stop == -1:
         raise ValueError(
-            f"{path} has {BEGIN} with no {END}. Close the block or remove it; this "
-            f"will not guess where it ends."
+            f"{path} has {BEGIN} with no {END} after it. Close the block or remove it; "
+            f"this will not guess where it ends."
         )
 
     if start != -1:
@@ -72,26 +115,33 @@ def write_block(path: Path, body: str) -> bool:
     updated = updated.rstrip("\n") + "\n"
     if updated == existing:
         return False
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(updated, encoding="utf-8")
+    write_text(path, updated, newline=newline)
     return True
 
 
 def copy_skill(destination: Path) -> tuple[Path, ...]:
-    """Copy the packaged skill into `destination`, replacing what is there.
+    """Replace `destination` with the packaged skill, and leave nothing else in it.
 
     The destination is a directory this tool owns end to end — `skills/pixellab-assets`
-    or `.pixellab/skill` — so replacing it wholesale is safe in a way that writing into
-    `AGENTS.md` is not.
+    or `.pixellab/skill` — so it is emptied first rather than copied over. A file left
+    behind by an older version, or added by somebody else, is instructions an agent
+    reads; a reinstall that leaves it there is a clean slate that is not one.
+
+    Emptied with `rmtree` only after refusing a link at the destination, so the
+    deletion cannot be redirected at a directory this does not own.
     """
+    refuse_symlink(destination)
+    if destination.exists():
+        shutil.rmtree(destination)
     destination.mkdir(parents=True, exist_ok=True)
+
     written: list[Path] = []
     for source in sorted(PACKAGED_SKILL.rglob("*")):
         if source.is_dir():
             continue
         target = destination / source.relative_to(PACKAGED_SKILL)
         target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(source, target)
+        write_text(target, source.read_text(encoding="utf-8"))
         written.append(target)
     return tuple(written)
 
@@ -175,7 +225,7 @@ def add_instructions_entry(path: Path, entry: str) -> bool:
         return False
 
     config["instructions"] = [*instructions, entry]
-    path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    write_text(path, json.dumps(config, indent=2) + "\n")
     return True
 
 

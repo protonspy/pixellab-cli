@@ -20,6 +20,9 @@ whole reason this is a command rather than a paragraph in the README.
 - **R1.4** The setup command shall leave the parts of a file it did not write untouched, replacing only the region it owns.
 - **R1.5** When run a second time with the same arguments, the setup command shall produce the same result as the first without duplicating anything it wrote.
 - **R1.6** If a path it would write is not writable, then the setup command shall say which path and continue with the harnesses that remain.
+- **R1.7** (ADDED) If a path it would write is a symbolic link, then the setup command shall refuse that harness and say so, rather than writing through the link.
+- **R1.8** (ADDED) The setup command shall leave in a directory it installs into only the files it installed.
+- **R1.9** (ADDED) The setup command shall keep the line endings of a file it edits.
 
 ## R2 · Credentials
 

@@ -16,6 +16,8 @@
   _Depends 2.3_
 - [x] 2.5 (Unit) Report an unwritable path and carry on with the rest — R1.6
   _Depends 2.2_
+- [x] 2.6 (TDD) Refuse a link, empty before filling, keep endings — R1.7, R1.8, R1.9
+  _Reason security review found link following and a stale reinstall_
 
 ## 3 · The command
 

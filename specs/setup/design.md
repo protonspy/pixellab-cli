@@ -62,6 +62,22 @@ points at `.pixellab/skill/` beside it for the rest. The full command list is
 reference material, and a harness that inlines every instruction into every prompt
 should not be carrying it.
 
+## Writing where somebody else can choose the path
+
+`AGENTS.md` in a repository that was cloned is a path an attacker picks, and so is
+`.claude/skills/pixellab-assets/SKILL.md`. Every write here refuses a symbolic link at
+the target and opens with `O_NOFOLLOW` where the platform has it (R1.7) — the rule the
+credentials file already had, carried to the files `setup` writes. What a link would
+redirect is not a secret but a truncation: the victim's own file replaced with
+instructional Markdown.
+
+A skill directory is emptied before it is filled (R1.8). Leaving a file nobody
+packaged is leaving instructions an agent will read, and a reinstall that keeps them is
+a clean slate that is not one.
+
+A file this edits keeps the line endings it had (R1.9). Rewriting a CRLF file with LF
+turns one appended block into a diff of every line somebody else wrote.
+
 ## What it asks, and what it already knows
 
 Credentials come from four sources already (`adr:0005-read-credentials-from-a-file-as-well-as-the-environment`),
