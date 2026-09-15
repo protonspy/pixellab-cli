@@ -1,6 +1,9 @@
 ---
 autonomy: auto
 ci: wait
+branch: feat/setup-command
+delivery: in-review
+pr: 5
 ---
 
 # Setup — requirements
