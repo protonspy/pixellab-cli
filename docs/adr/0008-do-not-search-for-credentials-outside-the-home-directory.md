@@ -64,5 +64,12 @@ This narrows a mitigation `adr:0005-read-credentials-from-a-file-as-well-as-the-
 already claimed rather than reversing a decision, so that record stays accepted and is
 not superseded. What changes is that the claim is now true.
 
+Inside the home directory the walk is unchanged, and so is what that still permits: a
+project marker nested in the home tree that belongs to somebody else — an untrusted clone,
+a dependency checked out under the game — is still adopted as a project root, and a
+`.pixellab.json` beside it is still read. That is `adr:0005-read-credentials-from-a-file-as-well-as-the-environment`'s
+original design rather than something this record changes, and it is stated here so the
+boundary is not read as stronger than it is.
+
 `is_private` remains a no-op on Windows. That is worth closing on its own, and this
 decision deliberately does not depend on it being closed.
