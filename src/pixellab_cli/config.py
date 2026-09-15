@@ -167,6 +167,16 @@ def config_paths(start: Path | None = None, home: Path | None = None) -> list[Pa
     return found
 
 
+def on_windows() -> bool:
+    """Whether this platform has no POSIX file mode to set or to read.
+
+    A function rather than `os.name == "nt"` written at each site, because a test that
+    needs the other platform's branch would otherwise have to patch `os.name` itself —
+    and `pathlib` reads that too, so patching it makes `Path()` raise.
+    """
+    return os.name == "nt"
+
+
 def is_private(path: Path) -> tuple[bool, str | None]:
     """Whether only this user can write `path`, and what is wrong when they cannot.
 
@@ -174,7 +184,7 @@ def is_private(path: Path) -> tuple[bool, str | None]:
     replace. POSIX answers this exactly; Windows has no mode to read here, so this
     reports nothing rather than inventing a check whose result is always the same.
     """
-    if os.name == "nt":
+    if on_windows():
         return True, None
     try:
         status = path.stat()

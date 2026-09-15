@@ -13,6 +13,7 @@ import pytest
 from typer.testing import CliRunner
 
 from pixellab_cli.cli import app
+from pixellab_cli.commands import config_command
 from pixellab_cli.config import CONFIG_NAME, FAL_KEY_VAR, PIXELLAB_SECRET_VAR
 
 runner = CliRunner()
@@ -212,7 +213,9 @@ class TestHowTheFileIsWritten:
         assert stat.S_IMODE((home / CONFIG_NAME).stat().st_mode) == 0o600
 
     def test_windows_is_told_that_the_folder_is_the_protection(self, tmp_path, monkeypatch):
-        monkeypatch.setattr(os, "name", "nt")
+        # Patched through the helper rather than through `os.name`, which `pathlib`
+        # also reads: setting that on Linux makes `Path()` raise before the test runs.
+        monkeypatch.setattr(config_command, "on_windows", lambda: True)
 
         result = invoke(["config", "set", "fal-key", "--value", SECRET], tmp_path, monkeypatch)
 

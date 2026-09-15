@@ -123,6 +123,10 @@ class TestTheCredentialsFile:
         assert credentials.fal_key == "fal-env"
 
     def test_a_parent_directory_is_searched_when_the_working_one_has_none(self, tmp_path):
+        # Up to the project root and no further, so the project needs a marker: without
+        # one the search never leaves the working directory, which is the boundary that
+        # keeps somebody else's file in a shared parent out.
+        (tmp_path / ".git").mkdir()
         write_config(tmp_path, fal_key="fal-parent")
         deep = tmp_path / "assets" / "characters"
         deep.mkdir(parents=True)
