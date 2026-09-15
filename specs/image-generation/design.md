@@ -1,40 +1,70 @@
+---
+autonomy: auto
+ci: wait
+---
+
 # Image generation — design
-
-<!-- The design must fit the decision being made. Every heading below except
-     "What changes" is OPTIONAL: delete the ones this change does not decide.
-
-     A heading filled with "N/A", or with prose written to satisfy the heading, is
-     worse than an absent heading — the next session reads invented architecture as
-     a decision somebody made, and honors it. Filler becomes binding.
-
-     Delete this comment too. -->
 
 ## What changes
 
-Serves R1.1.
+```
+commands/sprite.py    pixellab sprite
+commands/clean.py     pixellab clean background|unzoom|colors|correct|resize
+routing.py            picking a route from what the caller asked for
+```
 
-<!-- Required. What changes, where, and why. For a change that decides nothing
-     structural, this section is the whole design and that is the correct outcome.
+`routing.py` is the only piece with judgment in it. The commands are thin: parse,
+route, hand to the runner, print. Everything they call already exists.
 
-     Keep the "Serves" line above and make it real: the design has to name the
-     requirements it answers, or the trace from what to how is unreadable — and
-     `scc spec validate` says so. -->
+## Choosing a route
 
-## Boundaries and contracts <!-- optional -->
+Three image routes overlap and differ in ways a caller should not have to hold
+(`docs/wiki/pages/pixellab-asset-routing.md`):
 
-<!-- Only if this change moves a boundary or an external contract, and only for the
-     parts that actually move. -->
+| Given | Route | Why |
+|---|---|---|
+| a style image | `create-image-bitforge` | the only base route with a style slot, area up to 200x200 |
+| an area over 160000, or a side over 400 | `create-image-pixen` | the only base route reaching 512x512 |
+| anything else | `create-image-pixflux` | cheapest, widest, takes an init image and a palette |
 
-## Data <!-- optional -->
+Chosen, then **named in the output** (R1.2). A tool that silently picks between
+routes with different prices and different ceilings has to say which one it picked,
+or the cost report is unreadable.
 
-<!-- Only if a data shape changes. -->
+`--route` overrides the choice (R1.3), and the chosen route's own validation still
+applies — an override is a way to reach a route, not a way past the size checks.
 
-## Alternatives considered <!-- optional -->
+When nothing can satisfy the size, the error names the ceilings of all three rather
+than the one that happened to be tried (R1.4). The caller's next move is to pick a
+size that works, and one ceiling is not enough to do that with.
 
-<!-- Only where there were real alternatives with trade-offs. Say which won and why.
-     If the decision is hard to reverse, write an ADR under docs/adr/ and cite it
-     here instead of arguing it twice. -->
+## Cleaning up
 
-## Risks <!-- optional -->
+`pixellab clean` is five sub-commands over local files, each one route:
 
-<!-- What could go wrong that the task list does not already cover. -->
+```
+clean background  files…   remove-background
+clean unzoom      files…   unzoom
+clean colors      files…   reduce-colors      one call for all frames
+clean correct     files…   correct-pixelart   one call for all frames
+clean resize      file --to WxH               resize
+```
+
+`colors` and `correct` take the whole set in one call, which is the point of those
+routes: the frames come back sharing one palette (R2.2). They also require every
+frame to be the same size, so the sizes are read locally with `images.read_size` and
+a mismatch is refused before anything is sent (R2.3) — the alternative is paying to
+be told.
+
+`background` and `unzoom` are per file, because those routes take one image, so N
+files is N calls and N ledger entries.
+
+## Dry run
+
+`--dry-run` is handled in the command, after routing and validation and before the
+runner is asked for anything (R3.1). It therefore exercises the same route choice
+and the same argument checks as the real call, which is what makes it worth having:
+a dry run that skipped validation would approve requests that then fail.
+
+Nothing is written and no ledger entry is made — an intent line for a call that was
+never going to happen would be a lie in the one file that has to be trusted.

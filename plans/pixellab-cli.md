@@ -65,6 +65,9 @@ learned a single endpoint name.
 - [x] 1.5 (Unit) Write the README — install, credentials, the first command, and where output lands
   _Depends 1.1_
   _Priority 2_
+- [x] 2.1 (Unit) Build the shared command surface — the workspace root, output format and dry-run options, one error handler that renders a failure without a traceback, and the exit codes
+- [x] 2.2 (Unit) Add the commands that read what is already recorded: `pixellab balance` and `pixellab ledger`
+  _Depends 2.1_
 
 ## Done when
 

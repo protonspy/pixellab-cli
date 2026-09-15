@@ -5,31 +5,35 @@ ci: wait
 
 # Image generation — requirements
 
-<!-- EARS, numbered R<group>.<item>. All five patterns are valid; use the one the
-     requirement actually is, and do not invent a trigger for something that is
-     simply always true:
-
-       The <system> shall <response>                                  ubiquitous
-       While <precondition>, the <system> shall <response>          state-driven
-       When <trigger>, the <system> shall <response>                event-driven
-       Where <feature>, the <system> shall <response>           optional feature
-       If <trigger>, then the <system> shall <response>       unwanted behavior
-
-     Omit, don't fill: specify what this feature decides, and nothing else.
-     Over-specification measurably makes generated code worse, not just longer.
-     Delete this comment. -->
-
 ## Purpose
 
-<!-- One paragraph: what this feature is for, and who it is for. -->
+The commands that make one image, and the commands that clean one up. This is the
+cheapest thing the tool does and the thing it will be asked for most: an icon, an
+item, a single sprite. It is also where the pattern every later command follows gets
+settled — a description in, a file and a manifest out, a cost printed.
 
-## R1 · <group name>
+## R1 · One sprite
 
-- **R1.1** The <system> shall <response>
-- **R1.2** When <trigger>, the <system> shall <response>
-- **R1.3** If <trigger>, then the <system> shall <response>
+- **R1.1** When asked for a sprite, the image generation commands shall generate one image from a description and a size, and write it to the workspace with its manifest.
+- **R1.2** The image generation commands shall choose the route from the size and the inputs given, and shall name the route they chose.
+- **R1.3** Where the caller names a route explicitly, the image generation commands shall use that route rather than choosing one.
+- **R1.4** If the size given cannot be satisfied by any available route, then the image generation commands shall say so and name the sizes that can, before spending anything.
+- **R1.5** Where a style image is given, the image generation commands shall use a route that accepts one.
+- **R1.6** The image generation commands shall accept the shared style controls, and shall reject a value the chosen route does not allow.
+
+## R2 · Cleaning up
+
+- **R2.1** The image generation commands shall expose background removal, unzooming, palette reduction, pixel-art correction and resizing, each over one or more local files.
+- **R2.2** When several frames are given to palette reduction or pixel-art correction, the image generation commands shall send them in one call so that they share one palette.
+- **R2.3** If the frames given are not all the same size, then the image generation commands shall say so before spending anything, because the routes that take several frames require it.
+
+## R3 · Cost and consent
+
+- **R3.1** While a dry run is asked for, the image generation commands shall report the route, the arguments and the estimated cost, and shall send nothing.
+- **R3.2** The image generation commands shall print what the call cost, distinguishing a reported cost from an estimate.
 
 ## Out of scope
 
-<!-- What a reader might reasonably expect here and will not find, so nobody
-     builds it by accident. Delete the heading if there is nothing to say. -->
+- Characters, rotations and animations — `specs/characters-and-animation/`.
+- Editing an existing sprite — `specs/editing-and-inpainting/`.
+- Anything on fal — `specs/concept-art/`.

@@ -1,0 +1,252 @@
+import base64
+import json
+import struct
+
+import respx
+from typer.testing import CliRunner
+
+from pixellab_cli.cli import app
+from pixellab_cli.config import PIXELLAB_BASE_URL, PIXELLAB_SECRET_VAR
+
+runner = CliRunner()
+
+
+def png_bytes(width: int = 64, height: int = 64) -> bytes:
+    return b"\x89PNG\r\n\x1a\n" + b"\x00\x00\x00\rIHDR" + struct.pack(">II", width, height)
+
+
+def image_payload() -> dict:
+    return {"type": "base64", "base64": base64.b64encode(png_bytes()).decode(), "format": "png"}
+
+
+def mock_route(path: str, **body):
+    payload = {"image": image_payload(), "usage": {"generations": 1.0, "usd": 0.008}, **body}
+    return respx.post(f"{PIXELLAB_BASE_URL}{path}").respond(json=payload)
+
+
+def invoke(arguments, tmp_path, monkeypatch, token="pl-test-token"):
+    if token:
+        monkeypatch.setenv(PIXELLAB_SECRET_VAR, token)
+    else:
+        monkeypatch.delenv(PIXELLAB_SECRET_VAR, raising=False)
+    return runner.invoke(app, ["--workspace", str(tmp_path / "out"), *arguments])
+
+
+class TestGenerating:
+    @respx.mock
+    def test_a_sprite_is_written_to_the_workspace(self, tmp_path, monkeypatch):
+        mock_route("/create-image-pixflux")
+
+        result = invoke(["sprite", "a knight"], tmp_path, monkeypatch)
+
+        assert result.exit_code == 0
+        assert list((tmp_path / "out").glob("*/a-knight.png"))
+
+    @respx.mock
+    def test_a_manifest_is_written_beside_it(self, tmp_path, monkeypatch):
+        mock_route("/create-image-pixflux")
+
+        invoke(["sprite", "a knight"], tmp_path, monkeypatch)
+
+        assert list((tmp_path / "out").glob("*/*.manifest.json"))
+
+    @respx.mock
+    def test_the_ledger_records_the_call(self, tmp_path, monkeypatch):
+        mock_route("/create-image-pixflux")
+
+        invoke(["sprite", "a knight"], tmp_path, monkeypatch)
+
+        entries = (tmp_path / "out" / "ledger.jsonl").read_text(encoding="utf-8").splitlines()
+        assert len(entries) == 2
+
+    @respx.mock
+    def test_the_file_can_be_named(self, tmp_path, monkeypatch):
+        mock_route("/create-image-pixflux")
+
+        invoke(["sprite", "a knight", "--name", "hero"], tmp_path, monkeypatch)
+
+        assert list((tmp_path / "out").glob("*/hero.png"))
+
+    @respx.mock
+    def test_the_size_reaches_the_request(self, tmp_path, monkeypatch):
+        route = mock_route("/create-image-pixflux")
+
+        invoke(["sprite", "a knight", "--size", "96x64"], tmp_path, monkeypatch)
+
+        sent = json.loads(route.calls.last.request.content)
+        assert sent["image_size"] == {"width": 96, "height": 64}
+
+    @respx.mock
+    def test_the_style_controls_reach_the_request(self, tmp_path, monkeypatch):
+        route = mock_route("/create-image-pixflux")
+
+        invoke(
+            ["sprite", "a knight", "--outline", "lineless", "--shading", "flat shading"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        sent = json.loads(route.calls.last.request.content)
+        assert sent["outline"] == "lineless"
+        assert sent["shading"] == "flat shading"
+
+    @respx.mock
+    def test_transparent_asks_for_no_background(self, tmp_path, monkeypatch):
+        route = mock_route("/create-image-pixflux")
+
+        invoke(["sprite", "a knight", "--transparent"], tmp_path, monkeypatch)
+
+        assert json.loads(route.calls.last.request.content)["no_background"] is True
+
+    @respx.mock
+    def test_a_seed_reaches_the_request_and_the_manifest(self, tmp_path, monkeypatch):
+        mock_route("/create-image-pixflux")
+
+        invoke(["sprite", "a knight", "--seed", "7"], tmp_path, monkeypatch)
+
+        manifest = json.loads(
+            next((tmp_path / "out").glob("*/*.manifest.json")).read_text(encoding="utf-8")
+        )
+        assert manifest["seed"] == 7
+
+
+class TestRouteChoice:
+    @respx.mock
+    def test_the_chosen_route_is_named_in_the_output(self, tmp_path, monkeypatch):
+        mock_route("/create-image-pixflux")
+
+        result = invoke(["sprite", "a knight"], tmp_path, monkeypatch)
+
+        assert "create-image-pixflux" in result.stdout
+
+    @respx.mock
+    def test_a_large_size_moves_to_the_route_that_reaches_it(self, tmp_path, monkeypatch):
+        mock_route("/create-image-pixen")
+
+        result = invoke(["sprite", "a banner", "--size", "512"], tmp_path, monkeypatch)
+
+        assert result.exit_code == 0
+        assert "create-image-pixen" in result.stdout
+
+    @respx.mock
+    def test_a_style_image_moves_to_the_route_that_accepts_one(self, tmp_path, monkeypatch):
+        reference = tmp_path / "style.png"
+        reference.write_bytes(png_bytes(32, 32))
+        route = mock_route("/create-image-bitforge")
+
+        result = invoke(
+            ["sprite", "a knight", "--size", "64", "--style", str(reference)],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 0
+        assert "style_image" in json.loads(route.calls.last.request.content)
+
+    @respx.mock
+    def test_an_explicit_route_is_used(self, tmp_path, monkeypatch):
+        mock_route("/create-image-pixen")
+
+        result = invoke(
+            ["sprite", "a knight", "--route", "create-image-pixen"], tmp_path, monkeypatch
+        )
+
+        assert "create-image-pixen" in result.stdout
+
+    def test_a_size_no_route_can_make_is_refused_without_a_call(self, tmp_path, monkeypatch):
+        result = invoke(["sprite", "a mural", "--size", "2048"], tmp_path, monkeypatch)
+
+        assert result.exit_code == 2
+        assert "create-image-pixflux" in result.output
+        assert "create-image-pixen" in result.output
+
+    def test_an_unreadable_size_is_refused_by_name(self, tmp_path, monkeypatch):
+        result = invoke(["sprite", "a knight", "--size", "huge"], tmp_path, monkeypatch)
+
+        assert result.exit_code == 2
+        assert "huge" in result.output
+
+    def test_a_style_value_the_route_rejects_never_reaches_the_network(self, tmp_path, monkeypatch):
+        result = invoke(["sprite", "a knight", "--outline", "thick black"], tmp_path, monkeypatch)
+
+        assert result.exit_code == 2
+        assert "lineless" in result.output
+
+
+class TestCostReporting:
+    @respx.mock
+    def test_a_reported_cost_is_printed_as_reported(self, tmp_path, monkeypatch):
+        mock_route("/create-image-pixflux")
+
+        result = invoke(["sprite", "a knight"], tmp_path, monkeypatch)
+
+        assert "reported" in result.stdout
+
+    @respx.mock
+    def test_an_unreported_cost_is_printed_as_an_estimate(self, tmp_path, monkeypatch):
+        respx.post(f"{PIXELLAB_BASE_URL}/create-image-pixflux").respond(
+            json={"image": image_payload()}
+        )
+
+        result = invoke(["sprite", "a knight"], tmp_path, monkeypatch)
+
+        assert "estimated" in result.stdout
+
+
+class TestDryRun:
+    def test_it_names_the_route_and_the_estimate(self, tmp_path, monkeypatch):
+        result = invoke(["--dry-run", "sprite", "a knight"], tmp_path, monkeypatch)
+
+        assert result.exit_code == 0
+        assert "create-image-pixflux" in result.stdout
+        assert "nothing was sent" in result.stdout
+
+    def test_it_writes_no_file_and_no_ledger_entry(self, tmp_path, monkeypatch):
+        invoke(["--dry-run", "sprite", "a knight"], tmp_path, monkeypatch)
+
+        assert not (tmp_path / "out" / "ledger.jsonl").exists()
+        assert not list((tmp_path / "out").glob("*/*.png"))
+
+    def test_it_rejects_exactly_what_a_real_call_would(self, tmp_path, monkeypatch):
+        result = invoke(
+            ["--dry-run", "sprite", "a knight", "--outline", "thick black"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 2
+
+    def test_it_needs_no_credential(self, tmp_path, monkeypatch):
+        result = invoke(["--dry-run", "sprite", "a knight"], tmp_path, monkeypatch, token=None)
+
+        assert result.exit_code == 0
+
+    def test_json_output_carries_the_arguments_that_would_be_sent(self, tmp_path, monkeypatch):
+        result = invoke(["--dry-run", "--json", "sprite", "a knight"], tmp_path, monkeypatch)
+
+        payload = json.loads(result.stdout)
+        assert payload["dry_run"] is True
+        assert payload["arguments"]["description"] == "a knight"
+
+
+class TestFailures:
+    @respx.mock
+    def test_a_provider_failure_is_one_line_and_a_non_zero_exit(self, tmp_path, monkeypatch):
+        respx.post(f"{PIXELLAB_BASE_URL}/create-image-pixflux").respond(
+            422, json={"detail": "image_size too large"}
+        )
+
+        result = invoke(["sprite", "a knight"], tmp_path, monkeypatch)
+
+        assert result.exit_code == 1
+        assert "Traceback" not in result.output
+        assert "image_size too large" in result.output
+
+    @respx.mock
+    def test_a_failed_call_is_still_recorded(self, tmp_path, monkeypatch):
+        respx.post(f"{PIXELLAB_BASE_URL}/create-image-pixflux").respond(422, json={"detail": "no"})
+
+        invoke(["sprite", "a knight"], tmp_path, monkeypatch)
+
+        entries = (tmp_path / "out" / "ledger.jsonl").read_text(encoding="utf-8").splitlines()
+        assert json.loads(entries[1])["status"] == "failed"

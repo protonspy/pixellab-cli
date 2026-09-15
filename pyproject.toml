@@ -53,3 +53,8 @@ extend-exclude = ["ref", ".codegraph", "docs", "specs", "plans"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.lint.flake8-bugbear]
+# typer declares options as argument defaults; that is the library's idiom, not the
+# mutable-default bug B008 exists to catch.
+extend-immutable-calls = ["typer.Option", "typer.Argument"]
