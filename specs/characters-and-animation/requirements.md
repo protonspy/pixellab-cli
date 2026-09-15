@@ -2,8 +2,8 @@
 autonomy: auto
 ci: wait
 branch: feat/four-direction-character
-delivery: in-progress
-pr: 2
+delivery: in-review
+pr: 10
 ---
 
 # Characters and animation — requirements
