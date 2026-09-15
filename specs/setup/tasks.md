@@ -31,3 +31,5 @@
   _Depends 3.1_
 - [x] 3.5 (Unit) Report what was written, what was skipped, and what is still missing — R4.1
   _Depends 3.3, 3.4_
+- [x] 3.6 (Unit) Report what reached the disk, before any failure — R1.10, R2.5
+  _Reason code review found the report hidden by a later failure_

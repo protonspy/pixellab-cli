@@ -76,9 +76,14 @@ def _setup(
     chosen = named or _offer(root)
 
     written = [harnesses.install(one, root, global_install=global_install) for one in chosen]
-    credentials = _credentials(app_context, non_interactive)
+    credentials, failure = _credentials(app_context, non_interactive)
 
     _report(app_context, written, credentials, root)
+    # Raised after the report, never instead of it: the installs happened, and a
+    # person told only about the credential that would not store goes looking for
+    # files nobody told them were written.
+    if failure is not None:
+        raise failure
 
 
 def _named(claude: bool, codex: bool, opencode: bool) -> list[Harness]:
@@ -105,17 +110,27 @@ def _offer(root: Path) -> list[Harness]:
     ]
 
 
-def _credentials(app_context: AppContext, non_interactive: bool) -> dict[str, tuple[bool, str]]:
-    """Each credential's state after asking for the ones nobody already answered for."""
+def _credentials(
+    app_context: AppContext, non_interactive: bool
+) -> tuple[dict[str, tuple[bool, str]], PixellabCliError | None]:
+    """Each credential's state, and the failure to raise once the report is out.
+
+    What is already resolved is said **before** the next one is asked for: somebody
+    typing a fal key needs to see that their PixelLab token was already found, or the
+    prompt reads as though nothing was.
+    """
     state: dict[str, tuple[bool, str]] = {}
+    failure: PixellabCliError | None = None
     for name in CREDENTIAL_VARS:
         source = app_context.credentials.source_of(name)
         if source:
             state[name] = (True, f"already set, from {source}")
+            output.stderr(f"{name}: already set, from {source}")
             continue
         if non_interactive:
             state[name] = (False, f"not set — {WHERE_FROM[name]}")
             continue
+        output.stderr(f"{name}: not set")
         value = typer.prompt(
             f"{ASK_FOR[name]} (blank to skip — {WHERE_FROM[name]})",
             hide_input=True,
@@ -125,9 +140,16 @@ def _credentials(app_context: AppContext, non_interactive: bool) -> dict[str, tu
         if not value:
             state[name] = (False, f"skipped — {WHERE_FROM[name]}")
             continue
-        write_credential(home_file(), name, value)
+        try:
+            write_credential(home_file(), name, value)
+        except PixellabCliError as refused:
+            # Kept rather than raised here, so the harnesses already installed are
+            # still reported. The exit code comes back at the end.
+            state[name] = (False, f"could not be stored: {refused}")
+            failure = failure or refused
+            continue
         state[name] = (True, f"written to {home_file()}")
-    return state
+    return state, failure
 
 
 def _report(
@@ -147,15 +169,17 @@ def _report(
     }
 
     for one in written:
-        if one.skipped:
-            payload["harnesses"][one.harness] = {"skipped": one.skipped}
-            lines.append(f"{one.harness}: skipped — {one.skipped}")
-            continue
         payload["harnesses"][one.harness] = {
             "paths": [str(path) for path in one.paths],
             "changed": one.changed,
+            "skipped": one.skipped,
         }
-        lines.append(f"{one.harness}: {'written' if one.changed else 'already current'}")
+        if one.skipped:
+            lines.append(f"{one.harness}: skipped — {one.skipped}")
+            if one.paths:
+                lines.append(f"  written before it stopped: {len(one.paths)}")
+        else:
+            lines.append(f"{one.harness}: {'written' if one.changed else 'already current'}")
         lines.extend(f"  {path}" for path in one.paths)
 
     lines.extend(f"{name}: {state}" for name, (_, state) in credentials.items())

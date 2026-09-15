@@ -171,3 +171,70 @@ class TestTheReport:
         assert payload["harnesses"]["claude"]["changed"] is True
         assert any("SKILL.md" in path for path in payload["harnesses"]["claude"]["paths"])
         assert sorted(payload["missing"]) == ["fal_key", "pixellab_secret"]
+
+
+class TestItReportsWhatReachedTheDisk:
+    """A run that stopped halfway still wrote something, and saying otherwise sends
+    somebody looking for a file that is there."""
+
+    def test_a_partial_install_names_what_was_written_before_it_stopped(
+        self, tmp_path, monkeypatch
+    ):
+        project = tmp_path / "game"
+        project.mkdir(parents=True, exist_ok=True)
+        # A begin with no end: the skill copy succeeds, the AGENTS.md write refuses.
+        (project / "AGENTS.md").write_text(f"{BEGIN}\nhalf a block\n", encoding="utf-8")
+
+        result = invoke(["setup", "--codex", "--non-interactive"], tmp_path, monkeypatch)
+
+        assert "skipped" in result.stdout
+        assert "written before it stopped" in result.stdout
+        assert (project / ".pixellab" / "skill" / "SKILL.md").is_file()
+
+    def test_json_carries_the_paths_of_a_partial_install(self, tmp_path, monkeypatch):
+        project = tmp_path / "game"
+        project.mkdir(parents=True, exist_ok=True)
+        (project / "AGENTS.md").write_text(f"{BEGIN}\nhalf a block\n", encoding="utf-8")
+
+        result = invoke(["--json", "setup", "--codex", "--non-interactive"], tmp_path, monkeypatch)
+
+        codex = json.loads(result.stdout)["harnesses"]["codex"]
+        assert codex["skipped"]
+        assert codex["paths"]
+
+    def test_a_credential_that_cannot_be_stored_does_not_hide_the_install(
+        self, tmp_path, monkeypatch
+    ):
+        home = tmp_path / "home"
+        home.mkdir(parents=True, exist_ok=True)
+        (home / CONFIG_NAME).write_text("{not json", encoding="utf-8")
+
+        result = invoke(
+            ["setup", "--claude"],
+            tmp_path,
+            monkeypatch,
+            home=home,
+            environment={PIXELLAB_SECRET_VAR: PIXELLAB},
+            input=f"{FAL}\n",
+        )
+
+        assert "claude: written" in result.stdout
+        assert (tmp_path / "game" / ".claude" / "skills" / "pixellab-assets" / "SKILL.md").is_file()
+        assert result.exit_code == 2
+
+
+class TestItSaysWhatIsAlreadySetBeforeAsking:
+    def test_the_resolved_credential_is_announced_before_the_prompt(self, tmp_path, monkeypatch):
+        result = invoke(
+            ["setup", "--claude"],
+            tmp_path,
+            monkeypatch,
+            environment={PIXELLAB_SECRET_VAR: PIXELLAB},
+            input=f"{FAL}\n",
+        )
+
+        # Both lines are on stderr, in the order the loop emits them, and the second
+        # is written immediately before the prompt. Comparing against the prompt text
+        # itself would be comparing two streams, which nothing guarantees the order of.
+        emitted = result.output
+        assert emitted.index("pixellab_secret: already set") < emitted.index("fal_key: not set")

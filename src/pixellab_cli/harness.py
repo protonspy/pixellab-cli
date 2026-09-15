@@ -119,6 +119,30 @@ def write_block(path: Path, body: str) -> bool:
     return True
 
 
+def skill_matches(destination: Path) -> bool:
+    """Whether `destination` already holds exactly the packaged skill.
+
+    Asked before the copy, because the copy rewrites every file whether or not the
+    bytes differ, and "already current" is a claim about what is there rather than
+    about what was written.
+    """
+    # Compared as text rather than as bytes: the copy writes Unix endings whatever the
+    # checkout holds, so a byte comparison would call every install a change.
+    packaged = {
+        source.relative_to(PACKAGED_SKILL): source.read_text(encoding="utf-8")
+        for source in PACKAGED_SKILL.rglob("*")
+        if source.is_file()
+    }
+    if not destination.is_dir():
+        return False
+    present = {
+        found.relative_to(destination): found.read_text(encoding="utf-8")
+        for found in destination.rglob("*")
+        if found.is_file()
+    }
+    return present == packaged
+
+
 def copy_skill(destination: Path) -> tuple[Path, ...]:
     """Replace `destination` with the packaged skill, and leave nothing else in it.
 
@@ -236,15 +260,25 @@ def install(harness: Harness, root: Path, *, global_install: bool = False) -> Wr
     the reason, because setting up three harnesses and failing all three over one
     read-only directory is the behaviour this avoids.
     """
+    # Accumulated as it goes, so a failure halfway reports what is already on disk.
+    # An install that wrote the skill and then could not write AGENTS.md has still
+    # written the skill, and saying otherwise sends somebody looking for a file that
+    # is there or leaves them ignorant of one that is.
+    paths: list[Path] = []
+    changed = False
     try:
         if harness is Harness.CLAUDE:
-            return Written(harness, copy_skill(claude_skill_dir(root)), changed=True)
+            skill = claude_skill_dir(root)
+            changed = not skill_matches(skill)
+            paths.extend(copy_skill(skill))
+            return Written(harness, tuple(paths), changed=changed)
 
         agents = agents_file(harness, root, global_install=global_install)
         sidecar = agents.parent / SIDECAR_DIR
-        paths = list(copy_skill(sidecar))
+        changed = not skill_matches(sidecar)
+        paths.extend(copy_skill(sidecar))
         references = Path(SIDECAR_DIR) if not global_install else sidecar
-        changed = write_block(agents, block_body(references))
+        changed = write_block(agents, block_body(references)) or changed
         paths.append(agents)
 
         if harness is Harness.OPENCODE:
@@ -256,7 +290,9 @@ def install(harness: Harness, root: Path, *, global_install: bool = False) -> Wr
 
         return Written(harness, tuple(paths), changed=changed)
     except (OSError, ValueError) as failure:
-        return Written(harness, skipped=str(failure))
+        # `changed` describes what reached the disk, so a run that failed before
+        # writing anything says so rather than carrying the intention it started with.
+        return Written(harness, tuple(paths), changed=bool(paths), skipped=str(failure))
 
 
 def detect(root: Path, home: Path) -> tuple[Harness, ...]:

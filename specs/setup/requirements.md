@@ -23,6 +23,7 @@ whole reason this is a command rather than a paragraph in the README.
 - **R1.7** (ADDED) If a path it would write is a symbolic link, then the setup command shall refuse that harness and say so, rather than writing through the link.
 - **R1.8** (ADDED) The setup command shall leave in a directory it installs into only the files it installed.
 - **R1.9** (ADDED) The setup command shall keep the line endings of a file it edits.
+- **R1.10** (ADDED) Where a harness's installation stops partway, the setup command shall report the paths it wrote before it stopped.
 
 ## R2 · Credentials
 
@@ -30,6 +31,7 @@ whole reason this is a command rather than a paragraph in the README.
 - **R2.2** Where a credential is already resolved, the setup command shall not ask for it.
 - **R2.3** When asking for a credential, the setup command shall read it without echoing it and shall write it to the credentials file in the user's home.
 - **R2.4** The setup command shall accept a credential being declined and shall finish the rest of the work.
+- **R2.5** (ADDED) If a credential cannot be stored, then the setup command shall report what it installed before reporting the failure.
 
 ## R3 · Running without a person
 

@@ -99,9 +99,21 @@ a repository says somebody used an agent, not which one.
 `--non-interactive` has no one to offer to, so it installs exactly what was named and
 refuses to guess (R3.1, R3.2).
 
-## Failure is per harness
+## Failure is per harness, and the report comes first
 
 A path that cannot be written is reported and the rest of the run continues (R1.6).
 Setting up three harnesses and failing all three because one directory is read-only is
 the behaviour this avoids; the report at the end says what landed, what did not, and
 what is still missing before anything can be generated (R4.1).
+
+An installation that stopped partway still wrote something, so the paths are collected
+as they land rather than returned only on success (R1.10): a run that copied the skill
+and then could not write `AGENTS.md` has copied the skill, and a report saying nothing
+happened sends somebody looking for a file that is there.
+
+The same reason orders the two halves of the run. A credential that cannot be stored —
+a `~/.pixellab.json` that will not parse — is kept rather than raised where it happens,
+so the harness report is printed first and the failure sets the exit code afterwards
+(R2.5). What is already resolved is also said as it is found rather than only in the
+final report: somebody typing a fal key needs to see that their PixelLab token was
+found, or the prompt reads as though nothing was (R2.1).
