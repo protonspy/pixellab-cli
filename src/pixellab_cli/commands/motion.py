@@ -19,6 +19,7 @@ from pixellab_cli import catalog, images, output
 from pixellab_cli.context import AppContext
 from pixellab_cli.errors import PixellabCliError, ValidationError
 from pixellab_cli.ledger import Cost
+from pixellab_cli.routes import Route
 from pixellab_cli.run import from_pixellab
 from pixellab_cli.validate import build_request
 
@@ -33,6 +34,62 @@ ROTATION_ORDER = (
     "west",
     "south-west",
 )
+
+
+# The two routes that animate a loose frame, cheapest first. They differ in how far
+# they reach rather than in quality, so the frame count is what picks between them.
+ANIMATION_ROUTES = ("animate-with-text-v3", "animate-pixminimax")
+CHEAP_ANIMATION_ROUTE, LONG_ANIMATION_ROUTE = ANIMATION_ROUTES
+
+
+def choose_animation_route(frames: int | None, *, route_name: str | None = None) -> Route:
+    """Pick the animation route the frame count can actually be sent to.
+
+    `animate-with-text-v3` takes four to sixteen frames, and even. `animate-pixminimax`
+    takes four to forty in multiples of four, is in beta behind a subscription tier,
+    and is priced by generation time. So the cheap route holds until a count passes
+    out of its reach, and every refusal names the counts the route it was aimed at
+    would have taken.
+    """
+    if route_name is not None:
+        if route_name not in ANIMATION_ROUTES:
+            raise ValidationError(
+                f"{route_name!r} is not an animation route. They are: "
+                f"{', '.join(ANIMATION_ROUTES)}.",
+                context={"route": route_name},
+            )
+        route = catalog.route(route_name)
+        _check_frames(route, frames)
+        return route
+
+    if frames is None:
+        return catalog.route(CHEAP_ANIMATION_ROUTE)
+
+    cheap = catalog.route(CHEAP_ANIMATION_ROUTE)
+    if frames <= (cheap.param("frame_count").maximum or 16):
+        _check_frames(cheap, frames)
+        return cheap
+    long_form = catalog.route(LONG_ANIMATION_ROUTE)
+    _check_frames(long_form, frames)
+    return long_form
+
+
+def _check_frames(route: Route, frames: int | None) -> None:
+    """Hold a count to one route's rules, naming that route's own allowed counts."""
+    if frames is None:
+        return
+    param = route.param("frame_count")
+    if param is None:
+        return
+    floor, ceiling = int(param.minimum or 4), int(param.maximum or 16)
+    step = 4 if route.name == LONG_ANIMATION_ROUTE else 2
+    wording = "a multiple of four" if step == 4 else "even"
+    if floor <= frames <= ceiling and frames % step == 0:
+        return
+    raise ValidationError(
+        f"{route.name} takes {floor} to {ceiling} frames, {wording}, and {frames} was given.",
+        context={"route": route.name, "frames": frames},
+    )
 
 
 def register(app: typer.Typer) -> None:
@@ -124,32 +181,68 @@ def animate(
     context: typer.Context,
     file: Path = typer.Argument(..., help="The first frame. At most 256 per side."),
     action: str = typer.Option(..., "--action", "-a", help="'walking', 'attacking'."),
-    frames: int = typer.Option(None, "--frames", help="Four to sixteen, and even."),
+    frames: int = typer.Option(
+        None, "--frames", help="Four to sixteen and even, or up to forty in fours."
+    ),
     last: Path = typer.Option(None, "--last", help="A frame to guide where the motion ends."),
+    route_name: str = typer.Option(None, "--route", help="Force a route instead of choosing one."),
+    deflicker: float = typer.Option(
+        None, "--deflicker", help="Colour drift correction. 0 corrects every frame. Long form only."
+    ),
     name: str = typer.Option(None, "--name", help="What to call the files."),
     transparent: bool = typer.Option(False, "--transparent", help="Transparent background."),
     seed: int = typer.Option(None, "--seed", help="Repeat a previous generation."),
 ) -> None:
     """Animate a loose image from its first frame. Frames land in playback order."""
     try:
-        _animate(context, file, action, frames, last, name, transparent, seed)
+        _animate(
+            context, file, action, frames, last, route_name, deflicker, name, transparent, seed
+        )
     except PixellabCliError as failure:
         output.handle(failure)
 
 
-def _animate(context, file, action, frames, last, name, transparent, seed) -> None:
+def _animate(
+    context, file, action, frames, last, route_name, deflicker, name, transparent, seed
+) -> None:
     app_context: AppContext = context.obj
+    route = choose_animation_route(frames, route_name=route_name)
+    long_form = route.name == LONG_ANIMATION_ROUTE
+
+    if deflicker is not None and not long_form:
+        raise ValidationError(
+            f"--deflicker belongs to {LONG_ANIMATION_ROUTE}, and this is {route.name}. "
+            f"Ask for more than sixteen frames, or name the route.",
+            context={"route": route.name},
+        )
+
+    if long_form:
+        # Beta, behind a subscription tier this tool cannot read, and priced by how
+        # long the generation takes rather than by a tier — so the estimate here is a
+        # weaker claim than elsewhere, and says so before the call rather than after.
+        output.stderr(
+            f"{route.name} is in beta, needs a tier 1 subscription, and is priced by "
+            f"generation time: the estimate of {route.estimated_generations:g} generations "
+            f"is rougher than usual."
+        )
+
+    arguments: dict[str, Any] = {
+        "first_frame": _load(file).as_payload(),
+        "last_frame": _load(last).as_payload() if last else None,
+        "frame_count": frames,
+        "no_background": True if transparent else None,
+        "seed": seed,
+    }
+    if long_form:
+        arguments["description"] = action
+        arguments["drift_threshold"] = deflicker
+    else:
+        arguments["action"] = action
+
     _execute(
         app_context,
-        route_name="animate-with-text-v3",
+        route_name=route.name,
         description=f"{file.stem} {action}",
         name=name or f"{file.stem}-{action}",
-        arguments={
-            "first_frame": _load(file).as_payload(),
-            "last_frame": _load(last).as_payload() if last else None,
-            "action": action,
-            "frame_count": frames,
-            "no_background": True if transparent else None,
-            "seed": seed,
-        },
+        arguments=arguments,
     )

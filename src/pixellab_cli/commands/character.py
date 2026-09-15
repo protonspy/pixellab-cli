@@ -176,6 +176,94 @@ def _new(context, description, reference, size, view, template, name, seed) -> N
     )
 
 
+@app.command("state")
+def state(
+    context: typer.Context,
+    character_id: str = typer.Argument(..., help="The character to make a state of."),
+    edit: str = typer.Option(..., "--edit", "-p", help="'wearing a red cloak'."),
+    state_name: str = typer.Option(None, "--name", help="What to call the state."),
+    size: int = typer.Option(
+        None, "--size", help="A larger square canvas, for an edit that needs the room."
+    ),
+    palette: bool = typer.Option(
+        False, "--keep-palette", help="Take the colours from the source character."
+    ),
+    seed: int = typer.Option(None, "--seed", help="Repeat a previous generation."),
+) -> None:
+    """Make a new character from an existing one, edited across every rotation. Pro pricing."""
+    try:
+        _state(context, character_id, edit, state_name, size, palette, seed)
+    except PixellabCliError as failure:
+        output.handle(failure)
+
+
+def _state(context, character_id, edit, state_name, size, palette, seed) -> None:
+    app_context: AppContext = context.obj
+    route = catalog.route("create-character-state")
+
+    arguments: dict[str, Any] = {
+        "character_id": character_id,
+        "edit_description": edit,
+        "state_name": state_name,
+        "use_color_palette_from_reference": True if palette else None,
+        "seed": seed,
+    }
+    if size is not None:
+        arguments["override_frame_size"] = {"width": size, "height": size}
+
+    body = build_request(route, arguments)
+    estimate = Cost(generations=route.estimated_generations)
+
+    output.stderr(f"{route.name} is a Pro Tools route: about {estimate.generations:g} generations.")
+
+    if app_context.dry_run:
+        output.emit(
+            output.dry_run_payload("pixellab", route.name, body, estimate),
+            output.describe_dry_run("pixellab", route.name, estimate),
+            as_json=app_context.as_json,
+        )
+        return
+
+    client = app_context.pixellab()
+    roles: list[str] = []
+
+    def call() -> Result:
+        result = client.call(route.name, **arguments)
+        # The state is a second character with its own id, joined to the source by a
+        # group. Both go in the manifest: a state whose group is lost is an orphan
+        # nobody can find their way back from.
+        new_id = result.ids.get("character_id")
+        if not new_id:
+            raise ProviderError(
+                "PixelLab created no character id for the state",
+                context={"response": result.raw},
+                secrets=app_context.credentials.secrets,
+            )
+        frames, directions, urls = fetch_rotations(client, new_id)
+        result.images = frames
+        result.raw = {**result.raw, "rotation_urls": urls, "source_character_id": character_id}
+        result.ids = {**result.ids, "source_character_id": character_id}
+        roles.extend(directions)
+        return result
+
+    outcome = app_context.runner.run(
+        description=f"{character_id} {edit}",
+        provider="pixellab",
+        route=route.name,
+        arguments=body,
+        call=call,
+        translate=from_pixellab,
+        estimate=estimate,
+        name=state_name,
+        roles=roles,
+    )
+    output.emit(
+        output.run_payload(outcome),
+        [f"route: {route.name}", *output.describe_run(outcome)],
+        as_json=app_context.as_json,
+    )
+
+
 @app.command("animate")
 def animate(
     context: typer.Context,

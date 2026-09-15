@@ -460,3 +460,184 @@ class TestLooseImages:
         )
 
         assert result.exit_code == 2
+
+
+def mock_state(character_id="char-9", state_id="char-10", directions=DIRECTIONS):
+    """A state is a second character: submit, poll, then read the new id's rotations."""
+    respx.post(f"{PIXELLAB_BASE_URL}/create-character-state").respond(
+        json={
+            "character_id": state_id,
+            "background_job_id": "job-state",
+            "status": "processing",
+            "usage": {"generations": 30.0, "usd": 0.15},
+        }
+    )
+    respx.get(f"{PIXELLAB_BASE_URL}/background-jobs/job-state").respond(
+        json={"status": "completed", "last_response": {}}
+    )
+    respx.get(f"{PIXELLAB_BASE_URL}/characters/{state_id}").respond(
+        json={
+            "id": state_id,
+            "name": "a knight in a red cloak",
+            "status": "completed",
+            "rotation_urls": rotation_urls(directions),
+            "animations": [],
+        }
+    )
+    for name in directions:
+        respx.get(f"https://assets.pixellab.ai/{name}.png").respond(content=png_bytes())
+
+
+class TestCharacterState:
+    @respx.mock
+    def test_every_rotation_of_the_state_is_written(self, tmp_path, monkeypatch):
+        mock_state()
+
+        result = invoke(
+            ["character", "state", "char-9", "-p", "wearing a red cloak", "--name", "cloaked"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 0
+        assert len(list((tmp_path / "out").glob("*/cloaked-*.png"))) == 8
+
+    @respx.mock
+    def test_the_manifest_keeps_the_new_id_and_the_one_it_came_from(self, tmp_path, monkeypatch):
+        mock_state()
+
+        invoke(["character", "state", "char-9", "-p", "wearing a red cloak"], tmp_path, monkeypatch)
+
+        manifest = json.loads(
+            next((tmp_path / "out").glob("*/*.manifest.json")).read_text(encoding="utf-8")
+        )
+        assert manifest["ids"]["character_id"] == "char-10"
+        assert manifest["ids"]["source_character_id"] == "char-9"
+
+    @respx.mock
+    def test_the_edit_and_the_source_are_what_is_sent(self, tmp_path, monkeypatch):
+        route = respx.post(f"{PIXELLAB_BASE_URL}/create-character-state")
+        mock_state()
+
+        invoke(["character", "state", "char-9", "-p", "wearing a red cloak"], tmp_path, monkeypatch)
+
+        sent = json.loads(route.calls.last.request.content)
+        assert sent["character_id"] == "char-9"
+        assert sent["edit_description"] == "wearing a red cloak"
+
+    def test_the_pro_tier_is_announced_before_anything_is_sent(self, tmp_path, monkeypatch):
+        result = invoke(
+            ["--dry-run", "character", "state", "char-9", "-p", "a red cloak"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 0
+        assert "Pro Tools" in result.output
+
+    def test_a_larger_canvas_is_sent_as_a_square_override(self, tmp_path, monkeypatch):
+        result = invoke(
+            ["--dry-run", "--json", "character", "state", "char-9", "-p", "wings", "--size", "96"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        sent = json.loads(result.stdout)["arguments"]
+        assert sent["override_frame_size"] == {"width": 96, "height": 96}
+
+    def test_a_canvas_that_is_not_a_multiple_of_four_is_refused(self, tmp_path, monkeypatch):
+        result = invoke(
+            ["--dry-run", "character", "state", "char-9", "-p", "wings", "--size", "97"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 2
+
+
+class TestLongFormAnimation:
+    """Twenty frames is not a bigger version of eight: it is the only route that reaches."""
+
+    def _sprite(self, tmp_path):
+        path = tmp_path / "hero.png"
+        path.write_bytes(png_bytes())
+        return str(path)
+
+    def test_a_short_run_stays_on_the_cheap_route(self, tmp_path, monkeypatch):
+        result = invoke(
+            ["--dry-run", "--json", "animate", self._sprite(tmp_path), "-a", "walking"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert json.loads(result.stdout)["route"] == "animate-with-text-v3"
+
+    def test_a_long_run_reaches_the_long_form_route(self, tmp_path, monkeypatch):
+        result = invoke(
+            [
+                "--dry-run",
+                "--json",
+                "animate",
+                self._sprite(tmp_path),
+                "-a",
+                "walking",
+                "--frames",
+                "24",
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        payload = json.loads(result.stdout)
+        assert payload["route"] == "animate-pixminimax"
+        assert payload["arguments"]["description"] == "walking"
+
+    def test_the_beta_and_the_weaker_estimate_are_said_before_the_call(self, tmp_path, monkeypatch):
+        result = invoke(
+            ["--dry-run", "animate", self._sprite(tmp_path), "-a", "walking", "--frames", "24"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert "beta" in result.output
+        assert "generation time" in result.output
+
+    def test_deflicker_reaches_the_route_that_has_it(self, tmp_path, monkeypatch):
+        result = invoke(
+            [
+                "--dry-run",
+                "--json",
+                "animate",
+                self._sprite(tmp_path),
+                "-a",
+                "walking",
+                "--frames",
+                "24",
+                "--deflicker",
+                "0",
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert json.loads(result.stdout)["arguments"]["drift_threshold"] == 0
+
+    def test_deflicker_on_the_cheap_route_is_refused_with_what_to_do(self, tmp_path, monkeypatch):
+        result = invoke(
+            ["--dry-run", "animate", self._sprite(tmp_path), "-a", "walking", "--deflicker", "2"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 2
+        assert "animate-pixminimax" in result.output
+
+    def test_a_frame_count_neither_route_takes_is_refused(self, tmp_path, monkeypatch):
+        result = invoke(
+            ["--dry-run", "animate", self._sprite(tmp_path), "-a", "walking", "--frames", "44"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 2
+        assert "40" in result.output
