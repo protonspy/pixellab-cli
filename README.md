@@ -201,6 +201,34 @@ gh secret set PYPI_API_TOKEN
 That prompts for the value rather than taking it as an argument, so the token stays
 out of your shell history.
 
+### The first release, and a key that is not account-wide
+
+A token scoped to one project can only be made after that project exists, and a
+project on PyPI exists once something has been uploaded to it. So the first release
+is the one that uses a wider key, and the key is narrowed immediately after:
+
+1. Create an **account-scoped** token at `https://pypi.org/manage/account/token/`,
+   put it in `PYPI_API_TOKEN`, and tag `v0.1.0`. That upload creates the project.
+2. Create a token scoped to **pixellab-cli only**, replace the secret with it, and
+   delete the account-scoped one. From here a leaked token can publish this package
+   and nothing else you own.
+
+There is a way to skip tokens entirely: PyPI accepts a **pending publisher** for a
+project that does not exist yet, at
+`https://pypi.org/manage/account/publishing/`. Registering this repository, the
+workflow filename and the environment there lets the first upload authenticate over
+OIDC and creates the project in the same act — no secret in the repository at all.
+`docs/adr/0006-publish-to-pypi-from-a-tag.md` records why the token was chosen for
+now and keeps that as the upgrade path.
+
+Two more things live in repository settings rather than in any file here, and a
+pipeline cannot check that you did them:
+
+- **Required reviewers on the `pypi` environment.** The release job names it, so
+  adding reviewers there turns a tag push into a request rather than a publication.
+- **A tag protection rule for `v*`.** Without one, anyone who can push can publish,
+  and a published version cannot be taken back.
+
 ## Licence
 
 MIT.

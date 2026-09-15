@@ -14,6 +14,12 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    # Pushing a tag is authority to publish, and publishing cannot be undone. The
+    # environment is where a second pair of eyes goes: add required reviewers to
+    # `pypi` in the repository settings and a tag stops being enough on its own.
+    # Protecting `v*` from everyone but a maintainer is the other half, and is also
+    # settings rather than YAML.
+    environment: pypi
     steps:
       - uses: actions/checkout@v4
 
@@ -50,7 +56,9 @@ jobs:
         run: uv build --out-dir dist
 
       - name: Check the metadata PyPI will render
-        run: uvx twine check --strict dist/*
+        # Pinned: this runs on the same machine as the step that holds the token,
+        # and an unpinned tool is whatever PyPI served that minute.
+        run: uvx twine==7.0.0 check --strict dist/*
 
       # The last thing checked is the artefact rather than the source it came from.
       # A broken upload cannot be replaced.
@@ -63,6 +71,9 @@ jobs:
           /tmp/clean/bin/pixellab-cli --dry-run sprite "a smoke test" --size 64
 
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+        # Pinned to a commit rather than to `release/v1`: this is the one step where
+        # the token exists, and a branch ref is a moving target. The comment carries
+        # the human-readable version so the next bump is a lookup rather than a guess.
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}

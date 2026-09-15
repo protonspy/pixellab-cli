@@ -42,8 +42,29 @@ source it came from.
 
 **Authentication is an API token in `PYPI_API_TOKEN`**, a repository secret. Trusted
 Publishing over OIDC is better — there is no long-lived credential to leak — and it
-is the upgrade path here, deliberately not taken today because it needs a publisher
-registered on PyPI before the first release and a token already exists.
+is the upgrade path here, deliberately not taken today because a token already exists.
+
+The token that makes the **first** release cannot be scoped to this project, because
+a project-scoped token can only be issued for a project that exists, and a project
+exists once something has been uploaded to it. The first upload is therefore made with
+an account-scoped token which is replaced by a project-scoped one and deleted the same
+day. PyPI's pending-publisher flow avoids that window entirely by registering the
+publisher before the project exists; it is the reason the upgrade path is worth taking
+rather than a footnote.
+
+**Two gates that are settings rather than YAML.** Pushing a tag is authority to
+publish, and a workflow file cannot restrict who may push one. The job names a `pypi`
+environment so that required reviewers have somewhere to live, and `v*` should be
+restricted to maintainers with a tag protection rule. Neither is in this repository's
+files; both are named here and in the README so that "nobody configured it" is a
+visible omission rather than an invisible one.
+
+**What the pipeline runs is pinned.** The publish action is a commit rather than
+`release/v1`, because that step is the only one where the token exists and a branch
+ref moves. `twine` is a version rather than whatever PyPI served that minute. The
+sdist's contents are an allowlist in `pyproject.toml` rather than whatever git happens
+to track — a file that is committed and sensitive would otherwise ship on the next tag
+and could not be recalled.
 
 ## Consequences
 

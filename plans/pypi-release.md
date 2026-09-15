@@ -50,6 +50,8 @@ docs/adr/0006-publish-to-pypi-from-a-tag.md
 - [x] 1.6 (Unit) Write the release steps into the README
 - [x] 1.7 (Unit) Rename the console script to pixellab-cli
   _Reason the script name would have collided with PixelLab's own package_
+- [x] 1.8 (Unit) Pin what the pipeline runs, and gate the publish
+  _Reason security review of the pipeline_
 
 ## Done when
 
