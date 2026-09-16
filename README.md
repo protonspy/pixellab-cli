@@ -1,3 +1,5 @@
+<img src="docs/media/icon-128.png" width="96" align="right" alt="">
+
 # pixellab-cli
 
 Generate 2D game assets from the command line. Sprites, characters with eight
@@ -238,3 +240,10 @@ pipeline cannot check that you did them:
 ## Licence
 
 MIT.
+
+---
+
+<sub>The icon is 64x64, fourteen colours, and was drawn by this tool:
+<code>pixellab-cli sprite "a dark terminal window … one small knight … lit green by the screen"
+--size 64 --transparent --shading "flat shading" --detail "low detail"</code></sub>
+
