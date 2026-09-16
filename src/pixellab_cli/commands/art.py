@@ -8,6 +8,7 @@ pixels on a broken grid, which is what `pixellab clean unzoom` exists to undo.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -41,6 +42,62 @@ def _variant_model(variant: str, *, edit: bool) -> str:
         return fal.model(name).path
     except KeyError as failure:
         raise ValidationError(str(failure), context={"variant": variant}) from None
+
+
+REFERENCE_HELP = "An image to take the subject from. Repeatable, up to sixteen."
+
+
+def _upload_limit(model_name: str) -> int | None:
+    """How many images the model takes, from the route table rather than from memory."""
+    for param in fal.model(model_name).params:
+        if param.name == "image_urls":
+            return param.max_items
+    return None
+
+
+def _checked(paths: Sequence[Path], model_name: str) -> None:
+    """Everything that can refuse these files, before the first one is uploaded.
+
+    Existence is the obvious one. The count is the one that bit: the model's limit was
+    enforced inside `build_request`, which runs after the uploads, so seventeen files
+    were pushed to a CDN and then the call was refused — with the URLs written nowhere,
+    because the failure came before the ledger line.
+    """
+    limit = _upload_limit(model_name)
+    if limit is not None and len(paths) > limit:
+        raise ValidationError(
+            f"{len(paths)} images given, and this model takes at most {limit}",
+            context={"given": len(paths), "limit": limit, "model": model_name},
+        )
+    for path in paths:
+        if not path.is_file():
+            raise ValidationError(f"{path} is not a file", context={"path": str(path)})
+
+
+def _references(
+    app_context: AppContext, references: Sequence[Path] | None, variant: str
+) -> tuple[str, list[str] | None]:
+    """The model to generate on, and the reference URLs to hand it.
+
+    With references this becomes the edit model of the same variant: the generating
+    models take a prompt and nothing else, so a subject that exists as a picture has
+    to be described in words, and a description resembles its subject rather than
+    matching it.
+
+    Every file is checked before the first upload — uploading three of four and then
+    failing leaves three files on a CDN for nothing.
+    """
+    if not references:
+        return _variant_model(variant, edit=False), None
+    model_name = _variant_model(variant, edit=True)
+    _checked(references, model_name)
+    output.stderr(
+        f"guided by {len(references)} reference(s): {', '.join(path.name for path in references)}"
+    )
+    if app_context.dry_run:
+        return model_name, [str(path) for path in references]
+    client = app_context.fal()
+    return model_name, [client.upload(path) for path in references]
 
 
 def _size_argument(size: str | None) -> Any:
@@ -102,24 +159,27 @@ def concept(
     size: str = typer.Option(None, "--size", help="A preset name, 1024x1024, or auto."),
     transparent: bool = typer.Option(False, "--transparent", help="Transparent background."),
     count: int = typer.Option(None, "--count", help="How many images to make."),
+    reference: list[Path] = typer.Option(None, "--reference", help=REFERENCE_HELP),
     name: str = typer.Option(None, "--name", help="What to call the files."),
 ) -> None:
-    """Make a concept image from a description."""
+    """Make a concept image from a description, and from references where given."""
     try:
-        _concept(context, prompt, variant, quality, size, transparent, count, name)
+        _concept(context, prompt, variant, quality, size, transparent, count, reference, name)
     except PixellabCliError as failure:
         output.handle(failure)
 
 
-def _concept(context, prompt, variant, quality, size, transparent, count, name) -> None:
+def _concept(context, prompt, variant, quality, size, transparent, count, reference, name) -> None:
     app_context: AppContext = context.obj
+    model_name, urls = _references(app_context, reference, variant)
     _execute(
         app_context,
-        model_name=_variant_model(variant, edit=False),
+        model_name=model_name,
         description=prompt,
         name=name,
         arguments={
             "prompt": prompt,
+            "image_urls": urls,
             "quality": quality,
             "image_size": _size_argument(size),
             "background": "transparent" if transparent else None,
@@ -136,24 +196,27 @@ def boxart(
     quality: str = typer.Option(BOX_ART_QUALITY, "--quality", help="Defaults to the top tier."),
     size: str = typer.Option(BOX_ART_SIZE, "--size", help="Defaults to a cover shape."),
     count: int = typer.Option(None, "--count", help="How many covers to make."),
+    reference: list[Path] = typer.Option(None, "--reference", help=REFERENCE_HELP),
     name: str = typer.Option(None, "--name", help="What to call the files."),
 ) -> None:
     """Make box art: a cover shape at the top quality tier, by default."""
     try:
-        _boxart(context, prompt, variant, quality, size, count, name)
+        _boxart(context, prompt, variant, quality, size, count, reference, name)
     except PixellabCliError as failure:
         output.handle(failure)
 
 
-def _boxart(context, prompt, variant, quality, size, count, name) -> None:
+def _boxart(context, prompt, variant, quality, size, count, reference, name) -> None:
     app_context: AppContext = context.obj
+    model_name, urls = _references(app_context, reference, variant)
     _execute(
         app_context,
-        model_name=_variant_model(variant, edit=False),
+        model_name=model_name,
         description=f"box art: {prompt}",
         name=name or "box-art",
         arguments={
             "prompt": prompt,
+            "image_urls": urls,
             "quality": quality,
             "image_size": _size_argument(size),
             "num_images": count,
@@ -169,6 +232,7 @@ def anchor(
     quality: str = typer.Option(None, "--quality", help="auto, low, medium, high, xhigh, max."),
     size: str = typer.Option(ANCHOR_SIZE, "--size", help="Defaults to a square."),
     count: int = typer.Option(None, "--count", help="How many to make, to choose from."),
+    reference: list[Path] = typer.Option(None, "--reference", help=REFERENCE_HELP),
     name: str = typer.Option(None, "--name", help="What to call the files."),
 ) -> None:
     """Make the front-facing reference a PixelLab character is built from.
@@ -178,20 +242,25 @@ def anchor(
     three-quarter hero pose becomes eight rotations of a character turned sideways.
     """
     try:
-        _anchor(context, prompt, variant, quality, size, count, name)
+        _anchor(context, prompt, variant, quality, size, count, reference, name)
     except PixellabCliError as failure:
         output.handle(failure)
 
 
-def _anchor(context, prompt, variant, quality, size, count, name) -> None:
+def _anchor(context, prompt, variant, quality, size, count, reference, name) -> None:
     app_context: AppContext = context.obj
+    model_name, urls = _references(app_context, reference, variant)
     _execute(
         app_context,
-        model_name=_variant_model(variant, edit=False),
+        model_name=model_name,
         description=f"anchor: {prompt}",
         name=name or "anchor",
         arguments={
-            "prompt": anchor_prompt(prompt),
+            # The framing is the anchor's whole job and does not move when
+            # references are given: they say what the subject looks like, not
+            # how it is posed.
+            "prompt": anchor_prompt(prompt, referenced=bool(urls)),
+            "image_urls": urls,
             "quality": quality,
             "image_size": _size_argument(size),
             # Not an option: a background the character routes have to remove is a
@@ -224,11 +293,7 @@ def edit(
 def _edit(context, files, prompt, mask, variant, quality, size, transparent, name) -> None:
     app_context: AppContext = context.obj
 
-    # Check every file before the first upload. Uploading three of four and then
-    # failing leaves three files on a CDN for nothing.
-    for path in [*files, *([mask] if mask else [])]:
-        if not path.is_file():
-            raise ValidationError(f"{path} is not a file", context={"path": str(path)})
+    _checked([*files, *([mask] if mask else [])], _variant_model(variant, edit=True))
 
     if app_context.dry_run:
         _execute(

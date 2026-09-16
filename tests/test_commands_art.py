@@ -366,3 +366,217 @@ class TestAnchor:
         assert result.exit_code == 0
         assert "facing the viewer" in json.loads(result.stdout)["arguments"]["prompt"]
         assert calls["subscribe"] == []
+
+
+class TestGeneratingFromReferences:
+    """A generating model takes a prompt and nothing else, so a subject that exists
+    as a picture had to be described in words — and a description resembles its
+    subject rather than matching it.
+    """
+
+    @respx.mock
+    def test_a_reference_moves_the_call_to_the_edit_model(self, tmp_path, monkeypatch, calls):
+        respx.get(CONCEPT_URL).respond(content=png_bytes())
+        reference = tmp_path / "hero.png"
+        reference.write_bytes(png_bytes())
+
+        result = invoke(
+            ["art", "concept", "the same hero in a tavern", "--reference", str(reference)],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 0
+        application, arguments = calls["subscribe"][0]
+        assert application == "openai/gpt-image-2.5/sunburst/edit"
+        assert arguments["image_urls"] == [UPLOADED_URL]
+
+    @respx.mock
+    def test_without_a_reference_the_text_model_is_used(self, tmp_path, monkeypatch, calls):
+        respx.get(CONCEPT_URL).respond(content=png_bytes())
+
+        invoke(["art", "concept", "a castle on a cliff"], tmp_path, monkeypatch)
+
+        application, arguments = calls["subscribe"][0]
+        assert application == "openai/gpt-image-2.5/sunburst/text-to-image"
+        assert "image_urls" not in arguments
+
+    @respx.mock
+    def test_the_variant_is_kept_when_references_are_given(self, tmp_path, monkeypatch, calls):
+        respx.get(CONCEPT_URL).respond(content=png_bytes())
+        reference = tmp_path / "hero.png"
+        reference.write_bytes(png_bytes())
+
+        invoke(
+            [
+                "art",
+                "boxart",
+                "the hero at dawn",
+                "--variant",
+                "flare",
+                "--reference",
+                str(reference),
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert calls["subscribe"][0][0] == "openai/gpt-image-2.5/flare/edit"
+
+    @respx.mock
+    def test_several_references_are_all_uploaded(self, tmp_path, monkeypatch, calls):
+        respx.get(CONCEPT_URL).respond(content=png_bytes())
+        first, second = tmp_path / "a.png", tmp_path / "b.png"
+        first.write_bytes(png_bytes())
+        second.write_bytes(png_bytes())
+
+        invoke(
+            [
+                "art",
+                "concept",
+                "the hero and the villain",
+                "--reference",
+                str(first),
+                "--reference",
+                str(second),
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert calls["uploads"] == [str(first), str(second)]
+
+    def test_a_missing_reference_is_refused_before_any_upload(self, tmp_path, monkeypatch, calls):
+        result = invoke(
+            ["art", "concept", "a castle", "--reference", str(tmp_path / "absent.png")],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 2
+        assert calls["uploads"] == []
+        assert calls["subscribe"] == []
+
+    def test_a_dry_run_uploads_nothing(self, tmp_path, monkeypatch, calls):
+        reference = tmp_path / "hero.png"
+        reference.write_bytes(png_bytes())
+
+        result = invoke(
+            ["--dry-run", "art", "concept", "a hero", "--reference", str(reference)],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 0
+        assert calls["uploads"] == []
+        assert calls["subscribe"] == []
+        assert "sunburst/edit" in result.output
+
+    @respx.mock
+    def test_the_references_are_named_in_what_is_reported(self, tmp_path, monkeypatch, calls):
+        respx.get(CONCEPT_URL).respond(content=png_bytes())
+        reference = tmp_path / "hero.png"
+        reference.write_bytes(png_bytes())
+
+        result = invoke(
+            ["art", "concept", "a hero", "--reference", str(reference)], tmp_path, monkeypatch
+        )
+
+        assert "hero.png" in result.output
+
+
+class TestAnAnchorFromReferences:
+    @respx.mock
+    def test_the_anchor_framing_survives_the_references(self, tmp_path, monkeypatch, calls):
+        respx.get(CONCEPT_URL).respond(content=png_bytes())
+        reference = tmp_path / "hero.png"
+        reference.write_bytes(png_bytes())
+
+        invoke(
+            ["art", "anchor", "a chibi warrior", "--reference", str(reference)],
+            tmp_path,
+            monkeypatch,
+        )
+
+        _, arguments = calls["subscribe"][0]
+        assert "facing the viewer head-on" in arguments["prompt"]
+        assert "standing at rest" in arguments["prompt"]
+        assert arguments["background"] == "transparent"
+
+    @respx.mock
+    def test_the_subject_is_taken_from_the_references(self, tmp_path, monkeypatch, calls):
+        respx.get(CONCEPT_URL).respond(content=png_bytes())
+        reference = tmp_path / "hero.png"
+        reference.write_bytes(png_bytes())
+
+        invoke(
+            ["art", "anchor", "a chibi warrior", "--reference", str(reference)],
+            tmp_path,
+            monkeypatch,
+        )
+
+        _, arguments = calls["subscribe"][0]
+        assert "reference images" in arguments["prompt"]
+        assert arguments["image_urls"] == [UPLOADED_URL]
+
+    @respx.mock
+    def test_an_anchor_without_references_says_nothing_about_them(
+        self, tmp_path, monkeypatch, calls
+    ):
+        respx.get(CONCEPT_URL).respond(content=png_bytes())
+
+        invoke(["art", "anchor", "a chibi warrior"], tmp_path, monkeypatch)
+
+        _, arguments = calls["subscribe"][0]
+        assert "reference images" not in arguments["prompt"]
+        assert "facing the viewer head-on" in arguments["prompt"]
+
+
+class TestTheUploadLimitIsCheckedFirst:
+    """The model takes sixteen images. The limit used to be enforced inside
+    `build_request`, which runs after the uploads — so a seventeenth file meant
+    seventeen files on a CDN and a refused call, with the URLs recorded nowhere
+    because the failure came before the ledger line.
+    """
+
+    def references(self, tmp_path, count):
+        paths = []
+        for index in range(count):
+            path = tmp_path / f"ref-{index:02d}.png"
+            path.write_bytes(png_bytes())
+            paths.append(str(path))
+        return paths
+
+    def test_more_references_than_the_model_takes_upload_nothing(
+        self, tmp_path, monkeypatch, calls
+    ):
+        arguments = ["art", "concept", "a hero"]
+        for path in self.references(tmp_path, 17):
+            arguments += ["--reference", path]
+
+        result = invoke(arguments, tmp_path, monkeypatch)
+
+        assert result.exit_code == 2
+        assert calls["uploads"] == []
+        assert "at most 16" in result.output
+
+    @respx.mock
+    def test_the_limit_itself_is_accepted(self, tmp_path, monkeypatch, calls):
+        respx.get(CONCEPT_URL).respond(content=png_bytes())
+        arguments = ["art", "concept", "a hero"]
+        for path in self.references(tmp_path, 16):
+            arguments += ["--reference", path]
+
+        result = invoke(arguments, tmp_path, monkeypatch)
+
+        assert result.exit_code == 0
+        assert len(calls["uploads"]) == 16
+
+    def test_editing_too_many_files_uploads_nothing_either(self, tmp_path, monkeypatch, calls):
+        """`art edit` had the same ordering before references existed."""
+        arguments = ["art", "edit", *self.references(tmp_path, 17), "-p", "make it night"]
+
+        result = invoke(arguments, tmp_path, monkeypatch)
+
+        assert result.exit_code == 2
+        assert calls["uploads"] == []
