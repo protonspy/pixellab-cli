@@ -2,7 +2,7 @@
 autonomy: auto
 ci: wait
 branch: feat/quality-ceiling
-delivery: in-progress
+delivery: merged
 pr: 14
 ---
 
