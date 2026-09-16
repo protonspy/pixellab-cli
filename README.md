@@ -1,9 +1,6 @@
-<p align="center">
-  <img src="docs/media/icon-128.png" width="220" align="right" alt="pixellab-cli icon">
-</p>
-
-
 # pixellab-cli
+
+ <img src="docs/media/icon-128.png" width="220" align="right" alt="pixellab-cli icon">
 
 Generate 2D game assets from the command line. Sprites, characters with eight
 rotations, animations, tilesets, UI panels, pixel fonts and portraits come from
