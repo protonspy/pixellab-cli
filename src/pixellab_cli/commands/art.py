@@ -8,6 +8,7 @@ pixels on a broken grid, which is what `pixellab clean unzoom` exists to undo.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -46,7 +47,36 @@ def _variant_model(variant: str, *, edit: bool) -> str:
 REFERENCE_HELP = "An image to take the subject from. Repeatable, up to sixteen."
 
 
-def _references(app_context: AppContext, references, variant: str) -> tuple[str, list[str] | None]:
+def _upload_limit(model_name: str) -> int | None:
+    """How many images the model takes, from the route table rather than from memory."""
+    for param in fal.model(model_name).params:
+        if param.name == "image_urls":
+            return param.max_items
+    return None
+
+
+def _checked(paths: Sequence[Path], model_name: str) -> None:
+    """Everything that can refuse these files, before the first one is uploaded.
+
+    Existence is the obvious one. The count is the one that bit: the model's limit was
+    enforced inside `build_request`, which runs after the uploads, so seventeen files
+    were pushed to a CDN and then the call was refused — with the URLs written nowhere,
+    because the failure came before the ledger line.
+    """
+    limit = _upload_limit(model_name)
+    if limit is not None and len(paths) > limit:
+        raise ValidationError(
+            f"{len(paths)} images given, and this model takes at most {limit}",
+            context={"given": len(paths), "limit": limit, "model": model_name},
+        )
+    for path in paths:
+        if not path.is_file():
+            raise ValidationError(f"{path} is not a file", context={"path": str(path)})
+
+
+def _references(
+    app_context: AppContext, references: Sequence[Path] | None, variant: str
+) -> tuple[str, list[str] | None]:
     """The model to generate on, and the reference URLs to hand it.
 
     With references this becomes the edit model of the same variant: the generating
@@ -59,10 +89,8 @@ def _references(app_context: AppContext, references, variant: str) -> tuple[str,
     """
     if not references:
         return _variant_model(variant, edit=False), None
-    for path in references:
-        if not path.is_file():
-            raise ValidationError(f"{path} is not a file", context={"path": str(path)})
     model_name = _variant_model(variant, edit=True)
+    _checked(references, model_name)
     output.stderr(
         f"guided by {len(references)} reference(s): {', '.join(path.name for path in references)}"
     )
@@ -265,11 +293,7 @@ def edit(
 def _edit(context, files, prompt, mask, variant, quality, size, transparent, name) -> None:
     app_context: AppContext = context.obj
 
-    # Check every file before the first upload. Uploading three of four and then
-    # failing leaves three files on a CDN for nothing.
-    for path in [*files, *([mask] if mask else [])]:
-        if not path.is_file():
-            raise ValidationError(f"{path} is not a file", context={"path": str(path)})
+    _checked([*files, *([mask] if mask else [])], _variant_model(variant, edit=True))
 
     if app_context.dry_run:
         _execute(

@@ -530,3 +530,53 @@ class TestAnAnchorFromReferences:
         _, arguments = calls["subscribe"][0]
         assert "reference images" not in arguments["prompt"]
         assert "facing the viewer head-on" in arguments["prompt"]
+
+
+class TestTheUploadLimitIsCheckedFirst:
+    """The model takes sixteen images. The limit used to be enforced inside
+    `build_request`, which runs after the uploads — so a seventeenth file meant
+    seventeen files on a CDN and a refused call, with the URLs recorded nowhere
+    because the failure came before the ledger line.
+    """
+
+    def references(self, tmp_path, count):
+        paths = []
+        for index in range(count):
+            path = tmp_path / f"ref-{index:02d}.png"
+            path.write_bytes(png_bytes())
+            paths.append(str(path))
+        return paths
+
+    def test_more_references_than_the_model_takes_upload_nothing(
+        self, tmp_path, monkeypatch, calls
+    ):
+        arguments = ["art", "concept", "a hero"]
+        for path in self.references(tmp_path, 17):
+            arguments += ["--reference", path]
+
+        result = invoke(arguments, tmp_path, monkeypatch)
+
+        assert result.exit_code == 2
+        assert calls["uploads"] == []
+        assert "at most 16" in result.output
+
+    @respx.mock
+    def test_the_limit_itself_is_accepted(self, tmp_path, monkeypatch, calls):
+        respx.get(CONCEPT_URL).respond(content=png_bytes())
+        arguments = ["art", "concept", "a hero"]
+        for path in self.references(tmp_path, 16):
+            arguments += ["--reference", path]
+
+        result = invoke(arguments, tmp_path, monkeypatch)
+
+        assert result.exit_code == 0
+        assert len(calls["uploads"]) == 16
+
+    def test_editing_too_many_files_uploads_nothing_either(self, tmp_path, monkeypatch, calls):
+        """`art edit` had the same ordering before references existed."""
+        arguments = ["art", "edit", *self.references(tmp_path, 17), "-p", "make it night"]
+
+        result = invoke(arguments, tmp_path, monkeypatch)
+
+        assert result.exit_code == 2
+        assert calls["uploads"] == []
