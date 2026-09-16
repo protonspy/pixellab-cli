@@ -2,7 +2,7 @@
 autonomy: auto
 ci: wait
 branch: feat/four-direction-character
-delivery: in-review
+delivery: merged
 pr: 10
 ---
 

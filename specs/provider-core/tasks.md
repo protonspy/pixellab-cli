@@ -15,6 +15,8 @@
   _Reason credentials file asked for after delivery_
 - [x] 1.7 (TDD) Bound the search, and harden the write — R1.9, R1.10, R1.11
   _Reason two reviews found the file boundary and the write path_
+- [x] 1.8 (TDD) Bound the credentials search when home is not an ancestor — R1.11
+  _Reason a shared parent above a project outside the home directory was read_
 
 ## 2 · The route table
 

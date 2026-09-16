@@ -1,9 +1,9 @@
 ---
 autonomy: auto
 ci: wait
-branch: feat/asset-consistency
-delivery: merged
-pr: 4
+branch: fix/credentials-search-boundary
+delivery: in-review
+pr: 11
 ---
 
 # Provider core — requirements
@@ -28,7 +28,7 @@ looks like have to be decided once.
 - **R1.8** (ADDED) When asked to store a credential, the provider core shall read it without echoing it, and shall write it to the credentials file in the user's home directory unless another file is named.
 - **R1.9** (ADDED) Where the platform enforces file permissions, the provider core shall leave the credentials file readable only by its owner; where it does not, the provider core shall say so.
 - **R1.10** (ADDED) If the credentials file cannot be written, then the provider core shall report which path refused it and why, in one line.
-- **R1.11** (ADDED) The provider core shall stop the upward search for a credentials file at the project root and at the user's home directory, and shall ignore a credentials file that another user owns or that its group or everyone can write.
+- **R1.11** (MODIFIED) The provider core shall stop the upward search for a credentials file at the project root and at the user's home directory, shall not search above the working directory where the working directory is not inside the user's home directory, and shall ignore a credentials file that another user owns or that its group or everyone can write.
 - **R1.3** The provider core shall redact credential values from every error, message and record it produces.
 
 ## R2 · Requests
