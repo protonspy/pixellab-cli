@@ -229,7 +229,9 @@ class TestTheKeyReachesFal:
             def __init__(self, key=None, **_):
                 keys.append(key)
 
-            def subscribe(self, application, arguments):
+            def subscribe(self, application, arguments, on_enqueue=None):
+                if on_enqueue is not None:
+                    on_enqueue("req-fake")
                 return {"images": []}
 
             def upload_file(self, path):
@@ -241,9 +243,12 @@ class TestTheKeyReachesFal:
         return FakeSyncClient
 
     def test_generating_passes_the_configured_key(self, recording_client):
+        """Every client made during one call gets it: generating asks for one, and
+        reading the finished job's timing asks for another."""
         FalClient(CREDENTIALS).generate("concept", prompt="a castle")
 
-        assert recording_client.keys == ["fal-test-key"]
+        assert recording_client.keys
+        assert set(recording_client.keys) == {"fal-test-key"}
 
     def test_uploading_passes_the_configured_key(self, recording_client, tmp_path):
         source = tmp_path / "sprite.png"
@@ -258,3 +263,97 @@ class TestTheKeyReachesFal:
             FalClient(Credentials()).generate("concept", prompt="a castle")
 
         assert recording_client.keys == []
+
+
+class TestTheTimeIsReadOffTheFinishedJob:
+    """fal publishes no price for these endpoints and reports no usage on the
+    generation response, so `cost` held nothing at all. The queue's status for a
+    finished request carries `metrics.inference_time` — the unit fal bills a
+    time-priced model on, and the one thing here that can be known rather than
+    guessed.
+    """
+
+    def statuses(self, metrics, record=None):
+        def status(application, request_id):
+            if record is not None:
+                record.append((application, request_id))
+            return {"metrics": metrics}
+
+        return status
+
+    @respx.mock
+    def test_the_time_reaches_the_result(self):
+        respx.get(CONCEPT_URL).respond(content=IMAGE_BYTES)
+        client = FalClient(
+            CREDENTIALS,
+            subscribe=subscribe_returning(
+                {"images": [{"url": CONCEPT_URL}], "request_id": "req-1"}
+            ),
+            status=self.statuses({"inference_time": 3.42}),
+        )
+
+        assert client.generate("concept", prompt="a castle").seconds == 3.42
+
+    @respx.mock
+    def test_it_asks_about_the_request_it_just_made(self):
+        respx.get(CONCEPT_URL).respond(content=IMAGE_BYTES)
+        asked: list = []
+        client = FalClient(
+            CREDENTIALS,
+            subscribe=subscribe_returning(
+                {"images": [{"url": CONCEPT_URL}], "request_id": "req-9"}
+            ),
+            status=self.statuses({"inference_time": 1.0}, asked),
+        )
+
+        client.generate("concept", prompt="a castle")
+
+        assert asked == [("openai/gpt-image-2.5/sunburst/text-to-image", "req-9")]
+
+    @respx.mock
+    def test_a_status_that_will_not_answer_leaves_the_time_unknown(self):
+        """The work is already paid for by the time we ask, so a failure here must
+        not turn a finished generation into an error."""
+        respx.get(CONCEPT_URL).respond(content=IMAGE_BYTES)
+
+        def refuse(application, request_id):
+            raise RuntimeError("the queue said no")
+
+        client = FalClient(
+            CREDENTIALS,
+            subscribe=subscribe_returning(
+                {"images": [{"url": CONCEPT_URL}], "request_id": "req-1"}
+            ),
+            status=refuse,
+        )
+
+        result = client.generate("concept", prompt="a castle")
+
+        assert result.seconds is None
+        assert result.images == [IMAGE_BYTES]
+
+    @respx.mock
+    def test_a_status_without_metrics_leaves_the_time_unknown(self):
+        respx.get(CONCEPT_URL).respond(content=IMAGE_BYTES)
+        client = FalClient(
+            CREDENTIALS,
+            subscribe=subscribe_returning(
+                {"images": [{"url": CONCEPT_URL}], "request_id": "req-1"}
+            ),
+            status=self.statuses(None),
+        )
+
+        assert client.generate("concept", prompt="a castle").seconds is None
+
+    @respx.mock
+    def test_no_request_id_means_nothing_to_ask_about(self):
+        respx.get(CONCEPT_URL).respond(content=IMAGE_BYTES)
+        asked: list = []
+        client = FalClient(
+            CREDENTIALS,
+            subscribe=subscribe_returning({"images": [{"url": CONCEPT_URL}]}),
+            status=self.statuses({"inference_time": 3.42}, asked),
+        )
+
+        assert client.generate("concept", prompt="a castle").seconds is None
+        assert asked == []

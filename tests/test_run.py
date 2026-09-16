@@ -421,3 +421,56 @@ class TestTheDirectoryIsTheIdentity:
         empty = tmp_path / "out" / "warrior" / "rotations" / "v1"
         assert empty.is_dir()
         assert list(empty.iterdir()) == []
+
+
+class TestWhatAFalCallRecords:
+    def result(self, seconds):
+        return FalResult(
+            model="openai/gpt-image-2.5/sunburst/edit",
+            images=[PIXELS],
+            request_id="req-1",
+            seconds=seconds,
+        )
+
+    def test_a_measured_time_is_recorded_as_measured(self):
+        cost = from_fal(self.result(3.42)).cost
+
+        assert cost.seconds == 3.42
+        assert cost.source == "measured"
+
+    def test_money_stays_empty_because_no_price_is_published(self):
+        """A number nobody checked is worse than an empty field, because a total
+        will add it up."""
+        assert from_fal(self.result(3.42)).cost.usd is None
+
+    def test_no_time_is_still_unknown_rather_than_measured(self):
+        cost = from_fal(self.result(None)).cost
+
+        assert cost.seconds is None
+        assert cost.source == "unknown"
+
+    def test_the_manifest_carries_the_time(self, tmp_path):
+        workspace = Workspace(root=tmp_path / "out", clock=lambda: MOMENT)
+        runner = Runner(
+            workspace=workspace,
+            ledger=Ledger(path=workspace.ledger_path, clock=lambda: MOMENT),
+        )
+
+        outcome = runner.run(
+            description="a castle",
+            provider="fal",
+            route="openai/gpt-image-2.5/sunburst/edit",
+            arguments={},
+            call=lambda: self.result(3.42),
+            translate=from_fal,
+            subject="warrior",
+            kind="concept",
+        )
+
+        recorded = json.loads(outcome.manifest.read_text(encoding="utf-8"))["cost"]
+        assert recorded == {
+            "generations": 0.0,
+            "usd": None,
+            "source": "measured",
+            "seconds": 3.42,
+        }

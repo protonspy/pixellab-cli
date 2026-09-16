@@ -39,7 +39,9 @@ going to be pixel art at all — a box cover, a store banner, a title screen.
 
 ## R4 · Cost
 
-- **R4.1** The concept art commands shall record every call in the ledger with its cost marked as unknown, because fal reports no usage and this project has no confirmed price for these models.
+- **R4.1** (MODIFIED) The concept art commands shall record every call in the ledger, with the money it cost left empty, because this project has no confirmed price for these models.
+- **R4.3** (ADDED) When a call finishes, the concept art commands shall read how long the provider says the work took and record it against that call, marked as measured.
+- **R4.4** (ADDED) If the provider will not say how long the work took, then the concept art commands shall record the cost as unknown and shall not fail a generation that already succeeded.
 - **R4.2** While a dry run is asked for, the concept art commands shall report the model and the arguments and shall upload nothing and call nothing.
 
 ## R5 · The anchor

@@ -25,6 +25,7 @@ SCHEMA = 1
 
 REPORTED = "reported"
 ESTIMATED = "estimated"
+MEASURED = "measured"
 UNKNOWN = "unknown"
 
 
@@ -32,14 +33,21 @@ UNKNOWN = "unknown"
 class Cost:
     """What a call cost, and who says so.
 
-    Three sources rather than a number with a footnote: a caller deciding whether
-    to trust a total needs to tell "the provider told us" from "our table says"
-    from "nobody knows". fal is the third case.
+    Four sources rather than a number with a footnote: a caller deciding whether to
+    trust a total needs to tell "the provider told us" from "our table says" from
+    "we read it off the finished job" from "nobody knows".
+
+    `seconds` is how long the provider says the work took. fal publishes no price
+    for these endpoints and reports no usage on the response, so the time is the
+    only thing about a fal call that can be known rather than guessed — and it is
+    what fal bills a time-priced model on. `usd` stays None there: a number nobody
+    checked is worse than an empty field, because a total will add it up.
     """
 
     generations: float = 0.0
     usd: float | None = 0.0
     source: str = ESTIMATED
+    seconds: float | None = None
 
     def as_json(self) -> dict[str, Any]:
         return asdict(self)

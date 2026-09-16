@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from pixellab_cli.errors import PixellabCliError, redact
-from pixellab_cli.ledger import ESTIMATED, REPORTED, UNKNOWN, Cost, Ledger
+from pixellab_cli.ledger import ESTIMATED, MEASURED, REPORTED, UNKNOWN, Cost, Ledger
 from pixellab_cli.workspace import Workspace, asset_filename
 
 MANIFEST_SCHEMA = 1
@@ -60,15 +60,20 @@ def from_pixellab(result: Any) -> Produced:
 def from_fal(result: Any) -> Produced:
     """A `fal.FalResult` as something a run can write.
 
-    fal reports no usage and this project has no confirmed price for these
-    endpoints, so the cost is recorded as unknown rather than as a number nobody
-    checked. See docs/wiki/pages/fal-platform.md.
+    fal publishes no price for these endpoints, so the cost in money stays empty
+    rather than becoming a number nobody checked. What it will say is how long the
+    finished job took, which is the unit it bills a time-priced model on. See
+    docs/wiki/pages/fal-platform.md.
     """
     ids = {"request_id": result.request_id} if result.request_id else {}
+    # Time when fal would say how long it took, unknown when it would not. The unit
+    # is what fal bills a time-priced model on, and it is read off the finished job
+    # rather than guessed from a price nobody published.
+    source = MEASURED if result.seconds is not None else UNKNOWN
     return Produced(
         images=list(result.images),
         ids=ids,
-        cost=Cost(generations=0.0, usd=result.usd, source=UNKNOWN),
+        cost=Cost(generations=0.0, usd=result.usd, source=source, seconds=result.seconds),
         raw=result.raw,
     )
 
