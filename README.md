@@ -1,6 +1,6 @@
-# pixellab-cli
+<img src="https://raw.githubusercontent.com/protonspy/pixellab-cli/main/docs/media/banner.png" alt="pixellab-cli - 2D game assets from the command line">
 
- <img src="docs/media/icon-128.png" width="220" align="right" alt="pixellab-cli icon">
+# pixellab-cli
 
 Generate 2D game assets from the command line. Sprites, characters with eight
 rotations, animations, tilesets, UI panels, pixel fonts and portraits come from
@@ -243,7 +243,7 @@ MIT.
 
 ---
 
-<sub>The icon is 64x64, fourteen colours, and was drawn by this tool:
+<sub>The banner and the icon were both drawn by this tool. The icon is 64x64, fourteen colours:
 <code>pixellab-cli sprite "a dark terminal window … one small knight … lit green by the screen"
 --size 64 --transparent --shading "flat shading" --detail "low detail"</code></sub>
 
