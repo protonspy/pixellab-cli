@@ -60,6 +60,7 @@ def choose_edit_route(image_count: int, *, has_reference: bool) -> str:
 def _execute(
     app_context: AppContext,
     *,
+    kind: str,
     route_name: str,
     description: str,
     arguments: dict[str, Any],
@@ -84,6 +85,8 @@ def _execute(
 
     client = app_context.pixellab()
     outcome = app_context.runner.run(
+        subject=app_context.subject,
+        kind=kind,
         description=description,
         provider="pixellab",
         route=route.name,
@@ -133,6 +136,7 @@ def _edit(context, files, prompt, match, size, transparent, name, seed) -> None:
         target = parse_size(size) if size else None
         _execute(
             app_context,
+            kind="sprites",
             route_name=SINGLE_ROUTE,
             description=f"{files[0].stem}: {prompt}",
             name=name or f"{files[0].stem}-edited",
@@ -150,6 +154,7 @@ def _edit(context, files, prompt, match, size, transparent, name, seed) -> None:
     first = loaded[0]
     _execute(
         app_context,
+        kind="sprites",
         route_name=BATCH_ROUTE,
         description=f"{files[0].stem}: {prompt or 'match a reference'}",
         name=name or f"{files[0].stem}-edited",
@@ -215,6 +220,7 @@ def _inpaint(context, file, mask, prompt, transparent, keep_canvas, name, seed) 
 
     _execute(
         app_context,
+        kind="sprites",
         route_name=INPAINT_ROUTE,
         description=f"{file.stem}: {prompt}",
         name=name or f"{file.stem}-inpainted",
@@ -264,6 +270,7 @@ def _outfit(context, frames, reference, prompt, size, transparent, name, seed) -
 
     _execute(
         app_context,
+        kind="animations",
         route_name=OUTFIT_ROUTE,
         description=f"{frames[0].stem}: {reference.stem}",
         name=name or f"{frames[0].stem}-{reference.stem}",

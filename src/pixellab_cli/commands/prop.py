@@ -96,6 +96,8 @@ def _new(context, description, directions, size, view, style, reference, name) -
 
     client = app_context.pixellab()
     outcome = app_context.runner.run(
+        subject=app_context.subject,
+        kind="rotations",
         description=description,
         provider="pixellab",
         route=route.name,

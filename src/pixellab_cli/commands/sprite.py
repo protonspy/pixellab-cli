@@ -143,6 +143,8 @@ def _sprite(
 
     client = app_context.pixellab()
     outcome = app_context.runner.run(
+        subject=app_context.subject,
+        kind="sprites",
         description=description,
         provider="pixellab",
         route=route.name,

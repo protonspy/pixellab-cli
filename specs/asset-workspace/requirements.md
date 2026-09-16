@@ -1,8 +1,8 @@
 ---
 autonomy: auto
 ci: wait
-branch: feat/foundation
-delivery: merged
+branch: feat/output-by-subject
+delivery: in-progress
 pr: 1
 ---
 
@@ -18,7 +18,10 @@ A file nobody can account for is worth less than the same file with a manifest.
 ## R1 · The workspace
 
 - **R1.1** The asset workspace shall write generated files under a directory the user names, defaulting to `pixellab-out/` in the working directory.
-- **R1.2** The asset workspace shall place each run's files in their own directory, named so that the runs of one day sort in the order they happened.
+- **R1.2** (MODIFIED) Where no subject is named, the asset workspace shall place each run's files in their own directory, named so that the runs of one day sort in the order they happened.
+- **R1.5** (ADDED) Where a subject is named, the asset workspace shall write each run's files under that subject and the kind of asset the run produced, so that one subject's work is one directory.
+- **R1.6** (ADDED) The asset workspace shall reduce a named subject to letters, digits and hyphens before it reaches the filesystem.
+- **R1.7** (ADDED) Where a subject is named, the asset workspace shall leave runs written before it alone, because a run already recorded is not rewritten.
 - **R1.3** If a file it is about to write already exists, then the asset workspace shall write alongside it under a distinct name rather than overwriting it.
 - **R1.4** The asset workspace shall name the files it writes after the asset, not after the provider's identifier.
 
@@ -30,7 +33,10 @@ A file nobody can account for is worth less than the same file with a manifest.
 
 ## R2 · The manifest
 
-- **R2.1** When a run writes an asset, the asset workspace shall write a manifest beside it holding the run identifier, the provider and route, the parameters sent, the seed, and the identifiers the provider assigned.
+- **R2.1** (MODIFIED) When a run writes an asset, the asset workspace shall write a manifest holding the run identifier, the provider and route, the parameters sent, the seed, and the identifiers the provider assigned, beside the asset where no subject is named and under the subject's own manifest directory where one is.
+- **R2.4** (ADDED) The asset workspace shall record in each manifest the files its run wrote, so that an asset separated from its manifest can still be traced back to the call that made it.
+- **R2.5** (ADDED) Where a subject is named, the asset workspace shall take a run's identifier by creating that run's manifest before the call is made, so that two runs cannot be given one identifier.
+- **R2.6** (ADDED) If a call fails after its identifier was taken, then the asset workspace shall record the failure in that manifest rather than release the identifier, because the ledger tells one call from another by it.
 - **R2.2** The asset workspace shall record in the manifest whether the reported cost came from the provider or from the tool's own estimate.
 - **R2.3** The manifest shall not contain a credential value or an encoded image payload.
 

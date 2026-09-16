@@ -49,6 +49,7 @@ def _announce(route) -> Cost:
 def _execute(
     app_context: AppContext,
     *,
+    kind: str,
     route_name: str,
     description: str,
     arguments: dict[str, Any],
@@ -71,6 +72,8 @@ def _execute(
 
     client = app_context.pixellab()
     outcome = app_context.runner.run(
+        subject=app_context.subject,
+        kind=kind,
         description=description,
         provider="pixellab",
         route=route.name,
@@ -114,6 +117,7 @@ def _ui(context, description, size, element, palette, style, name, seed) -> None
     app_context: AppContext = context.obj
     _execute(
         app_context,
+        kind="interface",
         route_name="create-ui-asset",
         description=description,
         name=name or "ui-panel",
@@ -193,6 +197,8 @@ def _font(context, description, bold, regular, glyph_px, font_name, name, seed) 
         return result
 
     outcome = app_context.runner.run(
+        subject=app_context.subject,
+        kind="interface",
         description=description,
         provider="pixellab",
         route=route.name,
@@ -256,6 +262,7 @@ def _portrait(context, file, to_portrait, to_character, size, view, name, seed) 
 
     _execute(
         app_context,
+        kind="portraits",
         route_name="portrait-character-pro",
         description=f"{file.stem} as a {'portrait' if to_portrait else 'character'}",
         name=name or f"{file.stem}-{'portrait' if to_portrait else 'character'}",

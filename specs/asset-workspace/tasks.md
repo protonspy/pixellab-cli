@@ -38,3 +38,15 @@
 - [x] 5.1 (TDD) Resolve every read and write against the workspace root and refuse anything outside it — R5.1, R5.3
 - [x] 5.2 (TDD) Reduce a caller-supplied file name to letters, digits and hyphens before it reaches the filesystem — R5.2
   _Depends 5.1_
+
+## 6 · One subject, one directory
+
+- [x] 6.1 (Unit) Take a named subject and write each run under it and the kind of asset it produced — R1.5, R1.6
+  _Reason a workspace of timestamped run directories does not say which of them belong to one character_
+- [x] 6.2 (Unit) Keep the timestamped run directory where no subject is named, and leave earlier runs alone — R1.2, R1.7
+  _Depends 6.1_
+- [x] 6.3 (Unit) Put a subject's manifests under the subject rather than beside each asset, naming the files each run wrote — R2.1, R2.4
+  _Depends 6.1_
+- [x] 6.4 (TDD) Take a run's identifier by creating its manifest, and fill that manifest when the call fails rather than releasing the name — R2.5, R2.6
+  _Depends 6.1_
+  _Reason review found a failed call freeing its identifier, so a retry in the same minute took it again and the ledger held four lines it could not separate into two calls_
