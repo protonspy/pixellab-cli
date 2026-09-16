@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pixellab_cli import images
+from pixellab_cli import fal, images
 from pixellab_cli.errors import ProviderError
 from pixellab_cli.prompts import anchor_prompt
 from pixellab_cli.recipe import Recipe, Step
@@ -40,7 +40,10 @@ def _concept_arguments(description: str, transparent: bool):
             # the image as the south frame.
             "prompt": anchor_prompt(description),
             "background": "transparent" if transparent else None,
-            "quality": "high",
+            # The same tier every other form sends, from the same place: a recipe
+            # that kept its own would go on generating at `high` after the default
+            # moved, and nobody asked it to.
+            "quality": fal.DEFAULT_QUALITY,
         }
 
     return build

@@ -422,3 +422,15 @@ class TestTheConceptStepIsAnAnchor:
         )
 
         assert step.arguments({})["prompt"] == anchor_prompt("a knight")
+
+
+class TestARecipeGeneratesAtTheSameTier:
+    def test_the_concept_step_sends_the_shared_default(self):
+        """A recipe that kept its own tier would go on generating at `high` after the
+        default moved, and nobody asked it to."""
+        from pixellab_cli import fal, recipes
+
+        build = recipes._concept_arguments("a chibi warrior", transparent=True)
+
+        assert build({})["quality"] == fal.DEFAULT_QUALITY
+        assert build({})["quality"] != "high"

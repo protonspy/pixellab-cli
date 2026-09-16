@@ -21,11 +21,36 @@ from typing import Any
 import httpx
 
 from pixellab_cli.config import Credentials
-from pixellab_cli.errors import ProviderError
+from pixellab_cli.errors import ProviderError, ValidationError
 from pixellab_cli.routes import Param, ParamKind, Route, RouteKind
 from pixellab_cli.validate import build_request
 
 QUALITY = ("auto", "low", "medium", "high", "xhigh", "max")
+# The tier this tool generates at unless told otherwise, and the highest one it will
+# send. fal accepts `xhigh` and `max`; they are the same picture for more money. The
+# default is sent rather than omitted, because an omitted tier lets fal apply its own,
+# which is `high` — so leaving it out was never neutral.
+DEFAULT_QUALITY = "medium"
+QUALITY_CEILING = "high"
+QUALITY_OFFERED = QUALITY[: QUALITY.index(QUALITY_CEILING) + 1]
+
+
+def quality_to_send(value: str | None) -> str:
+    """The tier to send, refusing one above the ceiling this tool offers.
+
+    Refusing rather than quietly lowering: a caller who asked for `max` and silently
+    got `medium` would have no way to tell.
+    """
+    tier = value or DEFAULT_QUALITY
+    if tier not in QUALITY_OFFERED:
+        raise ValidationError(
+            f"{tier!r} is above {QUALITY_CEILING!r}, which is as high as this tool goes. "
+            f"Use one of: {', '.join(QUALITY_OFFERED)}.",
+            context={"quality": tier, "ceiling": QUALITY_CEILING},
+        )
+    return tier
+
+
 BACKGROUND = ("auto", "transparent", "opaque")
 OUTPUT_FORMAT = ("jpeg", "png", "webp")
 
