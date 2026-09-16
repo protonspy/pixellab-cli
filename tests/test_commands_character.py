@@ -18,6 +18,7 @@ from pixellab_cli.commands.character import (
     frame_for_reference,
     known_templates,
     ordered_rotations,
+    resolve_template,
 )
 from pixellab_cli.config import PIXELLAB_BASE_URL, PIXELLAB_SECRET_VAR
 from pixellab_cli.errors import ValidationError
@@ -1067,3 +1068,74 @@ class TestFrameForReference:
 
         body = json.loads(create.calls.last.request.content)
         assert body["image_size"] == {"width": 32, "height": 32}
+
+
+class TestResolvingAnActionToATemplate:
+    """The match is narrow on purpose. A looser one substitutes a motion nobody
+    asked for and charges for it.
+    """
+
+    def test_an_exact_name_wins(self):
+        assert resolve_template("walking", "mannequin", None) == "walking"
+
+    def test_the_case_and_the_spaces_do_not_matter(self):
+        assert resolve_template("  Walking ", "mannequin", None) == "walking"
+
+    def test_a_prefix_alone_is_not_a_match(self):
+        """`running-jump` is the shortest mannequin name starting with `run`, and it
+        is a jump. Asking for a run and being charged for a jump is worse than
+        falling through to a description."""
+        assert resolve_template("run", "mannequin", None) is None
+
+    def test_the_frame_count_asked_for_is_the_only_one_tried(self):
+        assert resolve_template("walk", "dog", 4) == "walk-4-frames"
+        assert resolve_template("walk", "dog", 5) is None
+
+    def test_an_action_no_skeleton_knows_resolves_to_nothing(self):
+        assert resolve_template("juggling three apples", "mannequin", None) is None
+
+    def test_an_unknown_family_searches_every_family(self):
+        assert resolve_template("walking", None, None) == "walking"
+
+
+class TestTheDryRunPredictsTheRealCall:
+    @respx.mock
+    def test_a_character_without_a_skeleton_is_previewed_as_free_text(self, tmp_path, monkeypatch):
+        """The preview picked a template mode and its cheaper tier for a character
+        that would really have been charged per frame."""
+        respx.get(f"{PIXELLAB_BASE_URL}/characters/char-9").respond(
+            json={"id": "char-9", "template_id": "mannequin", "skeletons": {}}
+        )
+
+        result = invoke(
+            ["--dry-run", "character", "animate", "char-9", "-a", "walking"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 0
+        assert "8 generations" in result.output
+
+    @respx.mock
+    def test_a_character_with_a_skeleton_is_previewed_as_driven(self, tmp_path, monkeypatch):
+        respx.get(f"{PIXELLAB_BASE_URL}/characters/char-9").respond(
+            json={"id": "char-9", "template_id": "mannequin", "skeletons": {"south": {}}}
+        )
+
+        result = invoke(
+            ["--dry-run", "character", "animate", "char-9", "-a", "walking"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 0
+        assert "skeleton knows" in result.output
+
+    @respx.mock
+    def test_a_character_that_does_not_exist_is_reported(self, tmp_path, monkeypatch):
+        respx.get(f"{PIXELLAB_BASE_URL}/characters/char-9").respond(json={})
+
+        result = invoke(["character", "animate", "char-9", "-a", "walking"], tmp_path, monkeypatch)
+
+        assert result.exit_code == 2
+        assert "char-9" in result.output

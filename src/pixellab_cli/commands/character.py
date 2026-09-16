@@ -71,8 +71,13 @@ def resolve_template(action: str, family: str | None, frames: int | None) -> str
     than describing the motion in words — `-a walking` as free text drifted in pose
     and scale where the `mannequin` skeleton carried a template of that exact name.
 
-    `family` is the character's own `template_id`. Without it every family is
-    searched, which is what a dry run does rather than reaching the network.
+    The match is deliberately narrow: the template's name is the action, or the action
+    with an explicit frame count after it. Anything looser substitutes a motion nobody
+    asked for — matching `run` against the shortest name starting with it picks
+    `running-jump`, which is a jump, and charges for it.
+
+    `family` is the character's own `template_id`. Without it every family is searched,
+    which is what a character whose skeleton could not be read falls back to.
     """
     catalogue = load_templates().get("families", {})
     names = set(catalogue.get(family, [])) if family else known_templates()
@@ -83,35 +88,28 @@ def resolve_template(action: str, family: str | None, frames: int | None) -> str
     if wanted in names:
         return wanted
 
-    for count in (frames, _FRAME_DEFAULT):
-        if count and (variant := f"{wanted}-{count}-frames") in names:
-            return variant
-
-    starting = sorted(name for name in names if name.startswith(wanted))
-    if not starting:
-        return None
-    if frames:
-        for name in starting:
-            if name.endswith(f"-{frames}-frames"):
-                return name
-    return min(starting, key=lambda name: (len(name), name))
+    # Only the count the caller asked for. Substituting the route's default here sends
+    # a template of eight frames alongside a `frame_count` of five, and neither the
+    # request nor the caller is told which one won.
+    count = frames or _FRAME_DEFAULT
+    variant = f"{wanted}-{count}-frames"
+    return variant if variant in names else None
 
 
 def _skeleton_of(app_context, character_id: str) -> tuple[bool, str | None]:
     """Whether this character has a skeleton, and which family of motions it knows.
 
-    Free, and it decides whether the animation is driven or described. The two
-    answers are separate on purpose: no skeleton means free text, while a skeleton
-    whose family we could not read still animates from the skeleton, searching every
-    family for the motion.
+    Free, and it decides whether the animation is driven or described — and therefore
+    what it costs, so a dry run asks too rather than assuming an answer that would
+    make its estimate a different number from the bill.
+
+    A failure here is not swallowed: a character id that names nothing, or a
+    credential that does not work, is reported rather than turned into a guess.
     """
-    try:
-        payload = app_context.pixellab().call("character", character_id=character_id).raw
-    except PixellabCliError:
-        return True, None
-    if not payload.get("skeletons"):
-        return False, None
-    return True, payload.get("template_id")
+    payload = app_context.pixellab().call("character", character_id=character_id).raw
+    if not payload:
+        raise ValidationError(f"no character {character_id!r} on this account")
+    return bool(payload.get("skeletons")), payload.get("template_id")
 
 
 def _frame_default(route) -> int:
@@ -480,9 +478,7 @@ def _animate(
     # template of that exact name, and what came back drifted in pose and scale
     # rather than taking a step.
     if action and not template:
-        driven, family = (
-            (True, None) if app_context.dry_run else _skeleton_of(app_context, character_id)
-        )
+        driven, family = _skeleton_of(app_context, character_id)
         if driven and (resolved := resolve_template(action, family, frames)):
             template, action = resolved, None
             output.stderr(

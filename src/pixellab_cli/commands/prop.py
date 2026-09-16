@@ -79,7 +79,7 @@ def _new(context, description, directions, size, view, style, reference, name) -
         if reference is not None:
             raise ValidationError("--reference needs --directions 8")
         if style is not None:
-            arguments["style_images"] = [_load(style).as_payload()]
+            arguments["style_images"] = [_load(style)]
             arguments["size"] = None
 
     body = build_request(route, arguments)

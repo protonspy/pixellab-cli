@@ -187,7 +187,7 @@ def _colors(context, files, count, palette, dither) -> None:
         description=f"{files[0].stem} on a reduced palette",
         name=f"{files[0].stem}-reduced",
         arguments={
-            "images": [frame.as_payload() for frame in frames],
+            "images": list(frames),
             "num_colors": count,
             "palette_image": _load(palette) if palette else None,
             "dithering": dither,
@@ -217,7 +217,7 @@ def _correct(context, files, strength) -> None:
         description=f"{files[0].stem} corrected",
         name=f"{files[0].stem}-corrected",
         arguments={
-            "images": [frame.as_payload() for frame in frames],
+            "images": list(frames),
             "strength": strength,
         },
     )

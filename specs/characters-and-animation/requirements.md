@@ -39,6 +39,8 @@ different endpoint family and no skeleton.
 - **R2.7** (ADDED) Where the long-form animation route is used, the character commands shall report that it is priced by generation time rather than by a fixed tier, so that the estimate is a weaker claim than usual.
 - **R2.8** (ADDED) Where a character has a skeleton and the action asked for names a motion that skeleton's template family knows, the character commands shall animate it from the skeleton rather than from the description, and shall say which motion was used.
 - **R2.9** (ADDED) Where a character has no skeleton, the character commands shall animate it from the action description.
+- **R2.10** (ADDED) While a dry run is asked for, the character commands shall determine the animation mode the real call would use, so that the estimate reported is the one that would be charged.
+- **R2.11** (ADDED) If the character named cannot be read, then the character commands shall say so rather than continuing on an assumption about its skeleton.
 
 ## R3 · Rotating
 
