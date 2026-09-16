@@ -2,7 +2,7 @@
 autonomy: auto
 ci: wait
 branch: feat/output-by-subject
-delivery: in-progress
+delivery: merged
 pr: 1
 ---
 
