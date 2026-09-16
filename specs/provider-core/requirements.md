@@ -2,7 +2,7 @@
 autonomy: auto
 ci: wait
 branch: fix/paid-call-defects
-delivery: in-review
+delivery: merged
 pr: 13
 ---
 
