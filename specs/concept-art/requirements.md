@@ -23,6 +23,9 @@ going to be pixel art at all — a box cover, a store banner, a title screen.
 - **R1.4** When several images are asked for, the concept art commands shall write every one of them.
 - **R1.5** (ADDED) Where reference images are given to a generating form, the concept art commands shall upload them, generate on the edit model of the same variant, and name the references in what they report.
 - **R1.6** (ADDED) Where no reference image is given, the concept art commands shall generate from the description alone, on the text-to-image model.
+- **R1.7** (ADDED) The concept art commands shall send a quality tier on every call rather than omit it, because an omitted tier lets the provider apply its own.
+- **R1.8** (ADDED) Where no quality tier is named, the concept art commands shall generate at the middle tier.
+- **R1.9** (ADDED) If a quality tier above the highest this tool offers is named, then the concept art commands shall refuse before calling, naming the tiers that would have worked, rather than quietly generating at a lower one.
 
 ## R2 · Editing
 
@@ -33,9 +36,6 @@ going to be pixel art at all — a box cover, a store banner, a title screen.
 ## R3 · Box art
 
 - **R3.1** (MODIFIED) The concept art commands shall offer a box art form that defaults to a cover-shaped size, without preventing that default from being overridden.
-- **R1.7** (ADDED) The concept art commands shall send a quality tier on every call rather than omit it, because an omitted tier lets the provider apply its own.
-- **R1.8** (ADDED) Where no quality tier is named, the concept art commands shall generate at the middle tier.
-- **R1.9** (ADDED) If a quality tier above the highest this tool offers is named, then the concept art commands shall refuse before calling, naming the tiers that would have worked, rather than quietly generating at a lower one.
 
 ## R4 · Cost
 
