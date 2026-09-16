@@ -14,9 +14,10 @@ import pytest
 from pixellab_cli.errors import JobFailed, ProviderError
 from pixellab_cli.fal import FalResult
 from pixellab_cli.ledger import Cost, Ledger
+from pixellab_cli.output import describe_cost
 from pixellab_cli.pixellab import Result, Usage
 from pixellab_cli.run import Runner, from_fal, from_pixellab
-from pixellab_cli.workspace import Workspace
+from pixellab_cli.workspace import Workspace, slugify
 
 MOMENT = datetime(2026, 9, 14, 21, 31, tzinfo=UTC)
 PIXELS = b"\x89PNG\r\n\x1a\nsprite"
@@ -380,7 +381,7 @@ class TestTheDirectoryIsTheIdentity:
     def test_the_name_says_where_the_run_landed(self, subject_runner):
         outcome = run(subject_runner, subject="warrior tibiame", kind="box-art")
 
-        assert outcome.run_id == "warrior-tibiame-box-art-v1"
+        assert outcome.run_id == "warrior-tibiame_box-art_v1"
 
     def test_the_same_description_twice_in_one_minute_gets_two_names(self, subject_runner):
         first = run(subject_runner, subject="warrior", kind="box-art")
@@ -474,3 +475,93 @@ class TestWhatAFalCallRecords:
             "source": "measured",
             "seconds": 3.42,
         }
+
+
+class TestTwoRunsNeverShareOneName:
+    """The ledger decides whether a call was ever settled by this string alone, so
+    two unrelated runs sharing one is worse here than anywhere else: a crashed run
+    would be reported as resolved by a stranger's outcome.
+    """
+
+    def workspace(self, tmp_path) -> Workspace:
+        return Workspace(root=tmp_path / "out", clock=lambda: MOMENT)
+
+    def test_a_hyphen_in_a_name_does_not_merge_two_directories(self, tmp_path):
+        """`ab-c/d` and `ab/c-d` are different places. Joined on a hyphen they were
+        the same identifier, because `slugify` allows hyphens inside a part."""
+        workspace = self.workspace(tmp_path)
+
+        first = workspace.run_directory("x", subject="ab-c", kind="d")
+        second = workspace.run_directory("x", subject="ab", kind="c-d")
+
+        assert first != second
+        assert workspace.run_name(first) != workspace.run_name(second)
+
+    def test_the_separator_is_one_slugify_cannot_produce(self, tmp_path):
+        """Every run of non-alphanumeric characters becomes `-`, so `_` can only ever
+        be the join — which is what makes the name reversible."""
+        workspace = self.workspace(tmp_path)
+
+        assert slugify("a_b") == "a-b"
+        name = workspace.run_name(
+            workspace.run_directory("x", subject="Warrior TibiaME", kind="box art")
+        )
+        assert name == "warrior-tibiame_box-art_v1"
+
+    def test_a_directory_outside_the_root_falls_back_to_its_own_name(self, tmp_path):
+        workspace = self.workspace(tmp_path)
+
+        assert workspace.run_name(tmp_path / "elsewhere") == "elsewhere"
+
+
+class TestLooseFilesInAKindAreLeftAlone:
+    """A kind can already hold files from before versions existed. They were paid
+    for and recorded, and a manifest naming one would stop being true if it moved.
+    """
+
+    def test_the_first_version_is_v1_even_beside_loose_files(self, tmp_path):
+        workspace = Workspace(root=tmp_path / "out", clock=lambda: MOMENT)
+        kind = tmp_path / "out" / "warrior" / "box-art"
+        kind.mkdir(parents=True)
+        loose = kind / "warrior-cover.png"
+        loose.write_bytes(b"already here")
+
+        directory = workspace.run_directory("x", subject="warrior", kind="box-art")
+
+        assert directory.name == "v1"
+        assert loose.read_bytes() == b"already here"
+
+    def test_the_loose_file_stays_where_it_is(self, tmp_path):
+        workspace = Workspace(root=tmp_path / "out", clock=lambda: MOMENT)
+        kind = tmp_path / "out" / "warrior" / "box-art"
+        kind.mkdir(parents=True)
+        (kind / "warrior-cover.png").write_bytes(b"already here")
+        (kind / "warrior-cover-2.png").write_bytes(b"and this one")
+
+        workspace.run_directory("x", subject="warrior", kind="box-art")
+        workspace.run_directory("x", subject="warrior", kind="box-art")
+
+        assert sorted(path.name for path in kind.iterdir()) == [
+            "v1",
+            "v2",
+            "warrior-cover-2.png",
+            "warrior-cover.png",
+        ]
+
+
+class TestTheCostLineSaysWhatWasMeasured:
+    def test_time_is_the_line_when_there_are_no_generations(self):
+        """`0 generations` and nothing else reads as free."""
+        line = describe_cost(Cost(generations=0.0, usd=None, source="measured", seconds=42.467))
+
+        assert line == "cost: 42.47s of inference (measured)"
+
+    def test_generations_still_lead_where_the_provider_counts_them(self):
+        line = describe_cost(Cost(generations=4.0, usd=0.0264, source="reported"))
+
+        assert line == "cost: 4 generations, $0.0264 (reported)"
+
+    def test_nothing_known_still_says_so(self):
+        line = describe_cost(Cost(generations=0.0, usd=None, source="unknown"))
+
+        assert line == "cost: not reported by the provider"

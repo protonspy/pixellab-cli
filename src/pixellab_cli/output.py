@@ -60,11 +60,19 @@ def handle(error: Exception) -> None:
 
 
 def describe_cost(cost: Cost) -> str:
-    """One line a person can read, that never claims more than it knows."""
+    """One line a person can read, that never claims more than it knows.
+
+    Where a provider reports time rather than generations, the time is the line.
+    `0 generations` and nothing else reads as free, which is the one thing a cost
+    line must never do by accident.
+    """
     if cost.source == "unknown":
         return "cost: not reported by the provider"
     money = f", ${cost.usd:.4f}" if cost.usd else ""
-    return f"cost: {cost.generations:g} generations{money} ({cost.source})"
+    if cost.seconds is not None and not cost.generations:
+        return f"cost: {cost.seconds:.2f}s of inference{money} ({cost.source})"
+    seconds = f", {cost.seconds:.2f}s" if cost.seconds is not None else ""
+    return f"cost: {cost.generations:g} generations{seconds}{money} ({cost.source})"
 
 
 def describe_run(outcome: RunOutcome) -> list[str]:

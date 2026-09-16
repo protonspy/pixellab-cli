@@ -178,15 +178,22 @@ class Workspace:
         """What a run is called in the ledger and in its manifest.
 
         The directory, which is unique because making it is what claimed it. Under a
-        subject that reads `warrior-tibiame-box-art-v3`, which says where the run
+        subject that reads `warrior-tibiame_box-art_v1`, which says where the run
         landed rather than what it was asked for — and every ledger line carries its
         own `at`, so the identifier does not have to carry the time as well.
+
+        Joined on `_`, which `slugify` never produces: it turns every run of
+        non-alphanumeric characters into `-`. Joining on `-` instead would not be
+        reversible — `ab-c/d` and `ab/c-d` both flatten to `ab-c-d` — and two
+        unrelated runs sharing one identifier is worse here than anywhere else,
+        because the ledger decides whether a call was ever settled by that string
+        alone. A crashed run could be reported as resolved by a stranger's outcome.
         """
         try:
             relative = directory.resolve().relative_to(self.root)
         except ValueError:
             return directory.name
-        return "-".join(relative.parts)
+        return "_".join(relative.parts)
 
     def write(self, directory: Path, filename: str, data: bytes) -> Path:
         """Write bytes, never over something already there and never outside."""
