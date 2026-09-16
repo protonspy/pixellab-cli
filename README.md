@@ -241,9 +241,3 @@ pipeline cannot check that you did them:
 
 MIT.
 
----
-
-<sub>The banner and the icon were both drawn by this tool. The icon is 64x64, fourteen colours:
-<code>pixellab-cli sprite "a dark terminal window … one small knight … lit green by the screen"
---size 64 --transparent --shading "flat shading" --detail "low detail"</code></sub>
-
