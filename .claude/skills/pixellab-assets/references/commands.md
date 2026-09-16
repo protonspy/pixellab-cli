@@ -166,7 +166,7 @@ compose that prompt, and a three-quarter pose there becomes eight wrong rotation
 
 ### `pixellab-cli art boxart`
 
-Make box art: a cover shape at the top quality tier, by default.
+Make box art: a cover shape. Same quality tier as every other form.
 
 ```
 pixellab-cli art boxart <prompt> --variant --quality --size --count --name

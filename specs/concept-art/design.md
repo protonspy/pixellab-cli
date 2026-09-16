@@ -33,10 +33,11 @@ the image handed to them as the **south** frame and generate the other seven fro
 rotations of a character permanently turned, and nothing downstream reports it as an
 error — the art is simply wrong, and paid for (R5.2).
 
-`boxart` is `concept` with two different defaults — a 3:4 cover shape and the top
-quality tier. It is a separate command rather than a flag because it is a different
-job with a different budget, and a flag that quietly quadruples the price is worse
-than a name.
+`boxart` is `concept` with one different default: a 3:4 cover shape. It was two, and
+the other was the top quality tier — until it turned out that omitting the tier was
+not neutral either, so every form now sends the same one (R1.7, R1.8). It stays a
+separate command rather than a flag because a cover is a different job from a concept
+sketch, and a name says that where a flag does not.
 
 ## Uploading
 
