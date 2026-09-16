@@ -129,15 +129,16 @@ class Workspace:
         Without a subject: timestamp first so a listing sorts chronologically, slug
         second so a person scanning the directory finds the run they remember.
 
-        With one: `warrior-tibiame/rotations/`, because a workspace of timestamped
-        directories does not say which of them belong to one character. The files land
-        in the kind directory itself rather than in a run directory inside it — the
-        point of naming a subject is to have the frames together.
+        With one: `warrior-tibiame/box-art/v3`. The subject gathers one piece of work,
+        the kind separates what sort of asset it is, and the version keeps each run
+        apart so a second attempt is a version rather than a file called `-2`.
+
+        Either way the directory is made with `mkdir` and no `exist_ok`, so the making
+        of it is what claims the name. Asking whether a name is free and then taking
+        it is two steps, and a second process between them gets the same answer.
         """
         if subject:
-            directory = self.inside(self.root / slugify(subject) / slugify(kind or "assets"))
-            directory.mkdir(parents=True, exist_ok=True)
-            return directory
+            return self._versioned(slugify(subject), slugify(kind or "assets"))
 
         stamp = self.clock().strftime("%Y-%m-%dT%H%M")
         base = f"{stamp}-{slugify(description)}"
@@ -145,52 +146,54 @@ class Workspace:
 
         directory = self.root / base
         attempt = 2
-        while directory.exists():
-            directory = self.root / f"{base}-{attempt}"
-            attempt += 1
-        directory.mkdir()
-        return directory
-
-    def reserve_run(self, description: str, subject: str | None) -> tuple[str, Path | None]:
-        """The identifier one run is known by, and the manifest path held for it.
-
-        Without a subject this is the run directory's own name, and the directory's
-        own `mkdir` is what made it unique. With one it cannot be, because the
-        directory is the kind and every run of that kind shares it — and the ledger
-        pairs an intent with its outcome by this string, so two runs under one id are
-        two calls the ledger cannot tell apart.
-
-        The name is therefore taken by creating its manifest, exclusively. Asking
-        whether a name is free and then using it is two steps, and a second process
-        between them gets the same answer: both reserve before either writes, which
-        is exactly the collision this is here to stop.
-        """
-        base = f"{self.clock().strftime('%Y-%m-%dT%H%M')}-{slugify(description)}"
-        if not subject:
-            return base, None
-
-        directory = self.manifest_directory(subject)
-        name, attempt = base, 2
         while True:
-            reserved = directory / f"{name.replace('#', '-')}.manifest.json"
             try:
-                reserved.touch(exist_ok=False)
+                directory.mkdir()
             except FileExistsError:
-                name, attempt = f"{base}-{attempt}", attempt + 1
+                directory = self.root / f"{base}-{attempt}"
+                attempt += 1
                 continue
-            return name, reserved
+            return directory
 
-    def manifest_directory(self, subject: str) -> Path:
-        """Where a subject's manifests go.
+    def _versioned(self, subject: str, kind: str) -> Path:
+        """The next version of one kind of one subject's work.
 
-        Under the subject rather than beside each asset: several runs share one kind
-        directory, so a manifest named after that directory would be overwritten by
-        the next run into it. Without a subject a run has its own directory and the
-        manifest goes there, which is the caller's to know and not this method's.
+        Numbering starts at the first free `vN` and ignores anything loose in the kind
+        directory: a file already written was already paid for and recorded, and a
+        manifest naming it would stop being true if it moved.
         """
-        directory = self.inside(self.root / slugify(subject) / "manifests")
-        directory.mkdir(parents=True, exist_ok=True)
-        return directory
+        home = self.inside(self.root / subject / kind)
+        home.mkdir(parents=True, exist_ok=True)
+        version = 1
+        while True:
+            directory = home / f"v{version}"
+            try:
+                directory.mkdir()
+            except FileExistsError:
+                version += 1
+                continue
+            return directory
+
+    def run_name(self, directory: Path) -> str:
+        """What a run is called in the ledger and in its manifest.
+
+        The directory, which is unique because making it is what claimed it. Under a
+        subject that reads `warrior-tibiame_box-art_v1`, which says where the run
+        landed rather than what it was asked for — and every ledger line carries its
+        own `at`, so the identifier does not have to carry the time as well.
+
+        Joined on `_`, which `slugify` never produces: it turns every run of
+        non-alphanumeric characters into `-`. Joining on `-` instead would not be
+        reversible — `ab-c/d` and `ab/c-d` both flatten to `ab-c-d` — and two
+        unrelated runs sharing one identifier is worse here than anywhere else,
+        because the ledger decides whether a call was ever settled by that string
+        alone. A crashed run could be reported as resolved by a stranger's outcome.
+        """
+        try:
+            relative = directory.resolve().relative_to(self.root)
+        except ValueError:
+            return directory.name
+        return "_".join(relative.parts)
 
     def write(self, directory: Path, filename: str, data: bytes) -> Path:
         """Write bytes, never over something already there and never outside."""
@@ -198,13 +201,6 @@ class Workspace:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
         return path
-
-    def write_reserved(self, path: Path, text: str) -> Path:
-        """Write text to a path already taken by `reserve_run`, which holds it empty."""
-        target = self.inside(path)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(text, encoding="utf-8")
-        return target
 
     def write_text(self, directory: Path, filename: str, text: str) -> Path:
         """Write text as UTF-8, never over something already there and never outside."""

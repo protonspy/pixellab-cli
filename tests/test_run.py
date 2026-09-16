@@ -14,9 +14,10 @@ import pytest
 from pixellab_cli.errors import JobFailed, ProviderError
 from pixellab_cli.fal import FalResult
 from pixellab_cli.ledger import Cost, Ledger
+from pixellab_cli.output import describe_cost
 from pixellab_cli.pixellab import Result, Usage
 from pixellab_cli.run import Runner, from_fal, from_pixellab
-from pixellab_cli.workspace import Workspace
+from pixellab_cli.workspace import Workspace, slugify
 
 MOMENT = datetime(2026, 9, 14, 21, 31, tzinfo=UTC)
 PIXELS = b"\x89PNG\r\n\x1a\nsprite"
@@ -297,9 +298,11 @@ class TestARelativeWorkspaceRoot:
         assert ledger_lines(relative_runner)[-1]["cost"]["generations"] == 1.0
 
 
-class TestASubjectGathersOneKindTogether:
+class TestASubjectVersionsEachRun:
     """A workspace of timestamped run directories does not say which of them belong
-    to one character. Naming a subject puts the work in one place, by kind.
+    to one character. A subject gathers them, a kind separates what sort of asset
+    each is, and a version keeps each run apart — so a second attempt is `v2` rather
+    than a file called `-2`.
     """
 
     @pytest.fixture
@@ -311,63 +314,44 @@ class TestASubjectGathersOneKindTogether:
             secrets=("pl-secret",),
         )
 
-    def test_the_files_land_under_the_subject_and_the_kind(self, subject_runner, tmp_path):
+    def test_the_first_run_is_v1(self, subject_runner, tmp_path):
         outcome = run(subject_runner, subject="Warrior TibiaME", kind="rotations", name="knight")
 
-        assert outcome.files[0] == tmp_path / "out" / "warrior-tibiame" / "rotations" / "knight.png"
+        assert outcome.files[0] == (
+            tmp_path / "out" / "warrior-tibiame" / "rotations" / "v1" / "knight.png"
+        )
+
+    def test_each_run_is_the_next_version(self, subject_runner):
+        versions = [
+            run(subject_runner, subject="warrior", kind="box-art").directory.name for _ in range(3)
+        ]
+
+        assert versions == ["v1", "v2", "v3"]
+
+    def test_a_version_keeps_its_own_manifest_beside_its_asset(self, subject_runner):
+        outcome = run(subject_runner, subject="warrior", kind="rotations")
+
+        assert outcome.manifest.parent == outcome.directory
+
+    def test_nothing_is_overwritten_because_nothing_is_shared(self, subject_runner):
+        first = run(subject_runner, subject="warrior", kind="rotations", name="knight")
+        second = run(subject_runner, subject="warrior", kind="rotations", name="knight")
+
+        assert first.files[0].name == second.files[0].name == "knight.png"
+        assert first.files[0] != second.files[0]
+
+    def test_each_kind_counts_its_own_versions(self, subject_runner):
+        rotations = run(subject_runner, subject="warrior", kind="rotations")
+        animations = run(subject_runner, subject="warrior", kind="animations")
+
+        assert rotations.directory.name == animations.directory.name == "v1"
+        assert rotations.directory.parent.name == "rotations"
+        assert animations.directory.parent.name == "animations"
 
     def test_the_subject_is_reduced_before_it_reaches_the_filesystem(self, subject_runner):
         outcome = run(subject_runner, subject="../escape", kind="rotations")
 
-        assert outcome.directory.parent.name == "escape"
-
-    def test_the_manifest_goes_under_the_subject_not_beside_the_asset(
-        self, subject_runner, tmp_path
-    ):
-        """Several runs share one kind directory, so a manifest named after that
-        directory would be overwritten by the next run into it."""
-        outcome = run(subject_runner, subject="warrior", kind="rotations")
-
-        assert outcome.manifest.parent == tmp_path / "out" / "warrior" / "manifests"
-
-    def test_two_runs_of_one_kind_keep_separate_manifests(self, subject_runner):
-        first = run(subject_runner, subject="warrior", kind="rotations", name="a")
-        second = run(subject_runner, subject="warrior", kind="rotations", name="b")
-
-        assert first.manifest != second.manifest
-        assert first.manifest.is_file() and second.manifest.is_file()
-
-    def test_two_runs_of_one_kind_keep_separate_ledger_identities(self, subject_runner):
-        """The ledger pairs an intent with its outcome by the run id, so two runs
-        under one id would be two calls it cannot tell apart — and the directory
-        cannot supply it, because every run of a kind shares the directory."""
-        first = run(subject_runner, subject="warrior", kind="rotations", name="a")
-        second = run(subject_runner, subject="warrior", kind="rotations", name="b")
-
-        assert first.run_id != second.run_id
-        recorded = [line["run"] for line in ledger_lines(subject_runner)]
-        assert len(set(recorded)) == 2
-
-    def test_the_manifest_names_the_files_the_run_wrote(self, subject_runner):
-        outcome = run(subject_runner, subject="warrior", kind="rotations", name="knight")
-
-        written = json.loads(outcome.manifest.read_text(encoding="utf-8"))
-        assert written["files"] == ["knight.png"]
-
-    def test_a_second_run_does_not_overwrite_the_first_asset(self, subject_runner):
-        first = run(subject_runner, subject="warrior", kind="rotations", name="knight")
-        second = run(subject_runner, subject="warrior", kind="rotations", name="knight")
-
-        assert first.files[0] != second.files[0]
-        assert second.files[0].name == "knight-2.png"
-
-    def test_different_kinds_are_different_directories(self, subject_runner):
-        rotations = run(subject_runner, subject="warrior", kind="rotations")
-        animations = run(subject_runner, subject="warrior", kind="animations")
-
-        assert rotations.directory.name == "rotations"
-        assert animations.directory.name == "animations"
-        assert rotations.directory.parent == animations.directory.parent
+        assert outcome.directory.parent.parent.name == "escape"
 
     def test_without_a_subject_the_timestamped_directory_is_unchanged(self, subject_runner):
         outcome = run(subject_runner)
@@ -376,52 +360,15 @@ class TestASubjectGathersOneKindTogether:
         assert outcome.manifest.parent == outcome.directory
 
 
-class TestTakingARunNameIsAtomic:
-    """Asking whether a name is free and then using it is two steps, and a second
-    process between them gets the same answer. Both reserve before either writes,
-    and the ledger pairs an intent with its outcome by that one string.
+class TestTheDirectoryIsTheIdentity:
+    """Making the directory is what claims it — `mkdir` with no `exist_ok` fails if
+    somebody else got there first. The ledger pairs an intent with its outcome by
+    that name, so two runs under one name are two calls it cannot tell apart.
     """
 
-    def workspace(self, tmp_path) -> Workspace:
-        return Workspace(root=tmp_path / "out", clock=lambda: MOMENT)
-
-    def test_the_same_description_twice_in_one_minute_gets_two_names(self, tmp_path):
-        workspace = self.workspace(tmp_path)
-
-        first, _ = workspace.reserve_run("a knight", "warrior")
-        second, _ = workspace.reserve_run("a knight", "warrior")
-
-        assert first != second
-
-    def test_the_name_is_taken_before_anything_is_written_to_it(self, tmp_path):
-        """The reservation is the manifest file itself, created exclusively, so a
-        second caller cannot be handed the same name while the first call is still
-        out at the provider."""
-        workspace = self.workspace(tmp_path)
-
-        _, reserved = workspace.reserve_run("a knight", "warrior")
-
-        assert reserved is not None
-        assert reserved.is_file()
-        assert reserved.read_text(encoding="utf-8") == ""
-
-    def test_many_reservations_are_all_distinct(self, tmp_path):
-        workspace = self.workspace(tmp_path)
-
-        names = [workspace.reserve_run("a knight", "warrior")[0] for _ in range(12)]
-
-        assert len(set(names)) == 12
-
-    def test_without_a_subject_nothing_is_reserved(self, tmp_path):
-        workspace = self.workspace(tmp_path)
-
-        name, reserved = workspace.reserve_run("a knight", None)
-
-        assert reserved is None
-        assert name.startswith("2026-09-14T2131-")
-
-    def failing_runner(self, tmp_path):
-        workspace = self.workspace(tmp_path)
+    @pytest.fixture
+    def subject_runner(self, tmp_path) -> Runner:
+        workspace = Workspace(root=tmp_path / "out", clock=lambda: MOMENT)
         return Runner(
             workspace=workspace,
             ledger=Ledger(path=workspace.ledger_path, clock=lambda: MOMENT),
@@ -431,51 +378,190 @@ class TestTakingARunNameIsAtomic:
     def refuse(self):
         raise ProviderError("the provider said no")
 
-    def test_a_failed_call_keeps_its_name(self, tmp_path):
-        """Freeing the name would let a retry in the same minute take it again, and
-        the ledger pairs an intent with its outcome by that one string."""
-        runner = self.failing_runner(tmp_path)
+    def test_the_name_says_where_the_run_landed(self, subject_runner):
+        outcome = run(subject_runner, subject="warrior tibiame", kind="box-art")
 
+        assert outcome.run_id == "warrior-tibiame_box-art_v1"
+
+    def test_the_same_description_twice_in_one_minute_gets_two_names(self, subject_runner):
+        first = run(subject_runner, subject="warrior", kind="box-art")
+        second = run(subject_runner, subject="warrior", kind="box-art")
+
+        assert first.run_id != second.run_id
+
+    def test_a_failed_call_keeps_its_version(self, subject_runner, tmp_path):
+        """Freeing the number would let a retry take it again, and the two calls
+        would share one identity in the ledger."""
         with pytest.raises(ProviderError):
-            run(runner, subject="warrior", kind="rotations", call=self.refuse)
+            run(subject_runner, subject="warrior", kind="rotations", call=self.refuse)
+        after = run(subject_runner, subject="warrior", kind="rotations")
 
-        manifests = list((tmp_path / "out" / "warrior" / "manifests").glob("*.json"))
-        assert len(manifests) == 1
+        assert after.directory.name == "v2"
 
-    def test_the_kept_name_holds_the_failure_rather_than_nothing(self, tmp_path):
-        """An empty `.manifest.json` is not JSON, and something reading manifests
-        would choke on it."""
-        runner = self.failing_runner(tmp_path)
-
+    def test_a_failure_and_its_retry_are_two_calls_in_the_ledger(self, subject_runner):
         with pytest.raises(ProviderError):
-            run(runner, subject="warrior", kind="rotations", call=self.refuse)
+            run(subject_runner, subject="warrior", kind="rotations", call=self.refuse)
+        run(subject_runner, subject="warrior", kind="rotations")
 
-        written = next((tmp_path / "out" / "warrior" / "manifests").glob("*.json"))
-        recorded = json.loads(written.read_text(encoding="utf-8"))
-        assert recorded["status"] == "failed"
-        assert recorded["files"] == []
-        assert "the provider said no" in recorded["error"]
-
-    def test_a_retry_in_the_same_minute_does_not_reuse_the_failed_name(self, tmp_path):
-        """The case that breaks the ledger: a call fails, the same command is run
-        again within the minute, and both end up under one id — four lines nobody can
-        separate into two calls."""
-        runner = self.failing_runner(tmp_path)
-
-        with pytest.raises(ProviderError):
-            run(runner, subject="warrior", kind="rotations", call=self.refuse)
-        run(runner, subject="warrior", kind="rotations", name="knight")
-
-        recorded = [line["run"] for line in ledger_lines(runner)]
+        recorded = [line["run"] for line in ledger_lines(subject_runner)]
         assert len(recorded) == 4
         assert len(set(recorded)) == 2
 
-    def test_the_failure_is_still_recorded_in_the_ledger(self, tmp_path):
-        """Keeping the record is the point: a failed generation is charged."""
-        runner = self.failing_runner(tmp_path)
-
+    def test_the_failure_is_still_recorded(self, subject_runner):
+        """A failed generation is charged, so the record is the part that matters."""
         with pytest.raises(ProviderError):
-            run(runner, subject="warrior", kind="rotations", call=self.refuse)
+            run(subject_runner, subject="warrior", kind="rotations", call=self.refuse)
 
-        assert [line["kind"] for line in ledger_lines(runner)] == ["intent", "outcome"]
-        assert ledger_lines(runner)[-1]["status"] == "failed"
+        assert [line["kind"] for line in ledger_lines(subject_runner)] == ["intent", "outcome"]
+        assert ledger_lines(subject_runner)[-1]["status"] == "failed"
+
+    def test_a_failed_call_leaves_no_manifest_to_read(self, subject_runner, tmp_path):
+        with pytest.raises(ProviderError):
+            run(subject_runner, subject="warrior", kind="rotations", call=self.refuse)
+
+        empty = tmp_path / "out" / "warrior" / "rotations" / "v1"
+        assert empty.is_dir()
+        assert list(empty.iterdir()) == []
+
+
+class TestWhatAFalCallRecords:
+    def result(self, seconds):
+        return FalResult(
+            model="openai/gpt-image-2.5/sunburst/edit",
+            images=[PIXELS],
+            request_id="req-1",
+            seconds=seconds,
+        )
+
+    def test_a_measured_time_is_recorded_as_measured(self):
+        cost = from_fal(self.result(3.42)).cost
+
+        assert cost.seconds == 3.42
+        assert cost.source == "measured"
+
+    def test_money_stays_empty_because_no_price_is_published(self):
+        """A number nobody checked is worse than an empty field, because a total
+        will add it up."""
+        assert from_fal(self.result(3.42)).cost.usd is None
+
+    def test_no_time_is_still_unknown_rather_than_measured(self):
+        cost = from_fal(self.result(None)).cost
+
+        assert cost.seconds is None
+        assert cost.source == "unknown"
+
+    def test_the_manifest_carries_the_time(self, tmp_path):
+        workspace = Workspace(root=tmp_path / "out", clock=lambda: MOMENT)
+        runner = Runner(
+            workspace=workspace,
+            ledger=Ledger(path=workspace.ledger_path, clock=lambda: MOMENT),
+        )
+
+        outcome = runner.run(
+            description="a castle",
+            provider="fal",
+            route="openai/gpt-image-2.5/sunburst/edit",
+            arguments={},
+            call=lambda: self.result(3.42),
+            translate=from_fal,
+            subject="warrior",
+            kind="concept",
+        )
+
+        recorded = json.loads(outcome.manifest.read_text(encoding="utf-8"))["cost"]
+        assert recorded == {
+            "generations": 0.0,
+            "usd": None,
+            "source": "measured",
+            "seconds": 3.42,
+        }
+
+
+class TestTwoRunsNeverShareOneName:
+    """The ledger decides whether a call was ever settled by this string alone, so
+    two unrelated runs sharing one is worse here than anywhere else: a crashed run
+    would be reported as resolved by a stranger's outcome.
+    """
+
+    def workspace(self, tmp_path) -> Workspace:
+        return Workspace(root=tmp_path / "out", clock=lambda: MOMENT)
+
+    def test_a_hyphen_in_a_name_does_not_merge_two_directories(self, tmp_path):
+        """`ab-c/d` and `ab/c-d` are different places. Joined on a hyphen they were
+        the same identifier, because `slugify` allows hyphens inside a part."""
+        workspace = self.workspace(tmp_path)
+
+        first = workspace.run_directory("x", subject="ab-c", kind="d")
+        second = workspace.run_directory("x", subject="ab", kind="c-d")
+
+        assert first != second
+        assert workspace.run_name(first) != workspace.run_name(second)
+
+    def test_the_separator_is_one_slugify_cannot_produce(self, tmp_path):
+        """Every run of non-alphanumeric characters becomes `-`, so `_` can only ever
+        be the join — which is what makes the name reversible."""
+        workspace = self.workspace(tmp_path)
+
+        assert slugify("a_b") == "a-b"
+        name = workspace.run_name(
+            workspace.run_directory("x", subject="Warrior TibiaME", kind="box art")
+        )
+        assert name == "warrior-tibiame_box-art_v1"
+
+    def test_a_directory_outside_the_root_falls_back_to_its_own_name(self, tmp_path):
+        workspace = self.workspace(tmp_path)
+
+        assert workspace.run_name(tmp_path / "elsewhere") == "elsewhere"
+
+
+class TestLooseFilesInAKindAreLeftAlone:
+    """A kind can already hold files from before versions existed. They were paid
+    for and recorded, and a manifest naming one would stop being true if it moved.
+    """
+
+    def test_the_first_version_is_v1_even_beside_loose_files(self, tmp_path):
+        workspace = Workspace(root=tmp_path / "out", clock=lambda: MOMENT)
+        kind = tmp_path / "out" / "warrior" / "box-art"
+        kind.mkdir(parents=True)
+        loose = kind / "warrior-cover.png"
+        loose.write_bytes(b"already here")
+
+        directory = workspace.run_directory("x", subject="warrior", kind="box-art")
+
+        assert directory.name == "v1"
+        assert loose.read_bytes() == b"already here"
+
+    def test_the_loose_file_stays_where_it_is(self, tmp_path):
+        workspace = Workspace(root=tmp_path / "out", clock=lambda: MOMENT)
+        kind = tmp_path / "out" / "warrior" / "box-art"
+        kind.mkdir(parents=True)
+        (kind / "warrior-cover.png").write_bytes(b"already here")
+        (kind / "warrior-cover-2.png").write_bytes(b"and this one")
+
+        workspace.run_directory("x", subject="warrior", kind="box-art")
+        workspace.run_directory("x", subject="warrior", kind="box-art")
+
+        assert sorted(path.name for path in kind.iterdir()) == [
+            "v1",
+            "v2",
+            "warrior-cover-2.png",
+            "warrior-cover.png",
+        ]
+
+
+class TestTheCostLineSaysWhatWasMeasured:
+    def test_time_is_the_line_when_there_are_no_generations(self):
+        """`0 generations` and nothing else reads as free."""
+        line = describe_cost(Cost(generations=0.0, usd=None, source="measured", seconds=42.467))
+
+        assert line == "cost: 42.47s of inference (measured)"
+
+    def test_generations_still_lead_where_the_provider_counts_them(self):
+        line = describe_cost(Cost(generations=4.0, usd=0.0264, source="reported"))
+
+        assert line == "cost: 4 generations, $0.0264 (reported)"
+
+    def test_nothing_known_still_says_so(self):
+        line = describe_cost(Cost(generations=0.0, usd=None, source="unknown"))
+
+        assert line == "cost: not reported by the provider"

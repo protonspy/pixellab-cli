@@ -62,6 +62,10 @@ class TestAppending:
             "generations": 28.0,
             "usd": 0.185,
             "source": "reported",
+            # Always written, even where the provider reports generations rather than
+            # time: a reader that has to handle both a missing key and a null one is
+            # handling two shapes for one fact.
+            "seconds": None,
         }
 
     def test_a_failure_is_an_outcome_rather_than_a_dangling_intent(self, tmp_path):

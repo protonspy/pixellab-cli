@@ -27,7 +27,10 @@
 
 ## 3 · Recording
 
-- [x] 3.1 (Unit) Record every fal call in the ledger with its cost marked unknown — R4.1
+- [x] 3.1 (Unit) Record every fal call in the ledger with the money it cost left empty — R4.1
   _Depends 1.1_
 - [x] 3.2 (Unit) Report the model and arguments under a dry run, uploading nothing and calling nothing — R4.2
   _Depends 2.1_
+- [x] 3.3 (Unit) Read the finished job's timing and record it as measured, leaving the cost unknown where the provider will not say — R4.3, R4.4
+  _Depends 3.1_
+  _Reason a fal call recorded nothing at all, so the one thing about it that can be known was not being asked for_

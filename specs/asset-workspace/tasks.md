@@ -47,6 +47,9 @@
   _Depends 6.1_
 - [x] 6.3 (Unit) Put a subject's manifests under the subject rather than beside each asset, naming the files each run wrote — R2.1, R2.4
   _Depends 6.1_
-- [x] 6.4 (TDD) Take a run's identifier by creating its manifest, and fill that manifest when the call fails rather than releasing the name — R2.5, R2.6
+- [x] 6.4 (TDD) Take a run's identifier by creating its own directory, and keep it when the call fails — R2.5, R2.6
   _Depends 6.1_
   _Reason review found a failed call freeing its identifier, so a retry in the same minute took it again and the ledger held four lines it could not separate into two calls_
+- [x] 6.5 (Unit) Give each run of a kind its own version directory, numbering from the first free one and leaving loose files alone — R1.5, R1.10, R2.1
+  _Depends 6.1_
+  _Reason a second attempt at the same asset became a file called -2, which is a name rather than a history_

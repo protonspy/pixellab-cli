@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from pixellab_cli.errors import PixellabCliError, redact
-from pixellab_cli.ledger import ESTIMATED, REPORTED, UNKNOWN, Cost, Ledger
+from pixellab_cli.ledger import ESTIMATED, MEASURED, REPORTED, UNKNOWN, Cost, Ledger
 from pixellab_cli.workspace import Workspace, asset_filename
 
 MANIFEST_SCHEMA = 1
@@ -60,15 +60,20 @@ def from_pixellab(result: Any) -> Produced:
 def from_fal(result: Any) -> Produced:
     """A `fal.FalResult` as something a run can write.
 
-    fal reports no usage and this project has no confirmed price for these
-    endpoints, so the cost is recorded as unknown rather than as a number nobody
-    checked. See docs/wiki/pages/fal-platform.md.
+    fal publishes no price for these endpoints, so the cost in money stays empty
+    rather than becoming a number nobody checked. What it will say is how long the
+    finished job took, which is the unit it bills a time-priced model on. See
+    docs/wiki/pages/fal-platform.md.
     """
     ids = {"request_id": result.request_id} if result.request_id else {}
+    # Time when fal would say how long it took, unknown when it would not. The unit
+    # is what fal bills a time-priced model on, and it is read off the finished job
+    # rather than guessed from a price nobody published.
+    source = MEASURED if result.seconds is not None else UNKNOWN
     return Produced(
         images=list(result.images),
         ids=ids,
-        cost=Cost(generations=0.0, usd=result.usd, source=UNKNOWN),
+        cost=Cost(generations=0.0, usd=result.usd, source=source, seconds=result.seconds),
         raw=result.raw,
     )
 
@@ -122,15 +127,10 @@ class Runner:
         directory = directory or self.workspace.run_directory(
             description, subject=subject, kind=kind
         )
-        # With a subject the directory is the kind and every run of that kind shares
-        # it, so the run cannot take its identity from the directory's name. Taking a
-        # name means creating its manifest exclusively, which is what keeps two
-        # processes from choosing the same one.
-        reserved: Path | None = None
-        if run_id is None:
-            run_id, reserved = self.workspace.reserve_run(description, subject)
-            if reserved is None:
-                run_id = directory.name
+        # The directory is the identity: making it is what claimed it, and a version
+        # directory is unique within its kind the way a timestamped one is within the
+        # workspace. Nothing else has to be reserved.
+        run_id = run_id or self.workspace.run_name(directory)
         self.ledger.intent(
             run_id, provider, route, arguments, estimate=estimate, secrets=self.secrets
         )
@@ -138,14 +138,9 @@ class Runner:
         try:
             produced = translate(call())
         except PixellabCliError as failure:
-            # The name stays taken. Freeing it would let a retry in the same minute,
-            # with the same description, take it again — and the ledger pairs an
-            # intent with its outcome by that string, so the failed call and the
-            # retry would become four lines nobody can separate. The reservation is
-            # filled in rather than removed, because an empty `.manifest.json` is not
-            # JSON and a failed generation is charged like any other.
-            if reserved is not None:
-                self._write_failure(reserved, run_id, provider, route, arguments, failure)
+            # The version directory stays, empty, and keeps its number: the ledger
+            # pairs an intent with its outcome by that name, and a retry that reused
+            # it would give the two calls one identity.
             self.ledger.outcome(
                 run_id,
                 "failed",
@@ -158,14 +153,7 @@ class Runner:
 
         files = self._write_images(directory, produced, name or _base(description), roles, suffix)
         manifest = self._write_manifest(
-            self.workspace.manifest_directory(subject) if subject else directory,
-            run_id,
-            provider,
-            route,
-            arguments,
-            produced,
-            files,
-            reserved=reserved,
+            directory, run_id, provider, route, arguments, produced, files
         )
         self.ledger.outcome(
             run_id,
@@ -205,35 +193,6 @@ class Runner:
             written.append(self.workspace.write(directory, filename, data))
         return written
 
-    def _write_failure(
-        self,
-        reserved: Path,
-        run_id: str,
-        provider: str,
-        route: str,
-        arguments: dict[str, Any],
-        failure: PixellabCliError,
-    ) -> Path:
-        """Fill a reservation whose call produced nothing, so the name stays taken."""
-        return self.workspace.write_reserved(
-            reserved,
-            json.dumps(
-                {
-                    "schema": MANIFEST_SCHEMA,
-                    "run": run_id,
-                    "provider": provider,
-                    "route": route,
-                    "arguments": redact(arguments, self.secrets),
-                    "status": "failed",
-                    "error": str(failure),
-                    "files": [],
-                },
-                indent=2,
-                ensure_ascii=False,
-            )
-            + "\n",
-        )
-
     def _write_manifest(
         self,
         directory: Path,
@@ -243,7 +202,6 @@ class Runner:
         arguments: dict[str, Any],
         produced: Produced,
         files: Sequence[Path],
-        reserved: Path | None = None,
     ) -> Path:
         manifest = {
             "schema": MANIFEST_SCHEMA,
@@ -256,10 +214,11 @@ class Runner:
             "cost": produced.cost.as_json(),
             "files": [path.name for path in files],
         }
-        text = json.dumps(manifest, indent=2, ensure_ascii=False) + "\n"
-        if reserved is not None:
-            return self.workspace.write_reserved(reserved, text)
-        return self.workspace.write_text(directory, f"{manifest_name(run_id)}.manifest.json", text)
+        return self.workspace.write_text(
+            directory,
+            f"{manifest_name(run_id)}.manifest.json",
+            json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
+        )
 
 
 def manifest_name(run_id: str) -> str:

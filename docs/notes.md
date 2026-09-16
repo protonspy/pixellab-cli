@@ -55,4 +55,6 @@ over this file answers with the example above as well as with the notes. -->
 - n-0015 2026-09-15 #gotcha @src/pixellab_cli/commands/character.py — a character reports animation_count 0 for a while after an animation is created; the spritesheet export shows it before GET /characters does
 - n-0016 2026-09-15 #gotcha @src/pixellab_cli/pixels.py — the GIF writer merges a frame identical to the one before it and adds its time to that frame, so the file's frame count can be lower than the frames given while playback stays the same length
 - n-0017 2026-09-16 #ceiling @src/pixellab_cli/recipe.py — a recipe hands the runner its own directory, so --subject does not reorganise a recipe's steps; a recipe already groups them
-- n-0018 2026-09-16 #gotcha @src/pixellab_cli/workspace.py — a subject's run takes its name by creating the manifest exclusively; asking whether a name is free and then using it lets two processes pick the same one
+<!-- n-0018 removed -->
+- n-0019 2026-09-16 #gotcha @src/pixellab_cli/fal.py — fal's subscribe returns the model output and no request id; the id exists only at enqueue, so on_enqueue is the one place to catch it and the finished job's timing depends on having it
+- n-0020 2026-09-16 #gotcha @src/pixellab_cli/workspace.py — a run under a subject is claimed by creating its version directory, not by checking whether one is free; the check-then-act version let two processes pick the same name

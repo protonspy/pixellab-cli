@@ -133,10 +133,13 @@ class FalResult:
     urls: list[str] = field(default_factory=list)
     request_id: str | None = None
     raw: dict[str, Any] = field(default_factory=dict)
-    # fal reports no usage on the response and this project has not confirmed a
-    # price for these endpoints, so the cost of a fal call is recorded as unknown
-    # rather than as a number nobody checked.
+    # fal publishes no price for these endpoints, so the cost in money is recorded as
+    # unknown rather than as a number nobody checked.
     usd: float | None = None
+    # How long fal says the finished job took. Absent from the generation response,
+    # present on the queue's status for a finished request, and the unit fal bills a
+    # time-priced model on — so it is the one thing here that can be known.
+    seconds: float | None = None
 
 
 class FalClient:
@@ -148,10 +151,12 @@ class FalClient:
         *,
         subscribe: Callable[..., Any] | None = None,
         upload_file: Callable[[str], str] | None = None,
+        status: Callable[..., Any] | None = None,
         http: httpx.Client | None = None,
     ) -> None:
         self._credentials = credentials
         self._subscribe = subscribe
+        self._status = status
         self._upload_file = upload_file
         self._http = http
 
@@ -187,13 +192,38 @@ class FalClient:
         payload = payload if isinstance(payload, dict) else {"images": []}
         found = payload.get("images", [])
         urls = [item.get("url", "") for item in found if isinstance(item, dict)]
+        request_id = payload.get("request_id")
         return FalResult(
             model=route.path,
             urls=[url for url in urls if url],
             images=[self._fetch(url) for url in urls if url],
-            request_id=payload.get("request_id"),
+            request_id=request_id,
+            seconds=self._seconds(route.path, request_id, key),
             raw=payload,
         )
+
+    def _seconds(self, application: str, request_id: str | None, key: str) -> float | None:
+        """How long fal says the finished job took, or None if it will not say.
+
+        The generation response carries no usage, but the queue's status for a
+        finished request carries `metrics.inference_time` — which is what fal bills a
+        time-priced model on, and the only thing about one of these calls that can be
+        known rather than guessed.
+
+        Asking is free and the work is already paid for by the time we ask, so a
+        failure here costs nothing and must not turn a finished generation into an
+        error. The cost is recorded as unknown instead.
+        """
+        if not request_id:
+            return None
+        status = self._status or _status_with(key)
+        try:
+            reported = status(application, request_id)
+        except Exception:  # fal raises its own exception types
+            return None
+        metrics = reported.get("metrics") if isinstance(reported, dict) else None
+        seconds = metrics.get("inference_time") if isinstance(metrics, dict) else None
+        return float(seconds) if isinstance(seconds, (int, float)) else None
 
     def _fetch(self, url: str) -> bytes:
         """Download one result. A data URI under `sync_mode` never leaves the process."""
@@ -231,9 +261,36 @@ def _subscribing_with(key: str) -> Callable[..., Any]:
     def subscribe(application: str, *, arguments: dict[str, Any]) -> Any:
         import fal_client
 
-        return fal_client.SyncClient(key=key).subscribe(application, arguments=arguments)
+        # `subscribe` returns the model's own output, which carries no request id:
+        # the id exists only for the moment the job is enqueued. Catching it there
+        # and putting it where the rest of this module already looks for it is what
+        # makes the finished job findable afterwards — and its timing with it.
+        enqueued: list[str] = []
+        payload = fal_client.SyncClient(key=key).subscribe(
+            application, arguments=arguments, on_enqueue=enqueued.append
+        )
+        if isinstance(payload, dict) and not payload.get("request_id") and enqueued:
+            payload = {**payload, "request_id": enqueued[0]}
+        return payload
 
     return subscribe
+
+
+def _status_with(key: str) -> Callable[..., Any]:
+    """Read a finished request's status, which is where the timing lives."""
+
+    def status(application: str, request_id: str) -> Any:
+        import fal_client
+
+        reported = fal_client.SyncClient(key=key).status(application, request_id)
+        # The client returns a `Completed` object rather than the raw document, and
+        # the timing hangs off its `metrics`. A plain mapping is what the caller reads,
+        # so the one field that matters is lifted into one.
+        if isinstance(reported, dict):
+            return reported
+        return {"metrics": getattr(reported, "metrics", None)}
+
+    return status
 
 
 def _uploading_with(key: str) -> Callable[[str], str]:
