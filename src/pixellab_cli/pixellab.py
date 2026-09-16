@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import random
 import time
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
@@ -17,7 +18,13 @@ import httpx
 
 from pixellab_cli import catalog, images
 from pixellab_cli.config import PIXELLAB_BASE_URL, Credentials
-from pixellab_cli.errors import JobFailed, PollTimeout, ProviderError, RateLimited
+from pixellab_cli.errors import (
+    JobFailed,
+    PollTimeout,
+    ProviderError,
+    RateLimited,
+    ValidationError,
+)
 from pixellab_cli.routes import Route, RouteKind
 from pixellab_cli.validate import build_request
 
@@ -276,6 +283,17 @@ class PixelLabClient:
         charged whether or not anybody was still waiting. Without this the only thing
         the tool could do with a charged job was name it.
         """
+        # The id goes into a URL path, and dot segments in it are normalised against
+        # the whole URL:  reaches another endpoint on the host,
+        # carrying this caller's bearer token. Every id the provider issues is a
+        # UUID, so anything else is refused rather than escaped and sent anyway.
+        try:
+            uuid.UUID(job_id)
+        except (ValueError, AttributeError, TypeError):
+            raise ValidationError(
+                f"{job_id!r} is not a job id; they are UUIDs",
+                context={"job": job_id},
+            ) from None
         path = catalog.BACKGROUND_JOBS_PATH.replace("{id}", job_id)
         waited = 0.0
         while True:

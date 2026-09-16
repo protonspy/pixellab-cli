@@ -126,3 +126,47 @@ class TestCollectingAJob:
 
         assert result.exit_code == 0
         assert "nothing is charged: it already was" in result.output
+
+
+class TestNothingCraftedEscapesItsPlace:
+    """Both of these are shapes this repository has already been bitten by: a name
+    that becomes a path, and an identifier that becomes a URL.
+    """
+
+    @respx.mock
+    def test_a_name_cannot_write_into_another_run(self, tmp_path, monkeypatch):
+        """`Workspace.inside()` catches a full escape past the root, but not a
+        sibling run inside it — so the name is reduced before it is used, not only
+        checked after."""
+        respx.get(f"{PIXELLAB_BASE_URL}/background-jobs/{JOB}").respond(json=completed())
+
+        invoke(["job", "show", JOB, "--name", "../elsewhere/pwned"], tmp_path, monkeypatch)
+
+        planted = [p for p in (tmp_path / "out").rglob("*") if "elsewhere" in p.parts]
+        assert planted == []
+        assert list((tmp_path / "out").rglob("elsewhere-pwned*.png"))
+
+    @respx.mock
+    def test_the_manifest_lands_beside_its_own_images(self, tmp_path, monkeypatch):
+        respx.get(f"{PIXELLAB_BASE_URL}/background-jobs/{JOB}").respond(json=completed())
+
+        invoke(["job", "show", JOB, "--name", "../elsewhere/pwned"], tmp_path, monkeypatch)
+
+        manifest = next((tmp_path / "out").rglob("*.manifest.json"))
+        image = next((tmp_path / "out").rglob("*.png"))
+        assert manifest.parent == image.parent
+
+    def test_an_id_that_is_not_a_job_id_is_refused(self, tmp_path, monkeypatch):
+        """Dot segments are normalised against the whole URL, so `../../v2/characters`
+        reaches another endpoint on the host carrying this caller's token."""
+        result = invoke(["job", "show", "../../v2/characters"], tmp_path, monkeypatch)
+
+        assert result.exit_code == 2
+        assert "not a job id" in result.output
+
+    def test_nothing_is_requested_for_an_id_that_is_refused(self, tmp_path, monkeypatch):
+        with respx.mock:
+            route = respx.get(url__startswith=PIXELLAB_BASE_URL)
+            invoke(["job", "show", "../../v2/characters"], tmp_path, monkeypatch)
+
+            assert not route.called

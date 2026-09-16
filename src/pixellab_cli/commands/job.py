@@ -21,7 +21,7 @@ from pixellab_cli import output
 from pixellab_cli.context import AppContext
 from pixellab_cli.errors import PixellabCliError
 from pixellab_cli.run import MANIFEST_SCHEMA
-from pixellab_cli.workspace import asset_filename
+from pixellab_cli.workspace import asset_filename, slugify
 
 app = typer.Typer(name="job", help="Collect a background job that was charged and not collected.")
 
@@ -61,7 +61,11 @@ def show(
         directory = app_context.workspace.run_directory(
             f"job {job_id}", subject=app_context.subject, kind=kind
         )
-        base = name or f"job-{job_id[:8]}"
+        # Reduced once, here, and used for both the images and the manifest. The
+        # images went through `asset_filename`, which slugifies; the manifest name was
+        # built by hand and did not, so a `--name` of `../<sibling>/x` planted a
+        # manifest in another run's directory. One name, sanitised once.
+        base = slugify(name) if name else f"job-{slugify(job_id)[:8]}"
         written = _write(app_context, directory, base, result.images)
         _write_manifest(app_context, directory, job_id, base, written, result)
         output.emit(
