@@ -2,7 +2,7 @@
 autonomy: auto
 ci: wait
 branch: fix/credentials-search-boundary
-delivery: in-review
+delivery: merged
 pr: 11
 ---
 
