@@ -1,9 +1,9 @@
 ---
 autonomy: auto
 ci: wait
-branch: feat/asset-consistency
-delivery: merged
-pr: 2
+branch: feat/reference-guided-art
+delivery: in-review
+pr: 14
 ---
 
 # Concept art — requirements
