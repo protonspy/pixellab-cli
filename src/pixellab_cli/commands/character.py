@@ -636,10 +636,17 @@ def _show(context, character_id) -> None:
         f"animations: {len(animations)}",
     ]
     for animation in animations:
-        lines.append(
-            f"  {animation.get('display_name', '?')}  "
-            f"{', '.join(animation.get('directions') or [])}"
-        )
+        # `directions` holds an object per direction — the name, how many frames it
+        # has, and their URLs — not a list of names.
+        covered = [
+            entry.get("direction", "?")
+            for entry in animation.get("directions") or []
+            if isinstance(entry, dict)
+        ]
+        # `.get(key, default)` does not reach the default when the key is there
+        # holding None, which is what an animation with no display name carries.
+        name = animation.get("display_name") or animation.get("animation_type") or "unnamed"
+        lines.append(f"  {name}  {', '.join(covered) or 'none'}")
     output.emit(payload, lines, as_json=app_context.as_json)
 
 
