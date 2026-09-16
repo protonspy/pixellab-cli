@@ -90,9 +90,9 @@ class TestConcept:
     def test_the_quality_reaches_the_model(self, tmp_path, monkeypatch, calls):
         respx.get(CONCEPT_URL).respond(content=png_bytes())
 
-        invoke(["art", "concept", "a castle", "--quality", "max"], tmp_path, monkeypatch)
+        invoke(["art", "concept", "a castle", "--quality", "high"], tmp_path, monkeypatch)
 
-        assert calls["subscribe"][0][1]["quality"] == "max"
+        assert calls["subscribe"][0][1]["quality"] == "high"
 
     def test_a_quality_the_model_rejects_never_reaches_it(self, tmp_path, monkeypatch, calls):
         result = invoke(["art", "concept", "a castle", "--quality", "ultra"], tmp_path, monkeypatch)
@@ -147,13 +147,13 @@ class TestConcept:
 
 class TestBoxArt:
     @respx.mock
-    def test_it_defaults_to_a_cover_shape_at_the_top_tier(self, tmp_path, monkeypatch, calls):
+    def test_it_defaults_to_a_cover_shape_at_the_usual_tier(self, tmp_path, monkeypatch, calls):
         respx.get(CONCEPT_URL).respond(content=png_bytes())
 
         invoke(["art", "boxart", "a knight at dawn"], tmp_path, monkeypatch)
 
         arguments = calls["subscribe"][0][1]
-        assert arguments["quality"] == "max"
+        assert arguments["quality"] == "medium"
         assert arguments["image_size"] == "portrait_4_3"
 
     @respx.mock
@@ -580,3 +580,54 @@ class TestTheUploadLimitIsCheckedFirst:
 
         assert result.exit_code == 2
         assert calls["uploads"] == []
+
+
+class TestTheQualityCeiling:
+    """The provider takes `xhigh` and `max`. This tool does not offer them: the same
+    picture for more money, and a default that is sent rather than omitted, because
+    leaving it out lets the provider apply its own — which is `high`.
+    """
+
+    @respx.mock
+    @pytest.mark.parametrize("form", ["concept", "anchor", "boxart"])
+    def test_every_form_generates_at_medium_by_default(self, form, tmp_path, monkeypatch, calls):
+        respx.get(CONCEPT_URL).respond(content=png_bytes())
+
+        invoke(["art", form, "a knight"], tmp_path, monkeypatch)
+
+        assert calls["subscribe"][0][1]["quality"] == "medium"
+
+    @respx.mock
+    def test_editing_generates_at_medium_by_default(self, tmp_path, monkeypatch, calls):
+        respx.get(CONCEPT_URL).respond(content=png_bytes())
+        source = tmp_path / "concept.png"
+        source.write_bytes(png_bytes())
+
+        invoke(["art", "edit", str(source), "-p", "make it night"], tmp_path, monkeypatch)
+
+        assert calls["subscribe"][0][1]["quality"] == "medium"
+
+    @respx.mock
+    def test_high_is_still_allowed(self, tmp_path, monkeypatch, calls):
+        respx.get(CONCEPT_URL).respond(content=png_bytes())
+
+        invoke(["art", "boxart", "a knight", "--quality", "high"], tmp_path, monkeypatch)
+
+        assert calls["subscribe"][0][1]["quality"] == "high"
+
+    @pytest.mark.parametrize("tier", ["xhigh", "max"])
+    def test_above_high_is_refused_before_anything_is_sent(
+        self, tier, tmp_path, monkeypatch, calls
+    ):
+        result = invoke(["art", "boxart", "a knight", "--quality", tier], tmp_path, monkeypatch)
+
+        assert result.exit_code == 2
+        assert calls["subscribe"] == []
+        assert "as high as this tool goes" in result.output
+
+    def test_the_refusal_names_what_would_have_worked(self, tmp_path, monkeypatch, calls):
+        """Rather than downgrading quietly: a caller who asked for `max` and silently
+        got `medium` would have no way to tell."""
+        result = invoke(["art", "concept", "a knight", "--quality", "max"], tmp_path, monkeypatch)
+
+        assert "auto, low, medium, high" in result.output

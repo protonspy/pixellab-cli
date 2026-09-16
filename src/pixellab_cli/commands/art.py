@@ -29,11 +29,13 @@ app = typer.Typer(name="art", help="Concept images, edits and box art, on fal.")
 UNKNOWN_COST = Cost(generations=0.0, usd=None, source=UNKNOWN)
 
 BOX_ART_SIZE = "portrait_4_3"
-BOX_ART_QUALITY = "max"
 
 # Square, because the PixelLab routes downstream take a square reference and a crop
 # from a wider frame is a crop somebody has to make.
 ANCHOR_SIZE = "square_hd"
+
+# The tier itself lives in `fal`, which owns the vocabulary: two modules need it now.
+QUALITY_HELP = f"auto, low, medium or high. Default: {fal.DEFAULT_QUALITY}."
 
 
 def _variant_model(variant: str, *, edit: bool) -> str:
@@ -158,7 +160,7 @@ def concept(
     context: typer.Context,
     prompt: str = typer.Argument(..., help="What to make."),
     variant: str = typer.Option("sunburst", "--variant", help="sunburst or flare."),
-    quality: str = typer.Option(None, "--quality", help="auto, low, medium, high, xhigh, max."),
+    quality: str = typer.Option(None, "--quality", help=QUALITY_HELP),
     size: str = typer.Option(None, "--size", help="A preset name, 1024x1024, or auto."),
     transparent: bool = typer.Option(False, "--transparent", help="Transparent background."),
     count: int = typer.Option(None, "--count", help="How many images to make."),
@@ -184,7 +186,7 @@ def _concept(context, prompt, variant, quality, size, transparent, count, refere
         arguments={
             "prompt": prompt,
             "image_urls": urls,
-            "quality": quality,
+            "quality": fal.quality_to_send(quality),
             "image_size": _size_argument(size),
             "background": "transparent" if transparent else None,
             "num_images": count,
@@ -197,13 +199,13 @@ def boxart(
     context: typer.Context,
     prompt: str = typer.Argument(..., help="What the cover shows."),
     variant: str = typer.Option("sunburst", "--variant", help="sunburst or flare."),
-    quality: str = typer.Option(BOX_ART_QUALITY, "--quality", help="Defaults to the top tier."),
+    quality: str = typer.Option(None, "--quality", help=QUALITY_HELP),
     size: str = typer.Option(BOX_ART_SIZE, "--size", help="Defaults to a cover shape."),
     count: int = typer.Option(None, "--count", help="How many covers to make."),
     reference: list[Path] = typer.Option(None, "--reference", help=REFERENCE_HELP),
     name: str = typer.Option(None, "--name", help="What to call the files."),
 ) -> None:
-    """Make box art: a cover shape at the top quality tier, by default."""
+    """Make box art: a cover shape, at the same tier as everything else."""
     try:
         _boxart(context, prompt, variant, quality, size, count, reference, name)
     except PixellabCliError as failure:
@@ -222,7 +224,7 @@ def _boxart(context, prompt, variant, quality, size, count, reference, name) -> 
         arguments={
             "prompt": prompt,
             "image_urls": urls,
-            "quality": quality,
+            "quality": fal.quality_to_send(quality),
             "image_size": _size_argument(size),
             "num_images": count,
         },
@@ -234,7 +236,7 @@ def anchor(
     context: typer.Context,
     prompt: str = typer.Argument(..., help="Who or what the subject is."),
     variant: str = typer.Option("sunburst", "--variant", help="sunburst or flare."),
-    quality: str = typer.Option(None, "--quality", help="auto, low, medium, high, xhigh, max."),
+    quality: str = typer.Option(None, "--quality", help=QUALITY_HELP),
     size: str = typer.Option(ANCHOR_SIZE, "--size", help="Defaults to a square."),
     count: int = typer.Option(None, "--count", help="How many to make, to choose from."),
     reference: list[Path] = typer.Option(None, "--reference", help=REFERENCE_HELP),
@@ -267,7 +269,7 @@ def _anchor(context, prompt, variant, quality, size, count, reference, name) -> 
             # how it is posed.
             "prompt": anchor_prompt(prompt, referenced=bool(urls)),
             "image_urls": urls,
-            "quality": quality,
+            "quality": fal.quality_to_send(quality),
             "image_size": _size_argument(size),
             # Not an option: a background the character routes have to remove is a
             # cleanup call this could have avoided by asking.
@@ -284,7 +286,7 @@ def edit(
     prompt: str = typer.Option(..., "--prompt", "-p", help="What to change."),
     mask: Path = typer.Option(None, "--mask", help="Confine the edit to this mask."),
     variant: str = typer.Option("sunburst", "--variant", help="sunburst or flare."),
-    quality: str = typer.Option(None, "--quality", help="auto, low, medium, high, xhigh, max."),
+    quality: str = typer.Option(None, "--quality", help=QUALITY_HELP),
     size: str = typer.Option(None, "--size", help="A preset name, 1024x1024, or auto."),
     transparent: bool = typer.Option(False, "--transparent", help="Transparent background."),
     name: str = typer.Option(None, "--name", help="What to call the files."),
@@ -311,7 +313,7 @@ def _edit(context, files, prompt, mask, variant, quality, size, transparent, nam
             arguments={
                 "prompt": prompt,
                 "image_urls": [str(path) for path in files],
-                "quality": quality,
+                "quality": fal.quality_to_send(quality),
             },
         )
         return
@@ -328,7 +330,7 @@ def _edit(context, files, prompt, mask, variant, quality, size, transparent, nam
             "prompt": prompt,
             "image_urls": urls,
             "mask_url": client.upload(mask) if mask else None,
-            "quality": quality,
+            "quality": fal.quality_to_send(quality),
             "image_size": _size_argument(size),
             "background": "transparent" if transparent else None,
         },

@@ -14,6 +14,9 @@
   _Reason a reference image had to be reconstructed as a text description, so the result resembled the reference rather than matching it_
 - [x] 1.6 (Unit) Keep the anchor's framing while taking the subject's appearance from the references — R5.3
   _Depends 1.5_
+- [x] 1.7 (Unit) Send the middle tier by default and refuse one above the ceiling, naming what would have worked — R1.7, R1.8, R1.9, R3.1
+  _Depends 1.1_
+  _Reason box art defaulted to the top tier and every other form omitted the tier, so the provider applied its own, which is high_
 
 ## 2 · Editing
 
