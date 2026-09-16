@@ -1,9 +1,9 @@
 ---
 autonomy: auto
 ci: wait
-branch: fix/credentials-search-boundary
-delivery: merged
-pr: 11
+branch: fix/paid-call-defects
+delivery: in-review
+pr: 13
 ---
 
 # Provider core — requirements
@@ -46,6 +46,7 @@ looks like have to be decided once.
 - **R3.2** Where a route is a background job, the route table shall record which identifier the result is polled by and on which path.
 - **R3.3** If a caller supplies a parameter the route does not accept, a value outside an enumerated parameter's set, or a size the route rejects, then the provider core shall fail before the request is sent, naming the parameter and the values or bounds that are allowed.
 - **R3.4** The route table shall be derived from the vendored provider schemas under `reference/`, and a route whose shape contradicts those schemas shall be reported by the suite rather than at call time.
+- **R3.5** (ADDED) Where a route requires an image to match one of its size parameters, if the image given does not match it, then the provider core shall fail before the request is sent, naming both sizes.
 
 ## R4 · Background jobs
 

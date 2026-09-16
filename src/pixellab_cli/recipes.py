@@ -47,26 +47,26 @@ def _concept_arguments(description: str, transparent: bool):
 
 
 def _to_pixelart(carried: dict[str, Any]) -> dict[str, Any]:
-    return {"image": images.encode(_first_image(carried, "concept")).as_payload()}
+    return {"image": images.encode(_first_image(carried, "concept"))}
 
 
 def _remove_background(carried: dict[str, Any]) -> dict[str, Any]:
     encoded = images.encode(_first_image(carried, "pixelart"))
     return {
-        "image": encoded.as_payload(),
+        "image": encoded,
         "image_size": {"width": encoded.width, "height": encoded.height},
     }
 
 
 def _rotations(carried: dict[str, Any]) -> dict[str, Any]:
     encoded = images.encode(_first_image(carried, "cleanup"))
-    return {"first_frame": encoded.as_payload(), "no_background": True}
+    return {"first_frame": encoded, "no_background": True}
 
 
 def _animation(action: str):
     def build(carried: dict[str, Any]) -> dict[str, Any]:
         return {
-            "first_frame": images.encode(_first_image(carried, "cleanup")).as_payload(),
+            "first_frame": images.encode(_first_image(carried, "cleanup")),
             "action": action,
             "no_background": True,
         }

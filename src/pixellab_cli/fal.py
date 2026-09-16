@@ -132,8 +132,8 @@ class FalClient:
 
     def upload(self, path: str | Path) -> str:
         """Put a local file on fal's CDN and return the URL a model can read."""
-        self._credentials.require_fal()
-        upload = self._upload_file or _default_upload
+        key = self._credentials.require_fal()
+        upload = self._upload_file or _uploading_with(key)
         try:
             return upload(str(path))
         except Exception as failure:  # fal raises its own exception types
@@ -146,10 +146,10 @@ class FalClient:
     def generate(self, name: str, **arguments: Any) -> FalResult:
         """Run a model to completion and return the images as bytes."""
         route = model(name)
-        self._credentials.require_fal()
+        key = self._credentials.require_fal()
         body = build_request(route, arguments)
 
-        subscribe = self._subscribe or _default_subscribe
+        subscribe = self._subscribe or _subscribing_with(key)
         try:
             payload = subscribe(route.path, arguments=body)
         except Exception as failure:  # fal raises its own exception types
@@ -194,13 +194,27 @@ def _get(client: httpx.Client, url: str) -> bytes:
     return response.content
 
 
-def _default_subscribe(application: str, *, arguments: dict[str, Any]) -> Any:
-    import fal_client
+def _subscribing_with(key: str) -> Callable[..., Any]:
+    """Hand fal the key we were given, rather than hoping it is in the environment.
 
-    return fal_client.subscribe(application, arguments=arguments)
+    `fal_client`'s module-level helpers read `FAL_KEY` from the process environment
+    and nothing else, so a key from `.pixellab.json` satisfied `require_fal` and then
+    failed the call with "No credentials found". The client takes the key directly;
+    passing it there also keeps it out of the environment a subprocess would inherit.
+    """
+
+    def subscribe(application: str, *, arguments: dict[str, Any]) -> Any:
+        import fal_client
+
+        return fal_client.SyncClient(key=key).subscribe(application, arguments=arguments)
+
+    return subscribe
 
 
-def _default_upload(path: str) -> str:
-    import fal_client
+def _uploading_with(key: str) -> Callable[[str], str]:
+    def upload(path: str) -> str:
+        import fal_client
 
-    return fal_client.upload_file(path)
+        return fal_client.SyncClient(key=key).upload_file(path)
+
+    return upload

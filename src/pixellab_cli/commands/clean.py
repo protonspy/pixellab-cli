@@ -132,7 +132,7 @@ def _background(context, files, complex_edges, hint) -> None:
             description=f"{path.stem} without a background",
             name=f"{path.stem}-transparent",
             arguments={
-                "image": image.as_payload(),
+                "image": image,
                 "image_size": {"width": image.width, "height": image.height},
                 "background_removal_task": ("remove_complex_background" if complex_edges else None),
                 "text": hint,
@@ -161,7 +161,7 @@ def _unzoom(context, files, quantize) -> None:
             route_name="unzoom",
             description=f"{path.stem} at its native size",
             name=f"{path.stem}-unzoomed",
-            arguments={"image": _load(path).as_payload(), "quantize": quantize},
+            arguments={"image": _load(path), "quantize": quantize},
         )
 
 
@@ -187,9 +187,9 @@ def _colors(context, files, count, palette, dither) -> None:
         description=f"{files[0].stem} on a reduced palette",
         name=f"{files[0].stem}-reduced",
         arguments={
-            "images": [frame.as_payload() for frame in frames],
+            "images": list(frames),
             "num_colors": count,
-            "palette_image": _load(palette).as_payload() if palette else None,
+            "palette_image": _load(palette) if palette else None,
             "dithering": dither,
         },
     )
@@ -217,7 +217,7 @@ def _correct(context, files, strength) -> None:
         description=f"{files[0].stem} corrected",
         name=f"{files[0].stem}-corrected",
         arguments={
-            "images": [frame.as_payload() for frame in frames],
+            "images": list(frames),
             "strength": strength,
         },
     )
@@ -246,7 +246,7 @@ def _resize(context, file, to, description, transparent) -> None:
         name=f"{file.stem}-{to}",
         arguments={
             "description": description,
-            "reference_image": image.as_payload(),
+            "reference_image": image,
             "reference_image_size": {"width": image.width, "height": image.height},
             "target_size": parse_size(to),
             "no_background": True if transparent else None,

@@ -50,3 +50,4 @@ over this file answers with the example above as well as with the notes. -->
 - n-0010 2026-09-15 #gotcha @src/pixellab_cli/__init__.py — the version lives in pyproject.toml only; __init__ reads installed metadata, and a test compares the two
 - n-0011 2026-09-15 #gotcha @src/pixellab_cli/commands/character.py — create-character-with-4-directions has no name parameter, so character new --directions 4 keeps --name for file names only and sends no display name
 - n-0012 2026-09-15 #gotcha @src/pixellab_cli/config.py — a stray project marker in the real home directory (package.json) lets the credentials walk climb out of a test fixture whenever the test names a home that is not an ancestor of its start
+- n-0013 2026-09-15 #ceiling @src/pixellab_cli/commands/character.py — character animate has no way to force free text once an action names a template; rephrase the action until a template stops matching

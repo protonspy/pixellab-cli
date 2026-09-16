@@ -211,3 +211,50 @@ class TestSharedValidation:
             )
 
             assert client.generate("concept", prompt="a castle").images == [IMAGE_BYTES]
+
+
+class TestTheKeyReachesFal:
+    """`require_fal` knowing the key is not the same as fal being given it.
+
+    A key from `.pixellab.json` passed the check and then failed the call, because
+    `fal_client`'s module-level helpers read `FAL_KEY` from the process environment
+    and nothing else.
+    """
+
+    @pytest.fixture
+    def recording_client(self, monkeypatch):
+        keys = []
+
+        class FakeSyncClient:
+            def __init__(self, key=None, **_):
+                keys.append(key)
+
+            def subscribe(self, application, arguments):
+                return {"images": []}
+
+            def upload_file(self, path):
+                return "https://v3.fal.media/files/rabbit/uploaded.png"
+
+        monkeypatch.delenv("FAL_KEY", raising=False)
+        monkeypatch.setattr("fal_client.SyncClient", FakeSyncClient)
+        FakeSyncClient.keys = keys
+        return FakeSyncClient
+
+    def test_generating_passes_the_configured_key(self, recording_client):
+        FalClient(CREDENTIALS).generate("concept", prompt="a castle")
+
+        assert recording_client.keys == ["fal-test-key"]
+
+    def test_uploading_passes_the_configured_key(self, recording_client, tmp_path):
+        source = tmp_path / "sprite.png"
+        source.write_bytes(IMAGE_BYTES)
+
+        FalClient(CREDENTIALS).upload(source)
+
+        assert recording_client.keys == ["fal-test-key"]
+
+    def test_a_missing_key_is_still_refused_before_any_call(self, recording_client):
+        with pytest.raises(ConfigurationError):
+            FalClient(Credentials()).generate("concept", prompt="a castle")
+
+        assert recording_client.keys == []

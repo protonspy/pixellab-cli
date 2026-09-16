@@ -38,7 +38,7 @@ def fal_calls(monkeypatch):
         recorded.append((application, arguments))
         return {"images": [{"url": CONCEPT_URL}], "request_id": "req-1"}
 
-    monkeypatch.setattr(fal, "_default_subscribe", subscribe)
+    monkeypatch.setattr(fal, "_subscribing_with", lambda key: subscribe)
     return recorded
 
 

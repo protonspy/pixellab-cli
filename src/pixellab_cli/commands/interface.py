@@ -122,7 +122,7 @@ def _ui(context, description, size, element, palette, style, name, seed) -> None
             "image_size": parse_size(size) if size else None,
             "elements": list(element) if element else None,
             "color_palette": palette,
-            "style_image": _load(style).as_payload() if style else None,
+            "style_image": _load(style) if style else None,
             "name": name,
             "seed": seed,
         },
@@ -260,7 +260,7 @@ def _portrait(context, file, to_portrait, to_character, size, view, name, seed) 
         description=f"{file.stem} as a {'portrait' if to_portrait else 'character'}",
         name=name or f"{file.stem}-{'portrait' if to_portrait else 'character'}",
         arguments={
-            "image": _load(file).as_payload(),
+            "image": _load(file),
             "direction": "character_to_portrait" if to_portrait else "portrait_to_character",
             "result_size": size,
             "view": view,

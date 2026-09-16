@@ -39,8 +39,8 @@ def calls(monkeypatch):
         recorded["uploads"].append(path)
         return UPLOADED_URL
 
-    monkeypatch.setattr(fal, "_default_subscribe", subscribe)
-    monkeypatch.setattr(fal, "_default_upload", upload)
+    monkeypatch.setattr(fal, "_subscribing_with", lambda key: subscribe)
+    monkeypatch.setattr(fal, "_uploading_with", lambda key: upload)
     return recorded
 
 
@@ -131,7 +131,7 @@ class TestConcept:
         def subscribe(application, *, arguments):
             return {"images": [{"url": CONCEPT_URL}] * 3}
 
-        monkeypatch.setattr(fal, "_default_subscribe", subscribe)
+        monkeypatch.setattr(fal, "_subscribing_with", lambda key: subscribe)
 
         invoke(["art", "concept", "a castle", "--count", "3"], tmp_path, monkeypatch)
 

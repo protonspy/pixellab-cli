@@ -69,17 +69,17 @@ def _new(context, description, directions, size, view, style, reference, name) -
     arguments: dict[str, Any] = {"description": description, "size": size, "view": view}
     if directions == 8:
         if reference is not None:
-            arguments["reference_image"] = _load(reference).as_payload()
+            arguments["reference_image"] = _load(reference)
             # The route rejects a size alongside a reference: the reference decides it.
             arguments["size"] = None
         if style is not None:
-            arguments["style_image"] = _load(style).as_payload()
+            arguments["style_image"] = _load(style)
             arguments["size"] = None
     else:
         if reference is not None:
             raise ValidationError("--reference needs --directions 8")
         if style is not None:
-            arguments["style_images"] = [_load(style).as_payload()]
+            arguments["style_images"] = [_load(style)]
             arguments["size"] = None
 
     body = build_request(route, arguments)

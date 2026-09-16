@@ -12,6 +12,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from pixellab_cli.errors import ValidationError
+from pixellab_cli.images import EncodedImage
 from pixellab_cli.routes import Param, ParamKind, Route, SizeLimit
 
 _NUMERIC_KINDS = (ParamKind.INTEGER, ParamKind.NUMBER)
@@ -37,7 +38,36 @@ def build_request(route: Route, arguments: Mapping[str, Any]) -> dict[str, Any]:
                 )
             continue
         body[param.name] = _check(route, param, supplied[param.name])
+    _check_sizes_agree(route, supplied)
     return body
+
+
+def _check_sizes_agree(route: Route, supplied: Mapping[str, Any]) -> None:
+    """Refuse an image a route requires to match one of its size parameters.
+
+    A cross-parameter rule has nowhere to live on a single parameter, and this one
+    is only learnable from the provider's 500 — which is charged like any other
+    generation.
+    """
+    for param in route.params:
+        if param.matches_size is None:
+            continue
+        image, target = supplied.get(param.name), supplied.get(param.matches_size)
+        if image is None or target is None:
+            continue
+        dimensions, wanted = _dimensions(image), _dimensions(target)
+        if dimensions is None or wanted is None or dimensions == wanted:
+            continue
+        raise ValidationError(
+            f"{route.name}: {param.name} is {dimensions[0]}x{dimensions[1]}, and this "
+            f"route needs it to match {param.matches_size} at {wanted[0]}x{wanted[1]}",
+            context={
+                "route": route.name,
+                "parameter": param.name,
+                "size": f"{dimensions[0]}x{dimensions[1]}",
+                param.matches_size: f"{wanted[0]}x{wanted[1]}",
+            },
+        )
 
 
 def _reject_unknown(route: Route, supplied: Mapping[str, Any]) -> None:
@@ -63,9 +93,9 @@ def _check(route: Route, param: Param, value: Any) -> Any:
     elif param.kind is ParamKind.SIZE:
         _check_size(route, param, value)
     elif param.kind is ParamKind.IMAGE:
-        _check_image(route, param, value)
+        return _check_image(route, param, value)
     elif param.kind is ParamKind.IMAGE_LIST:
-        _check_image_list(route, param, value)
+        return _check_image_list(route, param, value)
     elif param.kind is ParamKind.STRING_LIST:
         _check_list(route, param, value)
     return value
@@ -115,20 +145,24 @@ def _check_size(route: Route, param: Param, value: Any) -> None:
     _check_bounds(route, param, width, height, param.size)
 
 
-def _check_image(route: Route, param: Param, value: Any) -> None:
-    """Check an image against the route's limit, when its dimensions are knowable.
+def _check_image(route: Route, param: Param, value: Any) -> Any:
+    """Check an image against the route's limit, then return what goes on the wire.
 
-    An already-encoded payload carries no dimensions. It is passed through rather
-    than guessed at: the route will judge it, and inventing a size here would reject
-    images that are fine.
+    An `EncodedImage` carries the dimensions read out of the file; its `as_payload`
+    does not, because the wire shape has no room for them. So the serialising happens
+    here, after the check, rather than at the call site — a caller that encoded first
+    and handed over the payload was handing over an image the limit could not bind.
+
+    A value whose dimensions are genuinely unknowable is still passed through: the
+    route will judge it, and inventing a size here would reject images that are fine.
     """
     dimensions = _dimensions(value)
-    if dimensions is None:
-        return
-    _check_bounds(route, param, dimensions[0], dimensions[1], param.size)
+    if dimensions is not None:
+        _check_bounds(route, param, dimensions[0], dimensions[1], param.size)
+    return value.as_payload() if isinstance(value, EncodedImage) else value
 
 
-def _check_image_list(route: Route, param: Param, value: Any) -> None:
+def _check_image_list(route: Route, param: Param, value: Any) -> Any:
     """Check how many images were given, and each one that carries its size.
 
     The count is the part worth checking locally: the routes taking a list of images
@@ -139,8 +173,7 @@ def _check_image_list(route: Route, param: Param, value: Any) -> None:
     _check_list(route, param, value)
     if param.min_items is not None and len(value) < param.min_items:
         _require(False, route, param, value, f"at least {param.min_items} images")
-    for image in value:
-        _check_image(route, param, image)
+    return [_check_image(route, param, image) for image in value]
 
 
 def _dimensions(value: Any) -> tuple[int, int] | None:

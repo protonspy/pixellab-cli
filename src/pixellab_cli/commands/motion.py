@@ -169,7 +169,7 @@ def _rotate(context, file, description, name, transparent, seed) -> None:
         name=name or file.stem,
         roles=list(ROTATION_ORDER),
         arguments={
-            "first_frame": _load(file).as_payload(),
+            "first_frame": _load(file),
             "description": description,
             "no_background": True if transparent else None,
             "seed": seed,
@@ -227,8 +227,8 @@ def _animate(
         )
 
     arguments: dict[str, Any] = {
-        "first_frame": _load(file).as_payload(),
-        "last_frame": _load(last).as_payload() if last else None,
+        "first_frame": _load(file),
+        "last_frame": _load(last) if last else None,
         "frame_count": frames,
         "no_background": True if transparent else None,
         "seed": seed,
