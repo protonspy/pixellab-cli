@@ -58,3 +58,4 @@ over this file answers with the example above as well as with the notes. -->
 <!-- n-0018 removed -->
 - n-0019 2026-09-16 #gotcha @src/pixellab_cli/fal.py — fal's subscribe returns the model output and no request id; the id exists only at enqueue, so on_enqueue is the one place to catch it and the finished job's timing depends on having it
 - n-0020 2026-09-16 #gotcha @src/pixellab_cli/workspace.py — a run under a subject is claimed by creating its version directory, not by checking whether one is free; the check-then-act version let two processes pick the same name
+- n-0021 2026-09-16 #gotcha @src/pixellab_cli/commands/job.py — a filename built by hand skips the slugify that asset_filename does, and Workspace.inside only catches an escape past the root, not a write into a sibling run

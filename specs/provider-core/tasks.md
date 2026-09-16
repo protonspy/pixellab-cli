@@ -46,6 +46,15 @@
   _Depends 3.3_
 - [x] 3.5 (Unit) Return decoded images, provider-assigned identifiers and reported usage from every call — R5.1
   _Depends 3.1_
+- [x] 3.6 (Unit) Collect a background job by its identifier alone, adding no ledger entry — R4.5, R4.6
+  _Depends 3.3_
+  _Reason a timeout named a command that did not exist, so a charged job had no way back_
+- [x] 3.8 (Unit) Record a timed-out call as still running with no cost, and settle it when its job is collected — R4.6, R4.8
+  _Depends 3.6_
+  _Reason a timeout was recorded as a failure carrying the estimate, so a guess entered the totals as though the provider had reported it_
+- [x] 3.7 (Unit) Return as many images as a response declares, and carry the seconds it reports — R4.7, R5.3
+  _Depends 3.3_
+  _Reason a template animation returned six frames in one field and two in another, and two were collected_
 
 ## 4 · fal
 

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import random
 import time
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
@@ -17,7 +18,13 @@ import httpx
 
 from pixellab_cli import catalog, images
 from pixellab_cli.config import PIXELLAB_BASE_URL, Credentials
-from pixellab_cli.errors import JobFailed, PollTimeout, ProviderError, RateLimited
+from pixellab_cli.errors import (
+    JobFailed,
+    PollTimeout,
+    ProviderError,
+    RateLimited,
+    ValidationError,
+)
 from pixellab_cli.routes import Route, RouteKind
 from pixellab_cli.validate import build_request
 
@@ -37,11 +44,16 @@ RATE_LIMIT_STATUSES = frozenset({429, 529})
 
 @dataclass(frozen=True)
 class Usage:
-    """What a call cost. `estimated` says whether the provider or the table said so."""
+    """What a call cost. `estimated` says whether the provider or the table said so.
+
+    `seconds` is reported by the routes priced by time, and dropping it left an
+    animation that ran for thirty-six minutes recorded as costing nothing.
+    """
 
     generations: float = 0.0
     usd: float = 0.0
     estimated: bool = False
+    seconds: float | None = None
 
 
 @dataclass
@@ -235,30 +247,70 @@ class PixelLabClient:
         if not job_id:
             raise ProviderError(
                 f"{route.name} returned no {route.result_id_field} to poll",
-                context={"route": route.name, "response": result.raw},
+                context={"route": route.name},
                 secrets=self._credentials.secrets,
             )
+        payload = self._poll(job_id, route.poll_path or "", route.name)
+        return _complete(route, payload, result)
 
-        path = (route.poll_path or "").replace("{id}", job_id)
+    def collect(self, job_id: str) -> Result:
+        """Wait for a background job named by its id alone, and return what it made.
+
+        The polling above belongs to a call in flight and knows its route. This does
+        not: a job id is all that survives a `PollTimeout`, and the work behind it was
+        charged whether or not anybody was still waiting.
+        """
+        # The id goes into a URL path, and dot segments in it are normalised against
+        # the whole URL: `../../v2/characters` reaches another endpoint on the host,
+        # carrying this caller's bearer token. Every id the provider issues is a
+        # UUID, so anything else is refused rather than escaped and sent anyway.
+        try:
+            uuid.UUID(job_id)
+        except (ValueError, AttributeError, TypeError):
+            raise ValidationError(
+                f"{job_id!r} is not a job id; they are UUIDs",
+                context={"job": job_id},
+            ) from None
+
+        payload = self._poll(job_id, catalog.BACKGROUND_JOBS_PATH, f"job {job_id}")
+        body = payload.get("last_response") or payload
+        result = Result(route="background-job", job_id=job_id, raw=payload)
+        result.images = _decode_images(body)
+        result.usage = _usage(payload) or _usage(body) or Usage(estimated=True)
+        # The same provenance the ordinary path keeps. A collected job knowing less
+        # about itself than a waited-for one is drift, not a decision.
+        for key, value in body.items():
+            if key.endswith("_id") and isinstance(value, str):
+                result.ids[key] = value
+        return result
+
+    def _poll(self, job_id: str, poll_path: str, subject: str) -> dict[str, Any]:
+        """Wait for one background job and return its completed payload.
+
+        One loop for both callers. They were two, and had already drifted: the one
+        that collected a job by id dropped the identifiers the other kept, and said
+        nothing about the call having been charged.
+        """
+        path = poll_path.replace("{id}", job_id)
         waited = 0.0
         while True:
             payload = self._request("GET", path, None)
             status = str(payload.get("status", "")).lower()
             if status == "completed":
-                return _complete(route, payload, result)
+                return payload
             if status == "failed":
                 raise JobFailed(
-                    f"{route.name} failed: {_job_error(payload)}",
+                    f"{subject} failed: {_job_error(payload)}",
                     job_id=job_id,
-                    context={"route": route.name},
+                    context={"job": job_id},
                 )
             if waited + self._poll_interval > self._max_poll_seconds:
                 raise PollTimeout(
-                    f"{route.name} was still running after {waited:.0f}s. "
+                    f"{subject} was still running after {waited:.0f}s. "
                     f"It has been charged either way.",
                     job_id=job_id,
-                    resume_command=f"pixellab job show {job_id}",
-                    context={"route": route.name},
+                    resume_command=f"pixellab-cli job show {job_id}",
+                    context={"job": job_id},
                 )
             self._sleep(self._poll_interval)
             waited += self._poll_interval
@@ -292,7 +344,13 @@ def _complete(route: Route, payload: dict[str, Any], result: Result) -> Result:
 
 
 def _decode_images(payload: dict[str, Any]) -> list[bytes]:
-    """Every image in a response, whether it arrived as `image` or as `images`."""
+    """Every image in a response, whether it arrived as `image` or as `images`.
+
+    A response that says how many frames it has is believed. A template-driven
+    animation returns six frames in `quantized_images` and two in `images`, so
+    reading `images` alone silently collected two of six — the animation looked
+    complete and was not, which is the failure this whole module is written against.
+    """
     found: list[Any] = []
     single = payload.get("image")
     if single:
@@ -300,6 +358,19 @@ def _decode_images(payload: dict[str, Any]) -> list[bytes]:
     many = payload.get("images")
     if isinstance(many, list):
         found.extend(many)
+
+    declared = payload.get("frame_count")
+    if isinstance(declared, int) and declared > len(found):
+        # Only `quantized_images`, and only because a real payload was seen holding
+        # it. `frames` is the other field that carries a frame per entry, and the
+        # vendored schema says those are public URLs — base64-decoding one raises,
+        # and a URL that happened to survive padding would be written as a PNG of
+        # nothing. A field is read when it has been seen, not when it sounds right.
+        for field_name in ("quantized_images",):
+            complete = payload.get(field_name)
+            if isinstance(complete, list) and len(complete) == declared:
+                found = list(complete)
+                break
     return [images.decode(item) for item in found]
 
 
@@ -307,10 +378,12 @@ def _usage(payload: dict[str, Any]) -> Usage | None:
     reported = payload.get("usage")
     if not isinstance(reported, dict):
         return None
+    seconds = reported.get("seconds")
     return Usage(
         generations=float(reported.get("generations") or 0.0),
         usd=float(reported.get("usd") or 0.0),
         estimated=False,
+        seconds=float(seconds) if isinstance(seconds, (int, float)) else None,
     )
 
 

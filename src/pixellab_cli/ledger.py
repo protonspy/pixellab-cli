@@ -184,6 +184,18 @@ def summarise(
     return sorted(rows.values(), key=lambda row: (-row.reported_generations, row.route))
 
 
+def run_of_job(entries: Iterable[dict[str, Any]], job_id: str) -> str | None:
+    """The run a job belongs to, or None if the ledger never saw it.
+
+    A timeout records the job id against the run it came from. Collecting the job
+    later knows only the id, and settling the right run means finding its way back.
+    """
+    for entry in reversed(list(entries)):
+        if entry.get("kind") == "outcome" and entry.get("job_id") == job_id:
+            return str(entry.get("run")) or None
+    return None
+
+
 def unresolved(entries: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
     """Intents that never resolved. Each may have been charged."""
     entries = list(entries)

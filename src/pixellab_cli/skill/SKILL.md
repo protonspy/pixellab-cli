@@ -62,6 +62,7 @@ Use it whenever the person has named a budget.
 | Checking whether a background is really transparent | `pixellab-cli image inspect anchor.png` |
 | Loading the art in Phaser or PixiJS | `pixellab-cli export atlas frames/*.png --name warrior` |
 | A tileset a level editor opens | `pixellab-cli export tileset tiles/*.png --name terrain` |
+| A job that was charged and never arrived | `pixellab-cli job show <job-id>` |
 | What is left to spend | `pixellab-cli balance` |
 | What has been spent | `pixellab-cli ledger` |
 
@@ -137,6 +138,10 @@ one. The person sets the variable; you never see it.
 
 A recipe writes `recipe.json` beside its output as it goes. If it stopped, everything
 before the failing step is still there and paid for:
+
+A background job that outlives the wait is charged either way. The timeout names the
+job; `pixellab-cli job show <job-id>` waits for it and writes what it made, and adds
+no ledger line, because the charge was recorded when the call was made.
 
 ```bash
 pixellab-cli recipe resume pixellab-out/<run>/recipe.json

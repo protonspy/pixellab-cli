@@ -54,11 +54,16 @@ looks like have to be decided once.
 - **R4.2** While a job is polled, the provider core shall wait between attempts and shall stop after a bounded total wait rather than polling indefinitely.
 - **R4.3** If a job reports `failed`, then the provider core shall report the provider's own failure message together with the job identifier.
 - **R4.4** If polling stops before a job resolves, then the provider core shall report the job identifier and the command that resumes it, because the call has been charged whether or not its result was collected.
+- **R4.5** (ADDED) The provider core shall offer the command it names, so that a job reported as charged and uncollected can be waited for and collected by its identifier alone.
+- **R4.6** (MODIFIED) Where a collected job is written, the provider core shall record no second call, and shall settle the call the job belongs to with what the job reports it cost.
+- **R4.8** (ADDED) If polling stops before a job resolves, then the provider core shall record that call as still running and shall record no cost for it, because a call that has not finished has not reported one.
+- **R4.7** (MODIFIED) Where a response declares how many images it holds and fewer were found, the provider core shall take them from a field it has seen carry them, and shall leave the count alone otherwise.
 
 ## R5 · Results and cost
 
 - **R5.1** The provider core shall return, for every call, the decoded images, the identifiers the provider assigned, and the usage the provider reported.
 - **R5.2** Where a provider reports no usage, the provider core shall return the tool's own estimate marked as an estimate, and shall report the cost as unknown where it has no estimate for that route.
+- **R5.3** (ADDED) Where a provider reports how long a call took, the provider core shall return that alongside what it cost.
 
 ## Out of scope
 
