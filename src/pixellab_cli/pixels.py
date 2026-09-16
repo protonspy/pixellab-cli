@@ -1,0 +1,247 @@
+"""Local operations on images, done here rather than paid for.
+
+`docs/stack.md` carries pillow for exactly this: every pixel operation the tool can do
+itself. Nothing in this module calls a provider, writes a ledger line, or costs
+anything, which is why these are functions over `PIL.Image` and not runs.
+
+Kept apart from `images.py`, which sits on the request path and reads a PNG's size out
+of the bytes with `struct` rather than decoding it. That avoidance is deliberate;
+importing a decoder into it to serve commands that are not on that path would undo it
+for nothing.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+from PIL import Image, ImageOps
+
+from pixellab_cli.errors import ValidationError
+
+# Everything here works in RGBA, because alpha is the part the paid routes read and a
+# mode conversion that quietly drops it is the failure this module exists to avoid.
+MODE = "RGBA"
+
+# Below this, a pixel reads as background to the rotation routes; above it, as subject.
+# Between the two is the halo that only becomes visible once the art has been paid for.
+OPAQUE = 255
+TRANSPARENT = 0
+
+
+@dataclass(frozen=True)
+class Report:
+    """What `inspect` found. The alpha split is the part worth having."""
+
+    width: int
+    height: int
+    mode: str
+    transparent: int
+    partial: int
+    opaque: int
+
+    @property
+    def pixels(self) -> int:
+        return self.width * self.height
+
+    def as_json(self) -> dict[str, Any]:
+        return {
+            "size": {"width": self.width, "height": self.height},
+            "mode": self.mode,
+            "alpha": {
+                "transparent": self.transparent,
+                "partial": self.partial,
+                "opaque": self.opaque,
+            },
+        }
+
+
+def load(path: Path) -> Image.Image:
+    """Open an image, or say which file was not one.
+
+    Pillow raises several different exceptions for "not an image", and one of them is
+    `OSError` from the filesystem. They are the same answer to the caller.
+
+    `DecompressionBombError` is in the list because it is not an `OSError`: a file
+    declaring enormous dimensions would otherwise leave this function as an unhandled
+    exception and reach the operator as a traceback rather than as a refusal.
+    """
+    if not path.is_file():
+        raise ValidationError(f"{path} is not a file", context={"path": str(path)})
+    try:
+        opened = Image.open(path)
+        opened.load()
+    except (OSError, ValueError, Image.DecompressionBombError) as failure:
+        raise ValidationError(
+            f"{path} is not an image this tool can read: {failure}",
+            context={"path": str(path)},
+        ) from failure
+    # A photo from a camera stores its pixels unrotated and an orientation tag beside
+    # them. Every viewer honours the tag; a geometry operation that does not would
+    # crop a different image from the one the caller is looking at.
+    return ImageOps.exif_transpose(opened).convert(MODE)
+
+
+def free_path(path: Path) -> Path:
+    """`warrior.png`, then `warrior-2.png`, keeping the extension where it belongs.
+
+    The same promise `asset-workspace` R1.3 makes for generated files: a name already
+    taken is written alongside, never over.
+    """
+    if not path.exists():
+        return path
+    attempt = 2
+    while True:
+        candidate = path.with_name(f"{path.stem}-{attempt}{path.suffix}")
+        if not candidate.exists():
+            return candidate
+        attempt += 1
+
+
+def crop(image: Image.Image, box: tuple[int, int, int, int]) -> Image.Image:
+    """The named region, refusing a box that is empty or outside the image."""
+    left, upper, right, lower = box
+    if right <= left or lower <= upper:
+        raise ValidationError(
+            f"the box {left},{upper},{right},{lower} encloses nothing",
+            context={"box": f"{left},{upper},{right},{lower}"},
+        )
+    if left < 0 or upper < 0 or right > image.width or lower > image.height:
+        raise ValidationError(
+            f"the box {left},{upper},{right},{lower} falls outside {image.width}x{image.height}",
+            context={"box": f"{left},{upper},{right},{lower}"},
+        )
+    return image.crop(box)
+
+
+def resize(image: Image.Image, size: tuple[int, int]) -> Image.Image:
+    """Any target size, resampled. This does not preserve a pixel grid — `scale` does."""
+    width, height = size
+    if width < 1 or height < 1:
+        raise ValidationError(
+            f"{width}x{height} is not a size", context={"size": f"{width}x{height}"}
+        )
+    return image.resize((width, height), Image.LANCZOS)
+
+
+def pad(image: Image.Image, size: tuple[int, int]) -> Image.Image:
+    """Centre the image inside `size`, the added area fully transparent."""
+    width, height = size
+    if width < image.width or height < image.height:
+        raise ValidationError(
+            f"{width}x{height} is smaller than the image at {image.width}x{image.height}; "
+            f"crop or resize it first",
+            context={"size": f"{width}x{height}"},
+        )
+    canvas = Image.new(MODE, (width, height), (0, 0, 0, TRANSPARENT))
+    canvas.paste(image, ((width - image.width) // 2, (height - image.height) // 2))
+    return canvas
+
+
+def trim(image: Image.Image) -> Image.Image:
+    """Drop the fully transparent margin. An image with no content is left alone."""
+    box = image.getchannel("A").getbbox()
+    return image if box is None else image.crop(box)
+
+
+def scale(image: Image.Image, factor: int) -> Image.Image:
+    """Enlarge by a whole number with nearest neighbour, so the grid survives exactly."""
+    if factor < 2:
+        raise ValidationError(
+            f"a factor of {factor} changes nothing; use 2 or more, or `resize` for any size",
+            context={"factor": factor},
+        )
+    return image.resize((image.width * factor, image.height * factor), Image.NEAREST)
+
+
+def sheet(images: list[Image.Image], columns: int) -> Image.Image:
+    """Compose a contact sheet, in the order given, in cells the largest image fits.
+
+    One cell size for every image, because a sheet of ragged cells is a sheet nobody
+    can read a grid position off.
+    """
+    if not images:
+        raise ValidationError("no images to compose")
+    if columns < 1:
+        raise ValidationError(f"{columns} columns is not a grid", context={"columns": columns})
+    cell_width = max(image.width for image in images)
+    cell_height = max(image.height for image in images)
+    rows = -(-len(images) // columns)
+    canvas = Image.new(MODE, (cell_width * columns, cell_height * rows), (0, 0, 0, TRANSPARENT))
+    for index, image in enumerate(images):
+        column, row = index % columns, index // columns
+        canvas.alpha_composite(image, (column * cell_width, row * cell_height))
+    return canvas
+
+
+def split(image: Image.Image, columns: int, rows: int) -> list[Image.Image]:
+    """One image per cell of a uniform grid, left to right then top to bottom."""
+    if columns < 1 or rows < 1:
+        raise ValidationError(
+            f"{columns}x{rows} is not a grid", context={"grid": f"{columns}x{rows}"}
+        )
+    if image.width % columns or image.height % rows:
+        raise ValidationError(
+            f"{image.width}x{image.height} does not divide into {columns}x{rows} whole cells",
+            context={"size": f"{image.width}x{image.height}", "grid": f"{columns}x{rows}"},
+        )
+    cell_width, cell_height = image.width // columns, image.height // rows
+    return [
+        image.crop(
+            (
+                column * cell_width,
+                row * cell_height,
+                (column + 1) * cell_width,
+                (row + 1) * cell_height,
+            )
+        )
+        for row in range(rows)
+        for column in range(columns)
+    ]
+
+
+def inspect(image: Image.Image, mode: str) -> Report:
+    """Size, the mode as it was on disk, and how alpha is distributed.
+
+    The middle bucket is the one worth printing: a soft edge is read as a halo by the
+    rotation routes, and nothing says so until the art comes back.
+    """
+    histogram = image.getchannel("A").histogram()
+    return Report(
+        width=image.width,
+        height=image.height,
+        mode=mode,
+        transparent=histogram[TRANSPARENT],
+        partial=sum(histogram[TRANSPARENT + 1 : OPAQUE]),
+        opaque=histogram[OPAQUE],
+    )
+
+
+def write_gif(frames: list[Image.Image], path: Path, duration: int) -> Path:
+    """The frames in order, looping, at `duration` milliseconds each."""
+    if len(frames) < 2:
+        raise ValidationError("a GIF needs at least two frames")
+    if duration < 1:
+        raise ValidationError(
+            f"{duration} milliseconds is not a frame duration", context={"duration": duration}
+        )
+    target = free_path(path)
+    frames[0].save(
+        target,
+        save_all=True,
+        append_images=frames[1:],
+        duration=duration,
+        loop=0,
+        disposal=2,
+        transparency=0,
+    )
+    return target
+
+
+def write(image: Image.Image, path: Path) -> Path:
+    """Write beside whatever it came from, never over something already there."""
+    target = free_path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    image.save(target)
+    return target

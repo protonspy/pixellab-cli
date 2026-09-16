@@ -21,6 +21,7 @@ from pixellab_cli.commands import (
     clean,
     config_command,
     edit,
+    image,
     interface,
     motion,
     prop,
@@ -43,6 +44,7 @@ app.add_typer(art.app)
 app.add_typer(character.app)
 app.add_typer(prop.app)
 app.add_typer(clean.app)
+app.add_typer(image.app)
 app.add_typer(tiles.app)
 app.add_typer(recipe_command.app)
 setup.register(app)
