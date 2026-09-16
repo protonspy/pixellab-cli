@@ -189,7 +189,7 @@ def split(
             raise ValidationError("give either --grid or --layout, and not both")
         image = pixels.load(file)
         if layout:
-            columns, rows, names = _read_layout(layout)
+            columns, rows, names = read_layout(layout)
         else:
             columns, rows = _size(grid)
             names = None
@@ -213,7 +213,7 @@ def split(
         output.handle(failure)
 
 
-def _read_layout(path: Path) -> tuple[int, int, list[str]]:
+def read_layout(path: Path) -> tuple[int, int, list[str]]:
     """The grid and the frame names out of a spritesheet export's layout JSON.
 
     The shape is the provider's, read off a real export: `spritesheet.rows` holds one

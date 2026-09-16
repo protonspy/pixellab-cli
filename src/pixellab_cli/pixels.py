@@ -29,6 +29,12 @@ MODE = "RGBA"
 OPAQUE = 255
 TRANSPARENT = 0
 
+# What one composed image may reach. Past this the allocation fails as a
+# `MemoryError` with a traceback; a ceiling turns that into a sentence saying what
+# was asked for and what the limit is. Pillow's own decode guard does not apply
+# here, because `Image.new` allocates without one.
+MAX_COMPOSED_PIXELS = 89_478_485
+
 
 @dataclass(frozen=True)
 class Report:
@@ -155,11 +161,27 @@ def scale(image: Image.Image, factor: int) -> Image.Image:
     return image.resize((image.width * factor, image.height * factor), Image.NEAREST)
 
 
-def sheet(images: list[Image.Image], columns: int) -> Image.Image:
-    """Compose a contact sheet, in the order given, in cells the largest image fits.
+@dataclass(frozen=True)
+class Rectangle:
+    """Where one image landed on a composed one.
 
-    One cell size for every image, because a sheet of ragged cells is a sheet nobody
-    can read a grid position off.
+    The frame's own size, not its cell's: a loader crops by this and never sees the
+    original, so padding around a small frame inside a big cell would be cropped in.
+    """
+
+    x: int
+    y: int
+    width: int
+    height: int
+
+
+def place(images: list[Image.Image], columns: int) -> tuple[Image.Image, list[Rectangle]]:
+    """Compose images onto one grid and say where each one landed.
+
+    One cell size for every image, the largest given. A tighter packer would fit them
+    closer and is a better use of a texture budget; it is not here because the
+    rectangles are already recorded per frame, so one can replace this later and write
+    different numbers into the same fields.
     """
     if not images:
         raise ValidationError("no images to compose")
@@ -168,11 +190,31 @@ def sheet(images: list[Image.Image], columns: int) -> Image.Image:
     cell_width = max(image.width for image in images)
     cell_height = max(image.height for image in images)
     rows = -(-len(images) // columns)
-    canvas = Image.new(MODE, (cell_width * columns, cell_height * rows), (0, 0, 0, TRANSPARENT))
+    width, height = cell_width * columns, cell_height * rows
+    if width * height > MAX_COMPOSED_PIXELS:
+        raise ValidationError(
+            f"{columns} columns of {cell_width}x{cell_height} makes {width}x{height}, "
+            f"past the {MAX_COMPOSED_PIXELS} pixels this composes at once",
+            context={"size": f"{width}x{height}", "limit": MAX_COMPOSED_PIXELS},
+        )
+    canvas = Image.new(MODE, (width, height), (0, 0, 0, TRANSPARENT))
+    rectangles = []
     for index, image in enumerate(images):
-        column, row = index % columns, index // columns
-        canvas.alpha_composite(image, (column * cell_width, row * cell_height))
-    return canvas
+        x = (index % columns) * cell_width
+        y = (index // columns) * cell_height
+        canvas.alpha_composite(image, (x, y))
+        rectangles.append(Rectangle(x=x, y=y, width=image.width, height=image.height))
+    return canvas, rectangles
+
+
+def sheet(images: list[Image.Image], columns: int) -> Image.Image:
+    """Compose a contact sheet, in the order given, in cells the largest image fits.
+
+    One cell size for every image, because a sheet of ragged cells is a sheet nobody
+    can read a grid position off.
+    """
+    composed, _ = place(images, columns)
+    return composed
 
 
 def split(image: Image.Image, columns: int, rows: int) -> list[Image.Image]:
