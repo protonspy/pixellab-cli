@@ -55,6 +55,11 @@ Use it whenever the person has named a budget.
 | Editing a concept image | `pixellab-cli art edit concept.png -p "make it night"` |
 | The whole thing, end to end | `pixellab-cli recipe run character "a knight" -a walking` |
 | Cleaning up art that exists | `pixellab-cli clean unzoom|background|colors|correct|resize` |
+| Cropping, resizing, padding or trimming a file you already have | `pixellab-cli image crop|resize|pad|trim` |
+| Enlarging pixel art without blurring the grid | `pixellab-cli image scale sprite.png --by 2` |
+| Seeing many frames at once, or watching an animation | `pixellab-cli image sheet frames/*.png --columns 4` · `pixellab-cli image gif frames/*.png` |
+| Cutting a spritesheet into frames | `pixellab-cli image split sheet.png --layout sheet.json` |
+| Checking whether a background is really transparent | `pixellab-cli image inspect anchor.png` |
 | What is left to spend | `pixellab-cli balance` |
 | What has been spent | `pixellab-cli ledger` |
 
@@ -65,6 +70,18 @@ person named one.
 **Do not guess enum spellings or size limits.** The tool validates every argument
 before spending anything, and its errors name the values that would have worked. A
 wrong guess costs nothing and corrects itself; read the error and try again.
+
+## `pixellab-cli image` is free
+
+Every `image` sub-command is Pillow on this machine: no provider, no ledger line, no
+charge. Reach for it before paying for the same result — `clean resize` costs about a
+tenth of a generation and caps at a halving or a doubling, while `image resize` costs
+nothing and takes any size. `clean background` is the one worth paying for, because
+removing a background is a model's judgement rather than geometry.
+
+`image inspect` answers the question that is otherwise only answerable after the art
+comes back wrong: whether an image's alpha is binary, or soft at the edges. The
+rotation and animation routes read a soft edge as a halo.
 
 ## Money
 

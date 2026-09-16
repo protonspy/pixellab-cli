@@ -53,3 +53,4 @@ over this file answers with the example above as well as with the notes. -->
 - n-0013 2026-09-15 #ceiling @src/pixellab_cli/commands/character.py — character animate has no way to force free text once an action names a template; rephrase the action until a template stops matching
 - n-0014 2026-09-15 #ceiling @src/pixellab_cli/commands/art.py — a mid-list upload failure strands the files already on fal's CDN; nothing records their URLs
 - n-0015 2026-09-15 #gotcha @src/pixellab_cli/commands/character.py — a character reports animation_count 0 for a while after an animation is created; the spritesheet export shows it before GET /characters does
+- n-0016 2026-09-15 #gotcha @src/pixellab_cli/pixels.py — the GIF writer merges a frame identical to the one before it and adds its time to that frame, so the file's frame count can be lower than the frames given while playback stays the same length

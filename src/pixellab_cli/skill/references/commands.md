@@ -245,6 +245,81 @@ Download a character as a spritesheet ZIP, sheet and layout together. Free.
 pixellab-cli character sheet <character_id> --name
 ```
 
+## image
+
+Local work on files that already exist. No provider, no ledger, no charge. Results
+land beside the input under a distinct name, never over it.
+
+### `pixellab-cli image crop`
+
+```
+pixellab-cli image crop <file> --box left,top,right,bottom --out
+```
+
+### `pixellab-cli image resize`
+
+Any size, resampled. Does not preserve a pixel grid — `scale` does.
+
+```
+pixellab-cli image resize <file> --to 256|96x64 --out
+```
+
+### `pixellab-cli image pad`
+
+Centre the image inside a larger frame, the added area fully transparent.
+
+```
+pixellab-cli image pad <file> --to 256|96x64 --out
+```
+
+### `pixellab-cli image trim`
+
+Drop the fully transparent margin.
+
+```
+pixellab-cli image trim <file> --out
+```
+
+### `pixellab-cli image scale`
+
+Enlarge by a whole number with nearest neighbour, so the grid survives exactly.
+
+```
+pixellab-cli image scale <file> --by 2 --out
+```
+
+### `pixellab-cli image sheet`
+
+One contact sheet, one cell size, in the order given.
+
+```
+pixellab-cli image sheet <files> --columns 4 --out
+```
+
+### `pixellab-cli image gif`
+
+A looping GIF from frames in playback order.
+
+```
+pixellab-cli image gif <frames> --duration 110 --out
+```
+
+### `pixellab-cli image split`
+
+One file per cell. With `--layout`, the frames carry the names the export gives them.
+
+```
+pixellab-cli image split <file> --grid 8x3 | --layout <json> --into
+```
+
+### `pixellab-cli image inspect`
+
+Size, mode, and the alpha split between transparent, partial and opaque.
+
+```
+pixellab-cli image inspect <file>
+```
+
 ## clean
 
 ### `pixellab-cli clean background`
