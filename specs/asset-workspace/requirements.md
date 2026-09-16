@@ -3,7 +3,7 @@ autonomy: auto
 ci: wait
 branch: feat/output-by-subject
 delivery: merged
-pr: 1
+pr: 24
 ---
 
 # Asset workspace — requirements
