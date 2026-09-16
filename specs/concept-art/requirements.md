@@ -3,7 +3,7 @@ autonomy: auto
 ci: wait
 branch: feat/quality-ceiling
 delivery: merged
-pr: 14
+pr: 24
 ---
 
 # Concept art — requirements
