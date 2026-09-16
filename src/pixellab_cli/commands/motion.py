@@ -106,6 +106,7 @@ def _load(path: Path):
 def _execute(
     app_context: AppContext,
     *,
+    kind: str,
     route_name: str,
     description: str,
     arguments: dict[str, Any],
@@ -126,6 +127,8 @@ def _execute(
 
     client = app_context.pixellab()
     outcome = app_context.runner.run(
+        subject=app_context.subject,
+        kind=kind,
         description=description,
         provider="pixellab",
         route=route.name,
@@ -164,6 +167,7 @@ def _rotate(context, file, description, name, transparent, seed) -> None:
     app_context: AppContext = context.obj
     _execute(
         app_context,
+        kind="rotations",
         route_name="generate-8-rotations-v3",
         description=description or f"{file.stem} from eight angles",
         name=name or file.stem,
@@ -241,6 +245,7 @@ def _animate(
 
     _execute(
         app_context,
+        kind="animations",
         route_name=route.name,
         description=f"{file.stem} {action}",
         name=name or f"{file.stem}-{action}",

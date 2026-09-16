@@ -121,12 +121,24 @@ class Workspace:
         """
         return self.inside(candidate).read_bytes()
 
-    def run_directory(self, description: str) -> Path:
+    def run_directory(
+        self, description: str, *, subject: str | None = None, kind: str | None = None
+    ) -> Path:
         """Make and return a fresh directory for one run.
 
-        Timestamp first so a listing sorts chronologically; slug second so a person
-        scanning the directory finds the run they remember by subject.
+        Without a subject: timestamp first so a listing sorts chronologically, slug
+        second so a person scanning the directory finds the run they remember.
+
+        With one: `warrior-tibiame/rotations/`, because a workspace of timestamped
+        directories does not say which of them belong to one character. The files land
+        in the kind directory itself rather than in a run directory inside it — the
+        point of naming a subject is to have the frames together.
         """
+        if subject:
+            directory = self.inside(self.root / slugify(subject) / slugify(kind or "assets"))
+            directory.mkdir(parents=True, exist_ok=True)
+            return directory
+
         stamp = self.clock().strftime("%Y-%m-%dT%H%M")
         base = f"{stamp}-{slugify(description)}"
         self.root.mkdir(parents=True, exist_ok=True)
@@ -139,12 +151,60 @@ class Workspace:
         directory.mkdir()
         return directory
 
+    def reserve_run(self, description: str, subject: str | None) -> tuple[str, Path | None]:
+        """The identifier one run is known by, and the manifest path held for it.
+
+        Without a subject this is the run directory's own name, and the directory's
+        own `mkdir` is what made it unique. With one it cannot be, because the
+        directory is the kind and every run of that kind shares it — and the ledger
+        pairs an intent with its outcome by this string, so two runs under one id are
+        two calls the ledger cannot tell apart.
+
+        The name is therefore taken by creating its manifest, exclusively. Asking
+        whether a name is free and then using it is two steps, and a second process
+        between them gets the same answer: both reserve before either writes, which
+        is exactly the collision this is here to stop.
+        """
+        base = f"{self.clock().strftime('%Y-%m-%dT%H%M')}-{slugify(description)}"
+        if not subject:
+            return base, None
+
+        directory = self.manifest_directory(subject)
+        name, attempt = base, 2
+        while True:
+            reserved = directory / f"{name.replace('#', '-')}.manifest.json"
+            try:
+                reserved.touch(exist_ok=False)
+            except FileExistsError:
+                name, attempt = f"{base}-{attempt}", attempt + 1
+                continue
+            return name, reserved
+
+    def manifest_directory(self, subject: str) -> Path:
+        """Where a subject's manifests go.
+
+        Under the subject rather than beside each asset: several runs share one kind
+        directory, so a manifest named after that directory would be overwritten by
+        the next run into it. Without a subject a run has its own directory and the
+        manifest goes there, which is the caller's to know and not this method's.
+        """
+        directory = self.inside(self.root / slugify(subject) / "manifests")
+        directory.mkdir(parents=True, exist_ok=True)
+        return directory
+
     def write(self, directory: Path, filename: str, data: bytes) -> Path:
         """Write bytes, never over something already there and never outside."""
         path = self.inside(_free_path(self.inside(directory), filename))
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
         return path
+
+    def write_reserved(self, path: Path, text: str) -> Path:
+        """Write text to a path already taken by `reserve_run`, which holds it empty."""
+        target = self.inside(path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text, encoding="utf-8")
+        return target
 
     def write_text(self, directory: Path, filename: str, text: str) -> Path:
         """Write text as UTF-8, never over something already there and never outside."""

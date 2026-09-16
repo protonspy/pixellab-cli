@@ -38,6 +38,7 @@ def _load(path: Path):
 def _execute(
     app_context: AppContext,
     *,
+    kind: str,
     route_name: str,
     description: str,
     arguments: dict[str, Any],
@@ -62,6 +63,8 @@ def _execute(
 
     client = app_context.pixellab()
     outcome = app_context.runner.run(
+        subject=app_context.subject,
+        kind=kind,
         description=description,
         provider="pixellab",
         route=route.name,
@@ -109,6 +112,7 @@ def _terrain(
     app_context: AppContext = context.obj
     _execute(
         app_context,
+        kind="tiles",
         route_name="create-tileset",
         description=f"{lower} to {upper}",
         name=name or f"{lower}-{upper}-tileset",
@@ -149,6 +153,7 @@ def _platform(context, material, top, tile_size, outline, shading, detail, name,
     app_context: AppContext = context.obj
     _execute(
         app_context,
+        kind="tiles",
         route_name="create-tileset-sidescroller",
         description=f"{material} platforms",
         name=name or "platform-tileset",
@@ -190,6 +195,7 @@ def _variants(context, description, shape, tile_size, connect, view, name, seed)
     app_context: AppContext = context.obj
     _execute(
         app_context,
+        kind="tiles",
         route_name="create-tiles-pro",
         description=description,
         name=name or "tiles",
@@ -227,6 +233,7 @@ def _isometric(context, description, size, shape, outline, shading, detail, name
     app_context: AppContext = context.obj
     _execute(
         app_context,
+        kind="tiles",
         route_name="create-isometric-tile",
         description=description,
         name=name or "isometric-tile",
@@ -265,6 +272,7 @@ def _prop(context, description, size, into, view, name, seed) -> None:
     app_context: AppContext = context.obj
     _execute(
         app_context,
+        kind="tiles",
         route_name="map-objects",
         description=description,
         name=name,

@@ -114,6 +114,7 @@ def _size_argument(size: str | None) -> Any:
 def _execute(
     app_context: AppContext,
     *,
+    kind: str,
     model_name: str,
     description: str,
     arguments: dict[str, Any],
@@ -132,6 +133,8 @@ def _execute(
 
     client = app_context.fal()
     outcome = app_context.runner.run(
+        subject=app_context.subject,
+        kind=kind,
         description=description,
         provider="fal",
         route=route.path,
@@ -174,6 +177,7 @@ def _concept(context, prompt, variant, quality, size, transparent, count, refere
     model_name, urls = _references(app_context, reference, variant)
     _execute(
         app_context,
+        kind="concept",
         model_name=model_name,
         description=prompt,
         name=name,
@@ -211,6 +215,7 @@ def _boxart(context, prompt, variant, quality, size, count, reference, name) -> 
     model_name, urls = _references(app_context, reference, variant)
     _execute(
         app_context,
+        kind="box-art",
         model_name=model_name,
         description=f"box art: {prompt}",
         name=name or "box-art",
@@ -252,6 +257,7 @@ def _anchor(context, prompt, variant, quality, size, count, reference, name) -> 
     model_name, urls = _references(app_context, reference, variant)
     _execute(
         app_context,
+        kind="concept",
         model_name=model_name,
         description=f"anchor: {prompt}",
         name=name or "anchor",
@@ -298,6 +304,7 @@ def _edit(context, files, prompt, mask, variant, quality, size, transparent, nam
     if app_context.dry_run:
         _execute(
             app_context,
+            kind="concept",
             model_name=_variant_model(variant, edit=True),
             description=prompt,
             name=name,
@@ -313,6 +320,7 @@ def _edit(context, files, prompt, mask, variant, quality, size, transparent, nam
     urls = [client.upload(path) for path in files]
     _execute(
         app_context,
+        kind="concept",
         model_name=_variant_model(variant, edit=True),
         description=prompt,
         name=name,

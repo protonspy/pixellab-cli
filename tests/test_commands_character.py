@@ -1218,3 +1218,45 @@ class TestShowingAnAnimationWithoutAName:
         assert result.exit_code == 0
         assert "None" not in result.stdout
         assert "template" in result.stdout
+
+
+class TestASubjectGathersTheCommandsOutput:
+    """The kind is a literal in each command, so a wrong one ships silently: the file
+    lands in the wrong directory and nothing fails. These pin the two the character
+    commands claim.
+    """
+
+    @respx.mock
+    def test_a_new_character_goes_under_rotations(self, tmp_path, monkeypatch):
+        mock_character()
+
+        result = invoke(
+            ["--subject", "warrior tibiame", "character", "new", "a knight", "--name", "knight"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 0
+        assert (tmp_path / "out" / "warrior-tibiame" / "rotations").is_dir()
+
+    @respx.mock
+    def test_an_animation_goes_under_animations(self, tmp_path, monkeypatch):
+        respx.get(f"{PIXELLAB_BASE_URL}/characters/char-9").respond(
+            json={"id": "char-9", "template_id": "mannequin", "skeletons": {"south": {}}}
+        )
+        respx.post(f"{PIXELLAB_BASE_URL}/characters/animations").respond(
+            json={"background_job_ids": ["job-2"], "status": "processing"}
+        )
+        respx.get(f"{PIXELLAB_BASE_URL}/background-jobs/job-2").respond(
+            json={"status": "completed", "last_response": {"images": [image_payload()]}}
+        )
+
+        result = invoke(
+            ["--subject", "warrior tibiame", "character", "animate", "char-9", "-a", "walking"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 0
+        assert (tmp_path / "out" / "warrior-tibiame" / "animations").is_dir()
+        assert (tmp_path / "out" / "warrior-tibiame" / "manifests").is_dir()

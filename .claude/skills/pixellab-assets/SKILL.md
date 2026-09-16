@@ -160,6 +160,26 @@ route, the seed and the identifiers that made it, and `pixellab-out/ledger.jsonl
 recording every call. `--workspace <path>` puts it somewhere else. Nothing is ever
 overwritten: a second write becomes `knight-2.png`.
 
+**`--subject <name>` gathers one piece of work in one place**, by the kind of asset
+each run produced, which is what you want when a character takes a concept, eight
+rotations and three animations:
+
+```
+pixellab-out/warrior-tibiame/
+  concept/      rotations/      animations/      manifests/
+```
+
+It goes before the sub-command, like `--workspace`, and every command respects it:
+
+```bash
+pixellab-cli --subject warrior-tibiame character new "a chibi warrior" --name warrior
+pixellab-cli --subject warrior-tibiame character animate <id> -a walking
+```
+
+Without it, each run gets its own timestamped directory, which is the older shape and
+still the default. Runs written before you started naming a subject stay where they
+are — nothing is moved.
+
 Tell the person the paths. They asked for files, not for a description of files.
 
 ## More detail

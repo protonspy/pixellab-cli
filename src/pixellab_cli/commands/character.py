@@ -325,6 +325,8 @@ def _new(
         return result
 
     outcome = app_context.runner.run(
+        subject=app_context.subject,
+        kind="rotations",
         description=description,
         provider="pixellab",
         route=route.name,
@@ -419,6 +421,8 @@ def _state(context, character_id, edit, state_name, size, palette, seed) -> None
         return result
 
     outcome = app_context.runner.run(
+        subject=app_context.subject,
+        kind="rotations",
         description=f"{character_id} {edit}",
         provider="pixellab",
         route=route.name,
@@ -540,6 +544,8 @@ def _animate(
             raise
 
     outcome = app_context.runner.run(
+        subject=app_context.subject,
+        kind="animations",
         description=f"{character_id} {action or template}",
         provider="pixellab",
         route=route.name,
@@ -667,6 +673,8 @@ def _sheet(context, character_id, name) -> None:
     app_context: AppContext = context.obj
     client = app_context.pixellab()
     outcome = app_context.runner.run(
+        subject=app_context.subject,
+        kind="sheets",
         description=f"{character_id} spritesheet",
         provider="pixellab",
         route="character-spritesheet",

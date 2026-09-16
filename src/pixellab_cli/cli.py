@@ -71,6 +71,12 @@ def main(
         "-w",
         help="Where generated files and the ledger land. Default: ./pixellab-out",
     ),
+    subject: str = typer.Option(
+        None,
+        "--subject",
+        help="Gather this run's assets under one directory, by kind: "
+        "warrior/rotations, warrior/animations.",
+    ),
     as_json: bool = typer.Option(
         False, "--json", help="Print the result as JSON instead of for a person."
     ),
@@ -88,4 +94,6 @@ def main(
     ),
 ) -> None:
     """Generate 2D game assets from PixelLab, and concept art from fal."""
-    context.obj = AppContext.build(root=workspace, as_json=as_json, dry_run=dry_run)
+    context.obj = AppContext.build(
+        root=workspace, as_json=as_json, dry_run=dry_run, subject=subject
+    )

@@ -57,6 +57,7 @@ def _load_set(paths: list[Path]) -> list[EncodedImage]:
 def _execute(
     app_context: AppContext,
     *,
+    kind: str,
     route_name: str,
     description: str,
     arguments: dict[str, Any],
@@ -76,6 +77,8 @@ def _execute(
 
     client = app_context.pixellab()
     outcome = app_context.runner.run(
+        subject=app_context.subject,
+        kind=kind,
         description=description,
         provider="pixellab",
         route=route.name,
@@ -128,6 +131,7 @@ def _background(context, files, complex_edges, hint) -> None:
         image = _load(path)
         _execute(
             app_context,
+            kind="cleaned",
             route_name="remove-background",
             description=f"{path.stem} without a background",
             name=f"{path.stem}-transparent",
@@ -158,6 +162,7 @@ def _unzoom(context, files, quantize) -> None:
     for path in files:
         _execute(
             app_context,
+            kind="cleaned",
             route_name="unzoom",
             description=f"{path.stem} at its native size",
             name=f"{path.stem}-unzoomed",
@@ -183,6 +188,7 @@ def _colors(context, files, count, palette, dither) -> None:
     frames = _load_set(files)
     _execute(
         app_context,
+        kind="cleaned",
         route_name="reduce-colors",
         description=f"{files[0].stem} on a reduced palette",
         name=f"{files[0].stem}-reduced",
@@ -213,6 +219,7 @@ def _correct(context, files, strength) -> None:
     frames = _load_set(files)
     _execute(
         app_context,
+        kind="cleaned",
         route_name="correct-pixelart",
         description=f"{files[0].stem} corrected",
         name=f"{files[0].stem}-corrected",
@@ -241,6 +248,7 @@ def _resize(context, file, to, description, transparent) -> None:
     image = _load(file)
     _execute(
         app_context,
+        kind="cleaned",
         route_name="resize",
         description=f"{description} at {to}",
         name=f"{file.stem}-{to}",
