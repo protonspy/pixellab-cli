@@ -1,4 +1,10 @@
-<img src="docs/media/icon-128.png" width="96" align="right" alt="">
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.png">
+    <img src="docs/media/icon-128.png" width="220" align="right" alt="pixellab-cli icon">
+  </picture>
+</p>
+
 
 # pixellab-cli
 
