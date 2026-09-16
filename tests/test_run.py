@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from pixellab_cli.errors import JobFailed, ProviderError
+from pixellab_cli.errors import JobFailed, PollTimeout, ProviderError
 from pixellab_cli.fal import FalResult
 from pixellab_cli.ledger import Cost, Ledger
 from pixellab_cli.output import describe_cost
@@ -565,3 +565,64 @@ class TestTheCostLineSaysWhatWasMeasured:
         line = describe_cost(Cost(generations=0.0, usd=None, source="unknown"))
 
         assert line == "cost: not reported by the provider"
+
+
+class TestATimeoutIsNotAFailure:
+    """A call that outlived the wait has not failed and its cost is not known.
+    Recording it as failed with the estimate folded a guess into the totals as if
+    the provider had reported it, and hid the call from the list of things charged
+    and never collected.
+    """
+
+    @pytest.fixture
+    def runner(self, tmp_path) -> Runner:
+        workspace = Workspace(root=tmp_path / "out", clock=lambda: MOMENT)
+        return Runner(
+            workspace=workspace,
+            ledger=Ledger(path=workspace.ledger_path, clock=lambda: MOMENT),
+        )
+
+    def time_out(self):
+        raise PollTimeout(
+            "still running after 900s. It has been charged either way.",
+            job_id="654ed536-4f90-41db-9b6e-ede4fc3ec4e5",
+            resume_command="pixellab-cli job show 654ed536-4f90-41db-9b6e-ede4fc3ec4e5",
+        )
+
+    def test_it_is_recorded_as_still_running(self, runner):
+        with pytest.raises(PollTimeout):
+            run(runner, call=self.time_out)
+
+        assert ledger_lines(runner)[-1]["status"] == "running"
+
+    def test_no_cost_is_invented_for_it(self, runner):
+        with pytest.raises(PollTimeout):
+            run(runner, call=self.time_out)
+
+        assert "cost" not in ledger_lines(runner)[-1]
+
+    def test_it_is_listed_as_unresolved(self, runner):
+        from pixellab_cli.ledger import unresolved
+
+        with pytest.raises(PollTimeout):
+            run(runner, call=self.time_out)
+
+        assert len(unresolved(ledger_lines(runner))) == 1
+
+    def test_the_job_id_is_kept_so_it_can_be_found_again(self, runner):
+        from pixellab_cli.ledger import run_of_job
+
+        with pytest.raises(PollTimeout):
+            run(runner, call=self.time_out)
+
+        found = run_of_job(ledger_lines(runner), "654ed536-4f90-41db-9b6e-ede4fc3ec4e5")
+        assert found == ledger_lines(runner)[-1]["run"]
+
+    def test_a_real_failure_is_still_a_failure(self, runner):
+        def refuse():
+            raise ProviderError("the provider said no")
+
+        with pytest.raises(ProviderError):
+            run(runner, call=refuse)
+
+        assert ledger_lines(runner)[-1]["status"] == "failed"

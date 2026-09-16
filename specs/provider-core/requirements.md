@@ -55,8 +55,9 @@ looks like have to be decided once.
 - **R4.3** If a job reports `failed`, then the provider core shall report the provider's own failure message together with the job identifier.
 - **R4.4** If polling stops before a job resolves, then the provider core shall report the job identifier and the command that resumes it, because the call has been charged whether or not its result was collected.
 - **R4.5** (ADDED) The provider core shall offer the command it names, so that a job reported as charged and uncollected can be waited for and collected by its identifier alone.
-- **R4.6** (ADDED) Where a collected job is written, the provider core shall add no ledger entry, because the charge was recorded when the call was made.
-- **R4.7** (ADDED) Where a response declares how many images it holds, the provider core shall return that many, taking them from whichever field carries the complete set.
+- **R4.6** (MODIFIED) Where a collected job is written, the provider core shall record no second call, and shall settle the call the job belongs to with what the job reports it cost.
+- **R4.8** (ADDED) If polling stops before a job resolves, then the provider core shall record that call as still running and shall record no cost for it, because a call that has not finished has not reported one.
+- **R4.7** (MODIFIED) Where a response declares how many images it holds and fewer were found, the provider core shall take them from a field it has seen carry them, and shall leave the count alone otherwise.
 
 ## R5 · Results and cost
 

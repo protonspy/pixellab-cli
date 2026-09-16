@@ -247,44 +247,21 @@ class PixelLabClient:
         if not job_id:
             raise ProviderError(
                 f"{route.name} returned no {route.result_id_field} to poll",
-                context={"route": route.name, "response": result.raw},
+                context={"route": route.name},
                 secrets=self._credentials.secrets,
             )
-
-        path = (route.poll_path or "").replace("{id}", job_id)
-        waited = 0.0
-        while True:
-            payload = self._request("GET", path, None)
-            status = str(payload.get("status", "")).lower()
-            if status == "completed":
-                return _complete(route, payload, result)
-            if status == "failed":
-                raise JobFailed(
-                    f"{route.name} failed: {_job_error(payload)}",
-                    job_id=job_id,
-                    context={"route": route.name},
-                )
-            if waited + self._poll_interval > self._max_poll_seconds:
-                raise PollTimeout(
-                    f"{route.name} was still running after {waited:.0f}s. "
-                    f"It has been charged either way.",
-                    job_id=job_id,
-                    resume_command=f"pixellab-cli job show {job_id}",
-                    context={"route": route.name},
-                )
-            self._sleep(self._poll_interval)
-            waited += self._poll_interval
+        payload = self._poll(job_id, route.poll_path or "", route.name)
+        return _complete(route, payload, result)
 
     def collect(self, job_id: str) -> Result:
         """Wait for a background job named by its id alone, and return what it made.
 
         The polling above belongs to a call in flight and knows its route. This does
         not: a job id is all that survives a `PollTimeout`, and the work behind it was
-        charged whether or not anybody was still waiting. Without this the only thing
-        the tool could do with a charged job was name it.
+        charged whether or not anybody was still waiting.
         """
         # The id goes into a URL path, and dot segments in it are normalised against
-        # the whole URL:  reaches another endpoint on the host,
+        # the whole URL: `../../v2/characters` reaches another endpoint on the host,
         # carrying this caller's bearer token. Every id the provider issues is a
         # UUID, so anything else is refused rather than escaped and sent anyway.
         try:
@@ -294,27 +271,43 @@ class PixelLabClient:
                 f"{job_id!r} is not a job id; they are UUIDs",
                 context={"job": job_id},
             ) from None
-        path = catalog.BACKGROUND_JOBS_PATH.replace("{id}", job_id)
+
+        payload = self._poll(job_id, catalog.BACKGROUND_JOBS_PATH, f"job {job_id}")
+        body = payload.get("last_response") or payload
+        result = Result(route="background-job", job_id=job_id, raw=payload)
+        result.images = _decode_images(body)
+        result.usage = _usage(payload) or _usage(body) or Usage(estimated=True)
+        # The same provenance the ordinary path keeps. A collected job knowing less
+        # about itself than a waited-for one is drift, not a decision.
+        for key, value in body.items():
+            if key.endswith("_id") and isinstance(value, str):
+                result.ids[key] = value
+        return result
+
+    def _poll(self, job_id: str, poll_path: str, subject: str) -> dict[str, Any]:
+        """Wait for one background job and return its completed payload.
+
+        One loop for both callers. They were two, and had already drifted: the one
+        that collected a job by id dropped the identifiers the other kept, and said
+        nothing about the call having been charged.
+        """
+        path = poll_path.replace("{id}", job_id)
         waited = 0.0
         while True:
             payload = self._request("GET", path, None)
             status = str(payload.get("status", "")).lower()
             if status == "completed":
-                body = payload.get("last_response") or payload
-                result = Result(route="background-job", job_id=job_id)
-                result.images = _decode_images(body)
-                result.usage = _usage(payload) or _usage(body) or Usage(estimated=True)
-                result.raw = payload
-                return result
+                return payload
             if status == "failed":
                 raise JobFailed(
-                    f"job {job_id} failed: {_job_error(payload)}",
+                    f"{subject} failed: {_job_error(payload)}",
                     job_id=job_id,
                     context={"job": job_id},
                 )
             if waited + self._poll_interval > self._max_poll_seconds:
                 raise PollTimeout(
-                    f"job {job_id} is still running after {waited:.0f}s.",
+                    f"{subject} was still running after {waited:.0f}s. "
+                    f"It has been charged either way.",
                     job_id=job_id,
                     resume_command=f"pixellab-cli job show {job_id}",
                     context={"job": job_id},
@@ -368,7 +361,12 @@ def _decode_images(payload: dict[str, Any]) -> list[bytes]:
 
     declared = payload.get("frame_count")
     if isinstance(declared, int) and declared > len(found):
-        for field_name in ("quantized_images", "frames"):
+        # Only `quantized_images`, and only because a real payload was seen holding
+        # it. `frames` is the other field that carries a frame per entry, and the
+        # vendored schema says those are public URLs — base64-decoding one raises,
+        # and a URL that happened to survive padding would be written as a PNG of
+        # nothing. A field is read when it has been seen, not when it sounds right.
+        for field_name in ("quantized_images",):
             complete = payload.get(field_name)
             if isinstance(complete, list) and len(complete) == declared:
                 found = list(complete)

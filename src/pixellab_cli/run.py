@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
 
-from pixellab_cli.errors import PixellabCliError, redact
+from pixellab_cli.errors import PixellabCliError, PollTimeout, redact
 from pixellab_cli.ledger import ESTIMATED, MEASURED, REPORTED, UNKNOWN, Cost, Ledger
 from pixellab_cli.workspace import Workspace, asset_filename
 
@@ -142,10 +142,17 @@ class Runner:
             # The version directory stays, empty, and keeps its number: the ledger
             # pairs an intent with its outcome by that name, and a retry that reused
             # it would give the two calls one identity.
+            #
+            # A call that outlived the wait has not failed and its cost is not known,
+            # so it is recorded as still running with no cost at all. Recording it as
+            # failed with the estimate folded a guess into the totals as though the
+            # provider had reported it, and hid the call from the list of things that
+            # were charged and never collected.
+            timed_out = isinstance(failure, PollTimeout)
             self.ledger.outcome(
                 run_id,
-                "failed",
-                cost=estimate,
+                "running" if timed_out else "failed",
+                cost=None if timed_out else estimate,
                 error=str(failure),
                 job_id=getattr(failure, "job_id", None),
                 secrets=self.secrets,

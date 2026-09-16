@@ -56,9 +56,9 @@ class TestCollectingAJob:
         assert len(written) == 6
 
     @respx.mock
-    def test_no_ledger_line_is_added(self, tmp_path, monkeypatch):
-        """The charge was recorded when the call was made. A second pair of lines
-        would count one payment twice."""
+    def test_no_new_call_is_recorded(self, tmp_path, monkeypatch):
+        """Collecting is not a second charge. With no open call to settle there is
+        nothing to write at all."""
         respx.get(f"{PIXELLAB_BASE_URL}/background-jobs/{JOB}").respond(json=completed())
 
         invoke(["job", "show", JOB], tmp_path, monkeypatch)
@@ -66,12 +66,12 @@ class TestCollectingAJob:
         assert not (tmp_path / "out" / "ledger.jsonl").exists()
 
     @respx.mock
-    def test_it_says_so_rather_than_leaving_it_implied(self, tmp_path, monkeypatch):
+    def test_it_says_when_no_open_call_names_the_job(self, tmp_path, monkeypatch):
         respx.get(f"{PIXELLAB_BASE_URL}/background-jobs/{JOB}").respond(json=completed())
 
         result = invoke(["job", "show", JOB], tmp_path, monkeypatch)
 
-        assert "already charged" in result.output
+        assert "nothing was settled" in result.output
 
     @respx.mock
     def test_the_manifest_records_which_job_it_came_from(self, tmp_path, monkeypatch):
@@ -170,3 +170,78 @@ class TestNothingCraftedEscapesItsPlace:
             invoke(["job", "show", "../../v2/characters"], tmp_path, monkeypatch)
 
             assert not route.called
+
+
+class TestCollectingSettlesTheOpenCall:
+    """A call that outlived the wait sits in the ledger as still running, with no
+    cost, because a call that has not finished cannot report one. Collecting it is
+    where that number finally exists.
+    """
+
+    def open_call(self, tmp_path, run="warrior_animations_v1"):
+        from pixellab_cli.ledger import Cost, Ledger
+
+        ledger = Ledger(path=tmp_path / "out" / "ledger.jsonl")
+        ledger.intent(run, "pixellab", "characters-animations", {}, estimate=Cost(generations=1.0))
+        ledger.outcome(run, "running", job_id=JOB)
+        return ledger, run
+
+    @respx.mock
+    def test_the_run_is_settled_with_what_it_cost(self, tmp_path, monkeypatch):
+        ledger, run = self.open_call(tmp_path)
+        respx.get(f"{PIXELLAB_BASE_URL}/background-jobs/{JOB}").respond(json=completed())
+
+        invoke(["job", "show", JOB], tmp_path, monkeypatch)
+
+        last = ledger.read()[-1]
+        assert last["run"] == run
+        assert last["status"] == "ok"
+        assert last["cost"]["usd"] == 0.2466
+        assert last["cost"]["seconds"] == 2174.5
+
+    @respx.mock
+    def test_it_stops_being_unresolved(self, tmp_path, monkeypatch):
+        from pixellab_cli.ledger import unresolved
+
+        ledger, run = self.open_call(tmp_path)
+        assert [entry["run"] for entry in unresolved(ledger.read())] == [run]
+        respx.get(f"{PIXELLAB_BASE_URL}/background-jobs/{JOB}").respond(json=completed())
+
+        invoke(["job", "show", JOB], tmp_path, monkeypatch)
+
+        assert unresolved(ledger.read()) == []
+
+    @respx.mock
+    def test_the_totals_carry_the_real_cost_rather_than_the_estimate(self, tmp_path, monkeypatch):
+        from pixellab_cli.ledger import summarise
+
+        ledger, _ = self.open_call(tmp_path)
+        respx.get(f"{PIXELLAB_BASE_URL}/background-jobs/{JOB}").respond(json=completed())
+
+        invoke(["job", "show", JOB], tmp_path, monkeypatch)
+
+        row = next(r for r in summarise(ledger.read()) if r.route == "characters-animations")
+        assert row.reported_usd == 0.2466
+        assert row.unresolved == 0
+
+    @respx.mock
+    def test_no_second_call_appears_in_the_totals(self, tmp_path, monkeypatch):
+        """Settling adds an outcome, never another intent — one payment, one call."""
+        from pixellab_cli.ledger import summarise
+
+        ledger, _ = self.open_call(tmp_path)
+        respx.get(f"{PIXELLAB_BASE_URL}/background-jobs/{JOB}").respond(json=completed())
+
+        invoke(["job", "show", JOB], tmp_path, monkeypatch)
+
+        row = next(r for r in summarise(ledger.read()) if r.route == "characters-animations")
+        assert row.calls == 1
+
+    @respx.mock
+    def test_it_says_which_run_it_settled(self, tmp_path, monkeypatch):
+        self.open_call(tmp_path)
+        respx.get(f"{PIXELLAB_BASE_URL}/background-jobs/{JOB}").respond(json=completed())
+
+        result = invoke(["job", "show", JOB], tmp_path, monkeypatch)
+
+        assert "settled warrior_animations_v1" in result.output
