@@ -1,9 +1,9 @@
 ---
 autonomy: auto
 ci: wait
-branch: fix/paid-call-defects
-delivery: merged
-pr: 13
+branch: fix/character-show-animations
+delivery: in-progress
+pr: 16
 ---
 
 # Characters and animation — requirements

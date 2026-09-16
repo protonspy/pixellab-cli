@@ -67,7 +67,19 @@ def mock_character(character_id="char-9", directions=DIRECTIONS):
             "name": "a knight",
             "status": "completed",
             "rotation_urls": rotation_urls(directions),
-            "animations": [{"display_name": "walk", "directions": ["south"]}],
+            # The shape the provider actually returns, read off a real spritesheet
+            # export: `directions` holds objects, not names.
+            "animations": [
+                {
+                    "animation_type": "template",
+                    "display_name": "Walking",
+                    "animation_group_id": "group-1",
+                    "directions": [
+                        {"direction": "south", "frame_count": 6, "frames": []},
+                        {"direction": "south-east", "frame_count": 6, "frames": []},
+                    ],
+                }
+            ],
         }
     )
     for name in directions:
@@ -508,14 +520,53 @@ class TestListAndShow:
                 "name": "a knight",
                 "status": "completed",
                 "rotation_urls": rotation_urls(),
-                "animations": [{"display_name": "walk", "directions": ["south"]}],
+                "animations": [
+                    {
+                        "animation_type": "template",
+                        "display_name": "Walking",
+                        "animation_group_id": "group-1",
+                        "directions": [
+                            {"direction": "south", "frame_count": 6, "frames": []},
+                            {"direction": "south-east", "frame_count": 6, "frames": []},
+                        ],
+                    }
+                ],
             }
         )
 
         result = invoke(["character", "show", "char-9"], tmp_path, monkeypatch)
 
+        assert result.exit_code == 0
         assert "south" in result.stdout
-        assert "walk" in result.stdout
+        assert "Walking" in result.stdout
+
+    @respx.mock
+    def test_showing_an_animation_names_every_direction_it_covers(self, tmp_path, monkeypatch):
+        """`directions` holds objects, not names. Read off a real spritesheet export:
+        each carries `direction`, `frame_count` and the frame URLs."""
+        respx.get(f"{PIXELLAB_BASE_URL}/characters/char-9").respond(
+            json={
+                "id": "char-9",
+                "name": "a knight",
+                "status": "completed",
+                "rotation_urls": rotation_urls(),
+                "animations": [
+                    {
+                        "display_name": "Walking",
+                        "directions": [
+                            {"direction": "south", "frame_count": 6, "frames": []},
+                            {"direction": "north", "frame_count": 6, "frames": []},
+                        ],
+                    }
+                ],
+            }
+        )
+
+        result = invoke(["character", "show", "char-9"], tmp_path, monkeypatch)
+
+        assert result.exit_code == 0
+        assert "Traceback" not in result.output
+        assert "north" in result.stdout
 
     @respx.mock
     def test_a_character_that_is_not_there_is_reported_as_such(self, tmp_path, monkeypatch):
@@ -1139,3 +1190,31 @@ class TestTheDryRunPredictsTheRealCall:
 
         assert result.exit_code == 2
         assert "char-9" in result.output
+
+
+class TestShowingAnAnimationWithoutAName:
+    @respx.mock
+    def test_a_null_display_name_does_not_print_as_none(self, tmp_path, monkeypatch):
+        """The key is present holding None, so `.get(key, default)` never reaches
+        the default and the word `None` reached the screen."""
+        respx.get(f"{PIXELLAB_BASE_URL}/characters/char-9").respond(
+            json={
+                "id": "char-9",
+                "name": "a knight",
+                "status": "completed",
+                "rotation_urls": rotation_urls(),
+                "animations": [
+                    {
+                        "animation_type": "template",
+                        "display_name": None,
+                        "directions": [{"direction": "south", "frame_count": 6, "frames": []}],
+                    }
+                ],
+            }
+        )
+
+        result = invoke(["character", "show", "char-9"], tmp_path, monkeypatch)
+
+        assert result.exit_code == 0
+        assert "None" not in result.stdout
+        assert "template" in result.stdout
