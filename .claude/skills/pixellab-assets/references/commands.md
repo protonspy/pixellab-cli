@@ -245,6 +245,28 @@ Download a character as a spritesheet ZIP, sheet and layout together. Free.
 pixellab-cli character sheet <character_id> --name
 ```
 
+## export
+
+What a game engine loads, written from files already on disk. Local and free.
+
+### `pixellab-cli export atlas`
+
+An image plus the TexturePacker Hash index that Phaser's `load.atlas` and PixiJS read.
+Frames are named after their files, or after a spritesheet layout.
+
+```
+pixellab-cli export atlas <files> --name <name> --columns 8 --layout <json> --into
+```
+
+### `pixellab-cli export tileset`
+
+An image plus a standalone Tiled tileset. All tiles must be one size. No map is
+written, because nothing here knows which tile belongs in which cell.
+
+```
+pixellab-cli export tileset <files> --name <name> --columns --into
+```
+
 ## image
 
 Local work on files that already exist. No provider, no ledger, no charge. Results

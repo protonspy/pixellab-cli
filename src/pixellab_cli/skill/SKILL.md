@@ -60,6 +60,8 @@ Use it whenever the person has named a budget.
 | Seeing many frames at once, or watching an animation | `pixellab-cli image sheet frames/*.png --columns 4` · `pixellab-cli image gif frames/*.png` |
 | Cutting a spritesheet into frames | `pixellab-cli image split sheet.png --layout sheet.json` |
 | Checking whether a background is really transparent | `pixellab-cli image inspect anchor.png` |
+| Loading the art in Phaser or PixiJS | `pixellab-cli export atlas frames/*.png --name warrior` |
+| A tileset a level editor opens | `pixellab-cli export tileset tiles/*.png --name terrain` |
 | What is left to spend | `pixellab-cli balance` |
 | What has been spent | `pixellab-cli ledger` |
 
@@ -82,6 +84,21 @@ removing a background is a model's judgement rather than geometry.
 `image inspect` answers the question that is otherwise only answerable after the art
 comes back wrong: whether an image's alpha is binary, or soft at the edges. The
 rotation and animation routes read a soft edge as a halo.
+
+## `pixellab-cli export` writes what an engine loads
+
+`export atlas` writes an image and the TexturePacker index beside it, which is what
+`this.load.atlas(key, png, json)` takes in Phaser and what PixiJS reads unchanged. The
+frames carry names, so `this.add.sprite(x, y, 'warrior', 'south')` works without a
+table of indices. `--layout` takes the names from a spritesheet export instead of from
+the filenames.
+
+`export tileset` writes an image and a standalone Tiled tileset. It writes **no map**,
+and that is a decision: a map says which tile sits in which cell, and nothing here
+knows that. Say so when you hand the files over, rather than letting the absence read
+as a failure.
+
+Both are local and free, like `image`.
 
 ## Money
 
