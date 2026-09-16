@@ -46,9 +46,23 @@ CAMERA_PARAMS = (
 SEED = Param("seed", ParamKind.INTEGER, minimum=0, help="Seed for a repeatable generation.")
 
 
-def _image(name: str, *, required: bool = False, max_side: int | None = None, help: str = ""):
+def _image(
+    name: str,
+    *,
+    required: bool = False,
+    max_side: int | None = None,
+    matches_size: str | None = None,
+    help: str = "",
+):
     limit = SizeLimit(max_side=max_side) if max_side else None
-    return Param(name, ParamKind.IMAGE, required=required, size=limit, help=help)
+    return Param(
+        name,
+        ParamKind.IMAGE,
+        required=required,
+        size=limit,
+        matches_size=matches_size,
+        help=help,
+    )
 
 
 # --------------------------------------------------------------------------- images
@@ -143,7 +157,11 @@ CREATE_IMAGE_BITFORGE = Route(
         Param("coverage_percentage", ParamKind.NUMBER),
         _image("init_image"),
         Param("init_image_strength", ParamKind.INTEGER, default=300),
-        _image("style_image", help="The style to match."),
+        _image(
+            "style_image",
+            matches_size="image_size",
+            help="The style to match, at the same size as the output.",
+        ),
         _image("inpainting_image"),
         _image("mask_image", help="White is where the model may draw."),
         _image("color_image"),

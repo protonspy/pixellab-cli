@@ -7,6 +7,7 @@ command supplies it.
 
 import json
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 
@@ -258,3 +259,39 @@ class TestTranslation:
         produced = from_fal(FalResult(model="x", images=[PIXELS]))
 
         assert produced.ids == {}
+
+
+class TestARelativeWorkspaceRoot:
+    """The default root is `pixellab-out`, relative, and that is the untested one.
+
+    Every fixture above hands the workspace an absolute `tmp_path`, so the paths a
+    run writes and the root it measures them against agreed by accident.
+    """
+
+    @pytest.fixture
+    def relative_runner(self, tmp_path, monkeypatch) -> Runner:
+        monkeypatch.chdir(tmp_path)
+        workspace = Workspace(root=Path("pixellab-out"), clock=lambda: MOMENT)
+        return Runner(
+            workspace=workspace,
+            ledger=Ledger(path=workspace.ledger_path, clock=lambda: MOMENT),
+            secrets=("pl-secret",),
+        )
+
+    def test_a_successful_call_records_its_outcome(self, relative_runner):
+        run(relative_runner)
+
+        assert [line["kind"] for line in ledger_lines(relative_runner)] == ["intent", "outcome"]
+
+    def test_the_outcome_names_the_file_relative_to_the_root(self, relative_runner):
+        outcome = run(relative_runner)
+
+        recorded = ledger_lines(relative_runner)[-1]["files"]
+        assert [Path(entry).parts for entry in recorded] == [
+            (outcome.directory.name, "a-knight-with-a-red-cape.png")
+        ]
+
+    def test_the_reported_cost_reaches_the_ledger(self, relative_runner):
+        run(relative_runner)
+
+        assert ledger_lines(relative_runner)[-1]["cost"]["generations"] == 1.0

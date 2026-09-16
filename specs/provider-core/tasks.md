@@ -30,6 +30,9 @@
 - [x] 2.5 (Unit) Add the four new routes to the table — R3.1, R3.2, R3.4
   _Depends 2.3_
   _Reason four routes asked for after delivery_
+- [x] 2.6 (Unit) Refuse an image that does not match the size parameter its route ties it to, before the request is sent — R3.5
+  _Depends 2.3_
+  _Reason bitforge charges for the 500 it returns on a mismatch; delivered in plans/paid-call-defects.md_
 
 ## 3 · The PixelLab client
 

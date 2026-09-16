@@ -117,11 +117,11 @@ def _sprite(
     if route.name == STYLE_REFERENCE_ROUTE:
         arguments["style_images"] = [_style_reference(path) for path in style_images]
     elif style_images:
-        arguments["style_image"] = images.encode_file(style_images[0]).as_payload()
+        arguments["style_image"] = images.encode_file(style_images[0])
     if init_image is not None:
-        arguments["init_image"] = images.encode_file(init_image).as_payload()
+        arguments["init_image"] = images.encode_file(init_image)
     if palette_image is not None:
-        arguments["color_image"] = images.encode_file(palette_image).as_payload()
+        arguments["color_image"] = images.encode_file(palette_image)
 
     # Validate before anything else so a dry run rejects exactly what a real call
     # would. A dry run that skipped this would approve requests that then fail.

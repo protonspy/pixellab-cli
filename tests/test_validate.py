@@ -6,7 +6,9 @@ but a 422 on step four of a recipe has three paid steps behind it.
 
 import pytest
 
+from pixellab_cli import catalog
 from pixellab_cli.errors import ValidationError
+from pixellab_cli.images import EncodedImage
 from pixellab_cli.routes import (
     OUTLINE,
     Param,
@@ -361,3 +363,75 @@ class TestAListOfImages:
         body = build_request(FRAMES, {"frames": [{"base64": "AAAA"}, {"base64": "BBBB"}]})
 
         assert len(body["frames"]) == 2
+
+
+class TestAnEncodedImageIsMeasured:
+    """A limit that only binds when the caller happens to keep the dimensions is not
+    a limit. `EncodedImage` carries the size read out of the file; `as_payload` drops
+    it, so a caller that serialised first handed over an image nothing could judge.
+    """
+
+    ROUTE = catalog.route("create-character-v3")
+
+    def encoded(self, width: int, height: int) -> EncodedImage:
+        return EncodedImage(base64="ZmFrZQ==", format="png", width=width, height=height)
+
+    def test_a_reference_over_the_limit_is_refused(self):
+        with pytest.raises(ValidationError) as refusal:
+            build_request(
+                self.ROUTE,
+                {"description": "a knight", "reference_image": self.encoded(384, 384)},
+            )
+
+        assert "384x384" in str(refusal.value)
+
+    def test_a_reference_within_the_limit_is_sent_as_the_payload(self):
+        body = build_request(
+            self.ROUTE,
+            {"description": "a knight", "reference_image": self.encoded(256, 256)},
+        )
+
+        assert body["reference_image"] == {"type": "base64", "base64": "ZmFrZQ==", "format": "png"}
+
+    def test_an_image_whose_size_could_not_be_read_is_still_sent(self):
+        body = build_request(
+            self.ROUTE,
+            {"description": "a knight", "reference_image": EncodedImage(base64="ZmFrZQ==")},
+        )
+
+        assert body["reference_image"]["base64"] == "ZmFrZQ=="
+
+
+class TestAStyleImageMatchesTheOutput:
+    """Bitforge renders the style image at the output size and refuses a mismatch
+    with a 500 — which is charged, like every other failed generation.
+    """
+
+    ROUTE = catalog.route("create-image-bitforge")
+
+    def request(self, style: EncodedImage, width: int = 128, height: int = 128):
+        return build_request(
+            self.ROUTE,
+            {
+                "description": "a knight",
+                "image_size": {"width": width, "height": height},
+                "style_image": style,
+            },
+        )
+
+    def test_a_mismatched_style_image_is_refused(self):
+        with pytest.raises(ValidationError) as refusal:
+            self.request(EncodedImage(base64="ZmFrZQ==", width=270, height=265))
+
+        assert "270x265" in str(refusal.value)
+        assert "128x128" in str(refusal.value)
+
+    def test_a_matching_style_image_is_accepted(self):
+        body = self.request(EncodedImage(base64="ZmFrZQ==", width=128, height=128))
+
+        assert body["style_image"]["base64"] == "ZmFrZQ=="
+
+    def test_a_style_image_of_unknown_size_is_left_to_the_route(self):
+        body = self.request(EncodedImage(base64="ZmFrZQ=="))
+
+        assert body["style_image"]["base64"] == "ZmFrZQ=="

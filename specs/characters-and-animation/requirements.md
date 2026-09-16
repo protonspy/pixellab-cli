@@ -1,8 +1,8 @@
 ---
 autonomy: auto
 ci: wait
-branch: feat/four-direction-character
-delivery: merged
+branch: fix/paid-call-defects
+delivery: in-progress
 pr: 10
 ---
 
@@ -30,13 +30,15 @@ different endpoint family and no skeleton.
 
 ## R2 · Animating
 
-- **R2.1** When asked to animate a character, the character commands shall animate it by action description or by named template, over the directions asked for.
-- **R2.2** The character commands shall report, before the call, that an animation costs its tier once per direction.
+- **R2.1** (MODIFIED) When asked to animate a character, the character commands shall animate it by named template, by the template the character's skeleton knows under the name of the action asked for, or by action description where neither is available, over the directions asked for.
+- **R2.2** (MODIFIED) The character commands shall report, before the call, that an animation costs its tier once per direction, and shall estimate an animation driven by an action description at one generation per frame per direction.
 - **R2.3** Where a named animation template is not in the catalogue the tool carries, the character commands shall warn that the catalogue is partial and send it anyway, and shall print the catalogue when the provider rejects it.
 - **R2.4** When asked to animate a loose image rather than a character, the character commands shall use the route that takes a first frame, and shall write the frames in playback order.
 - **R2.5** (ADDED) Where more frames are asked for than the default animation route accepts, the character commands shall use the long-form animation route, and shall say that the route is in beta and needs a subscription tier the account may not hold.
 - **R2.6** (ADDED) If a frame count is given that the chosen animation route does not accept, then the character commands shall say so and name the counts that route accepts, before spending anything.
 - **R2.7** (ADDED) Where the long-form animation route is used, the character commands shall report that it is priced by generation time rather than by a fixed tier, so that the estimate is a weaker claim than usual.
+- **R2.8** (ADDED) Where a character has a skeleton and the action asked for names a motion that skeleton's template family knows, the character commands shall animate it from the skeleton rather than from the description, and shall say which motion was used.
+- **R2.9** (ADDED) Where a character has no skeleton, the character commands shall animate it from the action description.
 
 ## R3 · Rotating
 

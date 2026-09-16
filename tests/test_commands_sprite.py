@@ -131,7 +131,9 @@ class TestRouteChoice:
     @respx.mock
     def test_a_style_image_moves_to_the_route_that_accepts_one(self, tmp_path, monkeypatch):
         reference = tmp_path / "style.png"
-        reference.write_bytes(png_bytes(32, 32))
+        # Bitforge renders the style image at the output size, so 64 here is not
+        # decoration: a mismatch is a 500, and a 500 is charged.
+        reference.write_bytes(png_bytes(64, 64))
         route = mock_route("/create-image-bitforge")
 
         result = invoke(

@@ -122,6 +122,9 @@ class Param:
     size: SizeLimit | None = None
     min_items: int | None = None
     max_items: int | None = None
+    # The SIZE parameter this image has to match exactly. Bitforge renders the style
+    # image at the output size and refuses a mismatch with a 500, which is charged.
+    matches_size: str | None = None
     default: Any = None
     help: str = ""
 

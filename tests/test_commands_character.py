@@ -204,6 +204,9 @@ class TestCharacterNew:
 class TestCharacterAnimate:
     @respx.mock
     def test_the_default_is_south_alone(self, tmp_path, monkeypatch):
+        respx.get(f"{PIXELLAB_BASE_URL}/characters/char-9").respond(
+            json={"id": "char-9", "template_id": "mannequin", "skeletons": {"south": {}}}
+        )
         route = respx.post(f"{PIXELLAB_BASE_URL}/characters/animations").respond(
             json={"background_job_ids": ["job-2"], "status": "processing"}
         )
@@ -218,6 +221,9 @@ class TestCharacterAnimate:
 
     @respx.mock
     def test_the_estimate_is_per_direction(self, tmp_path, monkeypatch):
+        respx.get(f"{PIXELLAB_BASE_URL}/characters/char-9").respond(
+            json={"id": "char-9", "template_id": "mannequin", "skeletons": {"south": {}}}
+        )
         respx.post(f"{PIXELLAB_BASE_URL}/characters/animations").respond(
             json={"background_job_ids": ["job-2"], "status": "processing"}
         )
@@ -236,6 +242,9 @@ class TestCharacterAnimate:
 
     @respx.mock
     def test_the_per_direction_cost_is_said_out_loud_before_the_call(self, tmp_path, monkeypatch):
+        respx.get(f"{PIXELLAB_BASE_URL}/characters/char-9").respond(
+            json={"id": "char-9", "template_id": "mannequin", "skeletons": {"south": {}}}
+        )
         respx.post(f"{PIXELLAB_BASE_URL}/characters/animations").respond(
             json={"background_job_ids": ["job-2"], "status": "processing"}
         )
@@ -269,6 +278,9 @@ class TestCharacterAnimate:
 
     @respx.mock
     def test_a_known_template_switches_the_mode(self, tmp_path, monkeypatch):
+        respx.get(f"{PIXELLAB_BASE_URL}/characters/char-9").respond(
+            json={"id": "char-9", "template_id": "mannequin", "skeletons": {"south": {}}}
+        )
         route = respx.post(f"{PIXELLAB_BASE_URL}/characters/animations").respond(
             json={"background_job_ids": ["job-2"], "status": "processing"}
         )
@@ -287,7 +299,137 @@ class TestCharacterAnimate:
         assert sent["template_animation_id"] == "walking-8-frames"
 
     @respx.mock
+    def test_an_action_naming_a_template_is_driven_by_the_skeleton(self, tmp_path, monkeypatch):
+        route = respx.post(f"{PIXELLAB_BASE_URL}/characters/animations").respond(
+            json={"background_job_ids": ["job-2"], "status": "processing"}
+        )
+        respx.get(f"{PIXELLAB_BASE_URL}/characters/char-9").respond(
+            json={"id": "char-9", "template_id": "mannequin", "skeletons": {"south": {}}}
+        )
+        respx.get(f"{PIXELLAB_BASE_URL}/background-jobs/job-2").respond(
+            json={"status": "completed", "last_response": {"images": [image_payload()]}}
+        )
+
+        result = invoke(["character", "animate", "char-9", "-a", "walking"], tmp_path, monkeypatch)
+
+        sent = json.loads(route.calls.last.request.content)
+        assert sent["mode"] == "template"
+        assert sent["template_animation_id"] == "walking"
+        assert "action_description" not in sent
+        assert "skeleton knows" in result.output
+
+    @respx.mock
+    def test_an_action_the_skeleton_almost_knows_is_resolved(self, tmp_path, monkeypatch):
+        """`walk` is not a mannequin template; `walk-1` and `walking` are."""
+        route = respx.post(f"{PIXELLAB_BASE_URL}/characters/animations").respond(
+            json={"background_job_ids": ["job-2"], "status": "processing"}
+        )
+        respx.get(f"{PIXELLAB_BASE_URL}/characters/char-9").respond(
+            json={"id": "char-9", "template_id": "mannequin", "skeletons": {"south": {}}}
+        )
+        respx.get(f"{PIXELLAB_BASE_URL}/background-jobs/job-2").respond(
+            json={"status": "completed", "last_response": {"images": [image_payload()]}}
+        )
+
+        invoke(["character", "animate", "char-9", "-a", "Running"], tmp_path, monkeypatch)
+
+        sent = json.loads(route.calls.last.request.content)
+        assert sent["mode"] == "template"
+        assert sent["template_animation_id"].startswith("running")
+
+    @respx.mock
+    def test_a_character_without_a_skeleton_is_described_not_driven(self, tmp_path, monkeypatch):
+        route = respx.post(f"{PIXELLAB_BASE_URL}/characters/animations").respond(
+            json={"background_job_ids": ["job-2"], "status": "processing"}
+        )
+        respx.get(f"{PIXELLAB_BASE_URL}/characters/char-9").respond(
+            json={"id": "char-9", "template_id": "mannequin", "skeletons": {}}
+        )
+        respx.get(f"{PIXELLAB_BASE_URL}/background-jobs/job-2").respond(
+            json={"status": "completed", "last_response": {"images": [image_payload()]}}
+        )
+
+        invoke(["character", "animate", "char-9", "-a", "walking"], tmp_path, monkeypatch)
+
+        sent = json.loads(route.calls.last.request.content)
+        assert sent["mode"] == "v3"
+        assert sent["action_description"] == "walking"
+
+    @respx.mock
+    def test_an_action_no_skeleton_knows_stays_free_text(self, tmp_path, monkeypatch):
+        route = respx.post(f"{PIXELLAB_BASE_URL}/characters/animations").respond(
+            json={"background_job_ids": ["job-2"], "status": "processing"}
+        )
+        respx.get(f"{PIXELLAB_BASE_URL}/characters/char-9").respond(
+            json={"id": "char-9", "template_id": "mannequin", "skeletons": {"south": {}}}
+        )
+        respx.get(f"{PIXELLAB_BASE_URL}/background-jobs/job-2").respond(
+            json={"status": "completed", "last_response": {"images": [image_payload()]}}
+        )
+
+        invoke(
+            ["character", "animate", "char-9", "-a", "juggling three apples"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        sent = json.loads(route.calls.last.request.content)
+        assert sent["mode"] == "v3"
+        assert sent["action_description"] == "juggling three apples"
+
+    @respx.mock
+    def test_a_free_text_animation_is_estimated_by_its_frames(self, tmp_path, monkeypatch):
+        """`v3` draws every frame, and charges for every frame.
+
+        One direction of an eight-frame walk was estimated at one generation and
+        reported by the provider as eight. An estimate that low is worse than none:
+        it is the number the caller agreed to.
+        """
+        respx.get(f"{PIXELLAB_BASE_URL}/characters/char-9").respond(
+            json={"id": "char-9", "template_id": "mannequin", "skeletons": {"south": {}}}
+        )
+        respx.post(f"{PIXELLAB_BASE_URL}/characters/animations").respond(
+            json={"background_job_ids": ["job-2"], "status": "processing"}
+        )
+        respx.get(f"{PIXELLAB_BASE_URL}/background-jobs/job-2").respond(
+            json={"status": "completed", "last_response": {"images": [image_payload()]}}
+        )
+
+        invoke(
+            ["character", "animate", "char-9", "-a", "juggling three apples"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        entries = (tmp_path / "out" / "ledger.jsonl").read_text(encoding="utf-8").splitlines()
+        assert json.loads(entries[0])["cost"]["generations"] == 8.0
+
+    @respx.mock
+    def test_fewer_frames_cost_less(self, tmp_path, monkeypatch):
+        respx.get(f"{PIXELLAB_BASE_URL}/characters/char-9").respond(
+            json={"id": "char-9", "template_id": "mannequin", "skeletons": {"south": {}}}
+        )
+        respx.post(f"{PIXELLAB_BASE_URL}/characters/animations").respond(
+            json={"background_job_ids": ["job-2"], "status": "processing"}
+        )
+        respx.get(f"{PIXELLAB_BASE_URL}/background-jobs/job-2").respond(
+            json={"status": "completed", "last_response": {"images": [image_payload()]}}
+        )
+
+        invoke(
+            ["character", "animate", "char-9", "-a", "juggling three apples", "--frames", "4"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        entries = (tmp_path / "out" / "ledger.jsonl").read_text(encoding="utf-8").splitlines()
+        assert json.loads(entries[0])["cost"]["generations"] == 4.0
+
+    @respx.mock
     def test_a_template_outside_the_catalogue_warns_and_is_sent_anyway(self, tmp_path, monkeypatch):
+        respx.get(f"{PIXELLAB_BASE_URL}/characters/char-9").respond(
+            json={"id": "char-9", "template_id": "mannequin", "skeletons": {"south": {}}}
+        )
         route = respx.post(f"{PIXELLAB_BASE_URL}/characters/animations").respond(
             json={"background_job_ids": ["job-2"], "status": "processing"}
         )
@@ -304,6 +446,9 @@ class TestCharacterAnimate:
 
     @respx.mock
     def test_a_rejected_template_prints_the_catalogue(self, tmp_path, monkeypatch):
+        respx.get(f"{PIXELLAB_BASE_URL}/characters/char-9").respond(
+            json={"id": "char-9", "template_id": "mannequin", "skeletons": {"south": {}}}
+        )
         respx.post(f"{PIXELLAB_BASE_URL}/characters/animations").respond(
             422, json={"detail": "Template not found"}
         )

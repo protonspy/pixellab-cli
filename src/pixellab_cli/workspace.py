@@ -82,6 +82,16 @@ class Workspace:
     root: Path = field(default_factory=lambda: DEFAULT_ROOT)
     clock: Callable[[], datetime] = lambda: datetime.now(UTC)
 
+    def __post_init__(self) -> None:
+        """Resolve the root once, because every path this class returns is resolved.
+
+        The default root is relative, `write` returns what `inside` resolved, and a
+        caller measuring one against the other gets absolute against relative. That
+        raises, and it raises after the images are on disk and before the ledger is
+        told the call succeeded.
+        """
+        self.root = Path(self.root).resolve()
+
     @property
     def ledger_path(self) -> Path:
         return self.root / LEDGER_NAME

@@ -271,7 +271,7 @@ def _prop(context, description, size, into, view, name, seed) -> None:
         arguments={
             "description": description,
             "image_size": parse_size(size) if size else None,
-            "background_image": _load(into).as_payload() if into else None,
+            "background_image": _load(into) if into else None,
             "view": view,
             "seed": seed,
         },

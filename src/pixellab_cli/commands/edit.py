@@ -137,7 +137,7 @@ def _edit(context, files, prompt, match, size, transparent, name, seed) -> None:
             description=f"{files[0].stem}: {prompt}",
             name=name or f"{files[0].stem}-edited",
             arguments={
-                "image": loaded[0].as_payload(),
+                "image": loaded[0],
                 "description": prompt,
                 "width": target["width"] if target else None,
                 "height": target["height"] if target else None,

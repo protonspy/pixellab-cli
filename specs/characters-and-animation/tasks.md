@@ -42,6 +42,8 @@
   _Reason PixMiniMax asked for after delivery_
 - [x] 3.6 (Unit) Expose --deflicker and the weaker estimate — R2.7
   _Reason PixMiniMax asked for after delivery_
+- [x] 3.7 (Unit) Drive an animation from the character's skeleton when the action names a motion that skeleton knows, and estimate a described animation per frame — R2.1, R2.2, R2.8, R2.9
+  _Reason a described walk drifted in pose and cost eight times its estimate; delivered in plans/paid-call-defects.md_
 
 ## 4 · Reading
 

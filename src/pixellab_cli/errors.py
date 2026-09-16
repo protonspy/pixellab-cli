@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from pixellab_cli.images import EncodedImage
+
 # Anything longer than this in a request is an encoded image, not a description.
 # Image payloads are the bulk of a PixelLab request and are worthless in an error.
 MAX_INLINE_LENGTH = 256
@@ -38,6 +40,10 @@ def redact(value: Any, secrets: tuple[str, ...] = ()) -> Any:
         return [redact(item, secrets) for item in value]
     if isinstance(value, (bytes, bytearray)):
         return f"<elided {len(value)} bytes>"
+    if isinstance(value, EncodedImage):
+        # An image reaches the recorder as the object the validator was given, so
+        # that a declared size limit can bind. Record the payload that was sent.
+        return redact(value.as_payload(), secrets)
     return value
 
 
