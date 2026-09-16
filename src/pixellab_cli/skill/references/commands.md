@@ -267,6 +267,17 @@ written, because nothing here knows which tile belongs in which cell.
 pixellab-cli export tileset <files> --name <name> --columns --into
 ```
 
+## job
+
+### `pixellab-cli job show`
+
+Wait for a background job named by its id and write what it made. Charged already, so
+no ledger line is added. Honours `--subject`.
+
+```
+pixellab-cli job show <job-id> --kind --name
+```
+
 ## image
 
 Local work on files that already exist. No provider, no ledger, no charge. Results

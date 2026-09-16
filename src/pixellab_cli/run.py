@@ -51,6 +51,7 @@ def from_pixellab(result: Any) -> Produced:
             generations=usage.generations,
             usd=usage.usd,
             source=ESTIMATED if usage.estimated else REPORTED,
+            seconds=usage.seconds,
         ),
         job_id=result.job_id,
         raw=result.raw,

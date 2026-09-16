@@ -37,11 +37,16 @@ RATE_LIMIT_STATUSES = frozenset({429, 529})
 
 @dataclass(frozen=True)
 class Usage:
-    """What a call cost. `estimated` says whether the provider or the table said so."""
+    """What a call cost. `estimated` says whether the provider or the table said so.
+
+    `seconds` is reported by the routes priced by time, and dropping it left an
+    animation that ran for thirty-six minutes recorded as costing nothing.
+    """
 
     generations: float = 0.0
     usd: float = 0.0
     estimated: bool = False
+    seconds: float | None = None
 
 
 @dataclass
@@ -257,8 +262,44 @@ class PixelLabClient:
                     f"{route.name} was still running after {waited:.0f}s. "
                     f"It has been charged either way.",
                     job_id=job_id,
-                    resume_command=f"pixellab job show {job_id}",
+                    resume_command=f"pixellab-cli job show {job_id}",
                     context={"route": route.name},
+                )
+            self._sleep(self._poll_interval)
+            waited += self._poll_interval
+
+    def collect(self, job_id: str) -> Result:
+        """Wait for a background job named by its id alone, and return what it made.
+
+        The polling above belongs to a call in flight and knows its route. This does
+        not: a job id is all that survives a `PollTimeout`, and the work behind it was
+        charged whether or not anybody was still waiting. Without this the only thing
+        the tool could do with a charged job was name it.
+        """
+        path = catalog.BACKGROUND_JOBS_PATH.replace("{id}", job_id)
+        waited = 0.0
+        while True:
+            payload = self._request("GET", path, None)
+            status = str(payload.get("status", "")).lower()
+            if status == "completed":
+                body = payload.get("last_response") or payload
+                result = Result(route="background-job", job_id=job_id)
+                result.images = _decode_images(body)
+                result.usage = _usage(payload) or _usage(body) or Usage(estimated=True)
+                result.raw = payload
+                return result
+            if status == "failed":
+                raise JobFailed(
+                    f"job {job_id} failed: {_job_error(payload)}",
+                    job_id=job_id,
+                    context={"job": job_id},
+                )
+            if waited + self._poll_interval > self._max_poll_seconds:
+                raise PollTimeout(
+                    f"job {job_id} is still running after {waited:.0f}s.",
+                    job_id=job_id,
+                    resume_command=f"pixellab-cli job show {job_id}",
+                    context={"job": job_id},
                 )
             self._sleep(self._poll_interval)
             waited += self._poll_interval
@@ -292,7 +333,13 @@ def _complete(route: Route, payload: dict[str, Any], result: Result) -> Result:
 
 
 def _decode_images(payload: dict[str, Any]) -> list[bytes]:
-    """Every image in a response, whether it arrived as `image` or as `images`."""
+    """Every image in a response, whether it arrived as `image` or as `images`.
+
+    A response that says how many frames it has is believed. A template-driven
+    animation returns six frames in `quantized_images` and two in `images`, so
+    reading `images` alone silently collected two of six — the animation looked
+    complete and was not, which is the failure this whole module is written against.
+    """
     found: list[Any] = []
     single = payload.get("image")
     if single:
@@ -300,6 +347,14 @@ def _decode_images(payload: dict[str, Any]) -> list[bytes]:
     many = payload.get("images")
     if isinstance(many, list):
         found.extend(many)
+
+    declared = payload.get("frame_count")
+    if isinstance(declared, int) and declared > len(found):
+        for field_name in ("quantized_images", "frames"):
+            complete = payload.get(field_name)
+            if isinstance(complete, list) and len(complete) == declared:
+                found = list(complete)
+                break
     return [images.decode(item) for item in found]
 
 
@@ -307,10 +362,12 @@ def _usage(payload: dict[str, Any]) -> Usage | None:
     reported = payload.get("usage")
     if not isinstance(reported, dict):
         return None
+    seconds = reported.get("seconds")
     return Usage(
         generations=float(reported.get("generations") or 0.0),
         usd=float(reported.get("usd") or 0.0),
         estimated=False,
+        seconds=float(seconds) if isinstance(seconds, (int, float)) else None,
     )
 
 

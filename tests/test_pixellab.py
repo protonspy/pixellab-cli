@@ -20,7 +20,7 @@ from pixellab_cli.errors import (
     RateLimited,
     ValidationError,
 )
-from pixellab_cli.pixellab import PixelLabClient
+from pixellab_cli.pixellab import PixelLabClient, _decode_images, _usage
 
 CREDENTIALS = Credentials(pixellab_secret="pl-test-token")
 
@@ -356,3 +356,53 @@ class TestBackgroundJobs:
 
         assert result.job_id == "job-6"
         assert result.images == []
+
+
+class TestAResponseThatSaysHowManyFramesItHas:
+    """A template-driven animation returns six frames in `quantized_images` and two
+    in `images`. Reading `images` alone collected two of six: the animation looked
+    complete and was not.
+    """
+
+    def payload(self, **overrides):
+        defaults = {
+            "frame_count": 6,
+            "images": [image_payload(), image_payload()],
+            "quantized_images": [image_payload() for _ in range(6)],
+        }
+        return {**defaults, **overrides}
+
+    def test_the_declared_count_wins_over_a_short_list(self):
+        assert len(_decode_images(self.payload())) == 6
+
+    def test_a_list_that_matches_the_count_is_left_alone(self):
+        payload = self.payload(images=[image_payload() for _ in range(6)])
+
+        assert len(_decode_images(payload)) == 6
+
+    def test_a_response_with_no_count_is_read_as_before(self):
+        payload = {"images": [image_payload(), image_payload()]}
+
+        assert len(_decode_images(payload)) == 2
+
+    def test_a_longer_list_is_not_substituted_for_a_complete_one(self):
+        """Only a list that matches the declared count replaces what was found;
+        anything else would be guessing which set is the real one."""
+        payload = self.payload(quantized_images=[image_payload() for _ in range(9)])
+
+        assert len(_decode_images(payload)) == 2
+
+    def test_the_reported_seconds_reach_the_usage(self):
+        """A route priced by time reports it, and dropping it left an animation that
+        ran for thirty-six minutes recorded as costing nothing."""
+        usage = _usage({"usage": {"seconds": 2174.5, "usd": 0.2466}})
+
+        assert usage is not None
+        assert usage.seconds == 2174.5
+        assert usage.usd == 0.2466
+
+    def test_a_usage_without_seconds_leaves_them_unset(self):
+        usage = _usage({"usage": {"usd": 0.01}})
+
+        assert usage is not None
+        assert usage.seconds is None
