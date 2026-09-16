@@ -2,7 +2,7 @@
 autonomy: auto
 ci: wait
 branch: feat/image-utilities-v2
-delivery: in-progress
+delivery: merged
 ---
 
 # Image utilities — requirements

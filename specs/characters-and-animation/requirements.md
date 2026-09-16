@@ -2,7 +2,7 @@
 autonomy: auto
 ci: wait
 branch: fix/character-show-animations
-delivery: in-progress
+delivery: merged
 pr: 16
 ---
 
