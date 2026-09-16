@@ -2,8 +2,8 @@
 autonomy: auto
 ci: wait
 branch: fix/paid-call-defects
-delivery: in-progress
-pr: 11
+delivery: in-review
+pr: 13
 ---
 
 # Provider core — requirements
