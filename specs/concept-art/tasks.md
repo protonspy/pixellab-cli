@@ -9,6 +9,11 @@
   _Depends 1.1_
 - [x] 1.4 (Unit) Add pixellab art anchor — R5.1, R5.2
   _Reason anchor asked for after delivery_
+- [x] 1.5 (Unit) Take repeatable --reference on the generating forms, routing to the edit model of the same variant when any is given — R1.5, R1.6, R2.3
+  _Depends 1.1_
+  _Reason a reference image had to be reconstructed as a text description, so the result resembled the reference rather than matching it_
+- [x] 1.6 (Unit) Keep the anchor's framing while taking the subject's appearance from the references — R5.3
+  _Depends 1.5_
 
 ## 2 · Editing
 

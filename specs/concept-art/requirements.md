@@ -21,12 +21,14 @@ going to be pixel art at all — a box cover, a store banner, a title screen.
 - **R1.2** The concept art commands shall accept a quality tier, an output size, a background treatment and a number of images, and shall reject a value the model does not allow before calling it.
 - **R1.3** Where the caller names a variant, the concept art commands shall use it; otherwise they shall use the default variant and shall not claim one variant is better than the other.
 - **R1.4** When several images are asked for, the concept art commands shall write every one of them.
+- **R1.5** (ADDED) Where reference images are given to a generating form, the concept art commands shall upload them, generate on the edit model of the same variant, and name the references in what they report.
+- **R1.6** (ADDED) Where no reference image is given, the concept art commands shall generate from the description alone, on the text-to-image model.
 
 ## R2 · Editing
 
 - **R2.1** When asked to edit, the concept art commands shall upload the local images given, pass their URLs to the edit model with the instruction, and write the result.
 - **R2.2** Where a mask is given, the concept art commands shall upload it and confine the edit to it.
-- **R2.3** If a file given does not exist, then the concept art commands shall say so before uploading anything.
+- **R2.3** (MODIFIED) If any file given to a concept art command does not exist, then the concept art commands shall say so before uploading anything.
 
 ## R3 · Box art
 
@@ -41,6 +43,7 @@ going to be pixel art at all — a box cover, a store banner, a title screen.
 
 - **R5.1** (ADDED) The concept art commands shall offer an anchor form that asks for one subject, seen from the front, in a rest pose, on a transparent background, at a square size.
 - **R5.2** (ADDED) The concept art commands shall state, wherever the anchor form is described, that the rotation and animation routes read the image they are given as the south-facing frame, which is what the anchor exists to satisfy.
+- **R5.3** (ADDED) Where the anchor form is given reference images, the concept art commands shall keep the anchor's framing — one subject, seen from the front, in a rest pose, on a transparent background — and take the subject's appearance from the references.
 
 ## Out of scope
 

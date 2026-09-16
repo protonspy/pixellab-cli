@@ -43,6 +43,35 @@ def _variant_model(variant: str, *, edit: bool) -> str:
         raise ValidationError(str(failure), context={"variant": variant}) from None
 
 
+REFERENCE_HELP = "An image to take the subject from. Repeatable, up to sixteen."
+
+
+def _references(app_context: AppContext, references, variant: str) -> tuple[str, list[str] | None]:
+    """The model to generate on, and the reference URLs to hand it.
+
+    With references this becomes the edit model of the same variant: the generating
+    models take a prompt and nothing else, so a subject that exists as a picture has
+    to be described in words, and a description resembles its subject rather than
+    matching it.
+
+    Every file is checked before the first upload — uploading three of four and then
+    failing leaves three files on a CDN for nothing.
+    """
+    if not references:
+        return _variant_model(variant, edit=False), None
+    for path in references:
+        if not path.is_file():
+            raise ValidationError(f"{path} is not a file", context={"path": str(path)})
+    model_name = _variant_model(variant, edit=True)
+    output.stderr(
+        f"guided by {len(references)} reference(s): {', '.join(path.name for path in references)}"
+    )
+    if app_context.dry_run:
+        return model_name, [str(path) for path in references]
+    client = app_context.fal()
+    return model_name, [client.upload(path) for path in references]
+
+
 def _size_argument(size: str | None) -> Any:
     """`auto`, a preset name, or `WxH`."""
     if size is None:
@@ -102,24 +131,27 @@ def concept(
     size: str = typer.Option(None, "--size", help="A preset name, 1024x1024, or auto."),
     transparent: bool = typer.Option(False, "--transparent", help="Transparent background."),
     count: int = typer.Option(None, "--count", help="How many images to make."),
+    reference: list[Path] = typer.Option(None, "--reference", help=REFERENCE_HELP),
     name: str = typer.Option(None, "--name", help="What to call the files."),
 ) -> None:
-    """Make a concept image from a description."""
+    """Make a concept image from a description, and from references where given."""
     try:
-        _concept(context, prompt, variant, quality, size, transparent, count, name)
+        _concept(context, prompt, variant, quality, size, transparent, count, reference, name)
     except PixellabCliError as failure:
         output.handle(failure)
 
 
-def _concept(context, prompt, variant, quality, size, transparent, count, name) -> None:
+def _concept(context, prompt, variant, quality, size, transparent, count, reference, name) -> None:
     app_context: AppContext = context.obj
+    model_name, urls = _references(app_context, reference, variant)
     _execute(
         app_context,
-        model_name=_variant_model(variant, edit=False),
+        model_name=model_name,
         description=prompt,
         name=name,
         arguments={
             "prompt": prompt,
+            "image_urls": urls,
             "quality": quality,
             "image_size": _size_argument(size),
             "background": "transparent" if transparent else None,
@@ -136,24 +168,27 @@ def boxart(
     quality: str = typer.Option(BOX_ART_QUALITY, "--quality", help="Defaults to the top tier."),
     size: str = typer.Option(BOX_ART_SIZE, "--size", help="Defaults to a cover shape."),
     count: int = typer.Option(None, "--count", help="How many covers to make."),
+    reference: list[Path] = typer.Option(None, "--reference", help=REFERENCE_HELP),
     name: str = typer.Option(None, "--name", help="What to call the files."),
 ) -> None:
     """Make box art: a cover shape at the top quality tier, by default."""
     try:
-        _boxart(context, prompt, variant, quality, size, count, name)
+        _boxart(context, prompt, variant, quality, size, count, reference, name)
     except PixellabCliError as failure:
         output.handle(failure)
 
 
-def _boxart(context, prompt, variant, quality, size, count, name) -> None:
+def _boxart(context, prompt, variant, quality, size, count, reference, name) -> None:
     app_context: AppContext = context.obj
+    model_name, urls = _references(app_context, reference, variant)
     _execute(
         app_context,
-        model_name=_variant_model(variant, edit=False),
+        model_name=model_name,
         description=f"box art: {prompt}",
         name=name or "box-art",
         arguments={
             "prompt": prompt,
+            "image_urls": urls,
             "quality": quality,
             "image_size": _size_argument(size),
             "num_images": count,
@@ -169,6 +204,7 @@ def anchor(
     quality: str = typer.Option(None, "--quality", help="auto, low, medium, high, xhigh, max."),
     size: str = typer.Option(ANCHOR_SIZE, "--size", help="Defaults to a square."),
     count: int = typer.Option(None, "--count", help="How many to make, to choose from."),
+    reference: list[Path] = typer.Option(None, "--reference", help=REFERENCE_HELP),
     name: str = typer.Option(None, "--name", help="What to call the files."),
 ) -> None:
     """Make the front-facing reference a PixelLab character is built from.
@@ -178,20 +214,25 @@ def anchor(
     three-quarter hero pose becomes eight rotations of a character turned sideways.
     """
     try:
-        _anchor(context, prompt, variant, quality, size, count, name)
+        _anchor(context, prompt, variant, quality, size, count, reference, name)
     except PixellabCliError as failure:
         output.handle(failure)
 
 
-def _anchor(context, prompt, variant, quality, size, count, name) -> None:
+def _anchor(context, prompt, variant, quality, size, count, reference, name) -> None:
     app_context: AppContext = context.obj
+    model_name, urls = _references(app_context, reference, variant)
     _execute(
         app_context,
-        model_name=_variant_model(variant, edit=False),
+        model_name=model_name,
         description=f"anchor: {prompt}",
         name=name or "anchor",
         arguments={
-            "prompt": anchor_prompt(prompt),
+            # The framing is the anchor's whole job and does not move when
+            # references are given: they say what the subject looks like, not
+            # how it is posed.
+            "prompt": anchor_prompt(prompt, referenced=bool(urls)),
+            "image_urls": urls,
             "quality": quality,
             "image_size": _size_argument(size),
             # Not an option: a background the character routes have to remove is a

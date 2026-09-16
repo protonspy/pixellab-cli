@@ -19,6 +19,17 @@ ANCHOR_STYLE = (
 )
 
 
-def anchor_prompt(description: str) -> str:
+# Said first, because the framing below is what the anchor exists to impose and a
+# reference image almost never already has it: the subject comes from the pictures,
+# the pose and the framing do not.
+ANCHOR_FROM_REFERENCE = (
+    "redraw the subject shown in the reference images, keeping its design, colours, "
+    "costume and proportions"
+)
+
+
+def anchor_prompt(description: str, *, referenced: bool = False) -> str:
     """The description, plus what every downstream PixelLab route assumes about it."""
+    if referenced:
+        return f"{ANCHOR_FROM_REFERENCE}: {description}, {ANCHOR_STYLE}"
     return f"{description}, {ANCHOR_STYLE}"
