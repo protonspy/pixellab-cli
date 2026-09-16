@@ -1237,7 +1237,7 @@ class TestASubjectGathersTheCommandsOutput:
         )
 
         assert result.exit_code == 0
-        assert (tmp_path / "out" / "warrior-tibiame" / "rotations").is_dir()
+        assert (tmp_path / "out" / "warrior-tibiame" / "rotations" / "v1").is_dir()
 
     @respx.mock
     def test_an_animation_goes_under_animations(self, tmp_path, monkeypatch):
@@ -1258,5 +1258,6 @@ class TestASubjectGathersTheCommandsOutput:
         )
 
         assert result.exit_code == 0
-        assert (tmp_path / "out" / "warrior-tibiame" / "animations").is_dir()
-        assert (tmp_path / "out" / "warrior-tibiame" / "manifests").is_dir()
+        version = tmp_path / "out" / "warrior-tibiame" / "animations" / "v1"
+        assert version.is_dir()
+        assert list(version.glob("*.manifest.json")), "the manifest goes beside the asset"
