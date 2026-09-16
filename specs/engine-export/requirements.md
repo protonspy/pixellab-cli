@@ -2,7 +2,7 @@
 autonomy: auto
 ci: wait
 branch: feat/engine-export
-delivery: in-progress
+delivery: merged
 ---
 
 # Engine export — requirements
