@@ -1,9 +1,9 @@
 ---
 autonomy: auto
 ci: wait
-branch: fix/character-show-animations
-delivery: merged
-pr: 16
+branch: fix/animate-defaults-to-v3
+delivery: in-review
+pr: 33
 ---
 
 # Characters and animation — requirements
