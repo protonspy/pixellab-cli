@@ -217,6 +217,10 @@ Animate a character. Every direction is a separate job and a separate charge.
 pixellab-cli character animate <character_id> --action/-a --template --direction/-d --frames --name --seed
 ```
 
+`-a` animates with text V3, one generation per frame per direction. `--template`
+animates from the character's skeleton at the route's tier per direction, and
+PixelLab is not currently returning correct frames for it.
+
 ### `pixellab-cli character templates`
 
 List the animation templates this tool knows about. The list is partial.

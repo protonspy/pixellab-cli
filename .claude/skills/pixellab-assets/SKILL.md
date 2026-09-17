@@ -106,7 +106,7 @@ Both are local and free, like `image`.
 - `pixellab-cli clean …` and `pixellab-cli balance|ledger|character list|show` are cheap or free. Reach for them freely.
 - `pixellab-cli object new`, `pixellab-cli ui`, `pixellab-cli inpaint`, `pixellab-cli tiles variants`, `pixellab-cli character state`, `pixellab-cli outfit`, `pixellab-cli sprite` with more than one `--style`, and `pixellab-cli edit` with more than one image are **Pro Tools**: twenty to forty generations a call. They say so before calling. Never run one without agreement.
 - `pixellab-cli font` is a fixed twenty-five generations.
-- `pixellab-cli character animate` costs its tier **per direction**. It defaults to south alone. Do not pass eight directions unless the person asked for eight.
+- `pixellab-cli character animate` costs its tier **per direction**. It defaults to south alone. Do not pass eight directions unless the person asked for eight. `-a <action>` animates with text V3 and is charged one generation per frame per direction. `--template` is cheaper because it drives the character's skeleton, and PixelLab is not currently returning correct frames for it — do not reach for it to save money.
 - `pixellab-cli animate` above sixteen frames leaves the cheap route for a beta one that needs a tier 1 subscription and is priced by generation time. The estimate it prints is rougher than the others; it says so.
 - **A failed generation is charged.** So is a call that was submitted and never collected. `pixellab-cli ledger` lists the unresolved ones with the job id that would collect them.
 

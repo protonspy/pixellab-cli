@@ -18,7 +18,6 @@ from pixellab_cli.commands.character import (
     frame_for_reference,
     known_templates,
     ordered_rotations,
-    resolve_template,
 )
 from pixellab_cli.config import PIXELLAB_BASE_URL, PIXELLAB_SECRET_VAR
 from pixellab_cli.errors import ValidationError
@@ -233,7 +232,7 @@ class TestCharacterAnimate:
         assert json.loads(route.calls.last.request.content)["directions"] == ["south"]
 
     @respx.mock
-    def test_the_estimate_is_per_direction(self, tmp_path, monkeypatch):
+    def test_a_template_is_estimated_at_its_tier_once_per_direction(self, tmp_path, monkeypatch):
         respx.get(f"{PIXELLAB_BASE_URL}/characters/char-9").respond(
             json={"id": "char-9", "template_id": "mannequin", "skeletons": {"south": {}}}
         )
@@ -245,7 +244,17 @@ class TestCharacterAnimate:
         )
 
         invoke(
-            ["character", "animate", "char-9", "-a", "walking", "-d", "south", "-d", "north"],
+            [
+                "character",
+                "animate",
+                "char-9",
+                "--template",
+                "walking",
+                "-d",
+                "south",
+                "-d",
+                "north",
+            ],
             tmp_path,
             monkeypatch,
         )
@@ -312,7 +321,34 @@ class TestCharacterAnimate:
         assert sent["template_animation_id"] == "walking-8-frames"
 
     @respx.mock
-    def test_an_action_naming_a_template_is_driven_by_the_skeleton(self, tmp_path, monkeypatch):
+    def test_a_template_says_the_skeleton_route_is_unreliable(self, tmp_path, monkeypatch):
+        respx.get(f"{PIXELLAB_BASE_URL}/characters/char-9").respond(
+            json={"id": "char-9", "template_id": "mannequin", "skeletons": {"south": {}}}
+        )
+        respx.post(f"{PIXELLAB_BASE_URL}/characters/animations").respond(
+            json={"background_job_ids": ["job-2"], "status": "processing"}
+        )
+        respx.get(f"{PIXELLAB_BASE_URL}/background-jobs/job-2").respond(
+            json={"status": "completed", "last_response": {"images": [image_payload()]}}
+        )
+
+        result = invoke(
+            ["character", "animate", "char-9", "--template", "walking-8-frames"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert "skeleton" in result.output
+        assert "text V3" in result.output
+
+    @respx.mock
+    def test_an_action_the_skeleton_knows_is_still_animated_with_text(self, tmp_path, monkeypatch):
+        """`walking` is a mannequin template, and this character has a skeleton.
+
+        Driving that skeleton is cheaper, and it is what this command used to do.
+        Checked against PixelLab, the frames it returns are wrong, so an action is
+        animated with text V3 and the skeleton waits for `--template`.
+        """
         route = respx.post(f"{PIXELLAB_BASE_URL}/characters/animations").respond(
             json={"background_job_ids": ["job-2"], "status": "processing"}
         )
@@ -326,32 +362,13 @@ class TestCharacterAnimate:
         result = invoke(["character", "animate", "char-9", "-a", "walking"], tmp_path, monkeypatch)
 
         sent = json.loads(route.calls.last.request.content)
-        assert sent["mode"] == "template"
-        assert sent["template_animation_id"] == "walking"
-        assert "action_description" not in sent
-        assert "skeleton knows" in result.output
+        assert sent["mode"] == "v3"
+        assert sent["action_description"] == "walking"
+        assert "template_animation_id" not in sent
+        assert "skeleton knows" not in result.output
 
     @respx.mock
-    def test_an_action_the_skeleton_almost_knows_is_resolved(self, tmp_path, monkeypatch):
-        """`walk` is not a mannequin template; `walk-1` and `walking` are."""
-        route = respx.post(f"{PIXELLAB_BASE_URL}/characters/animations").respond(
-            json={"background_job_ids": ["job-2"], "status": "processing"}
-        )
-        respx.get(f"{PIXELLAB_BASE_URL}/characters/char-9").respond(
-            json={"id": "char-9", "template_id": "mannequin", "skeletons": {"south": {}}}
-        )
-        respx.get(f"{PIXELLAB_BASE_URL}/background-jobs/job-2").respond(
-            json={"status": "completed", "last_response": {"images": [image_payload()]}}
-        )
-
-        invoke(["character", "animate", "char-9", "-a", "Running"], tmp_path, monkeypatch)
-
-        sent = json.loads(route.calls.last.request.content)
-        assert sent["mode"] == "template"
-        assert sent["template_animation_id"].startswith("running")
-
-    @respx.mock
-    def test_a_character_without_a_skeleton_is_described_not_driven(self, tmp_path, monkeypatch):
+    def test_a_character_without_a_skeleton_is_described_too(self, tmp_path, monkeypatch):
         route = respx.post(f"{PIXELLAB_BASE_URL}/characters/animations").respond(
             json={"background_job_ids": ["job-2"], "status": "processing"}
         )
@@ -1121,39 +1138,10 @@ class TestFrameForReference:
         assert body["image_size"] == {"width": 32, "height": 32}
 
 
-class TestResolvingAnActionToATemplate:
-    """The match is narrow on purpose. A looser one substitutes a motion nobody
-    asked for and charges for it.
-    """
-
-    def test_an_exact_name_wins(self):
-        assert resolve_template("walking", "mannequin", None) == "walking"
-
-    def test_the_case_and_the_spaces_do_not_matter(self):
-        assert resolve_template("  Walking ", "mannequin", None) == "walking"
-
-    def test_a_prefix_alone_is_not_a_match(self):
-        """`running-jump` is the shortest mannequin name starting with `run`, and it
-        is a jump. Asking for a run and being charged for a jump is worse than
-        falling through to a description."""
-        assert resolve_template("run", "mannequin", None) is None
-
-    def test_the_frame_count_asked_for_is_the_only_one_tried(self):
-        assert resolve_template("walk", "dog", 4) == "walk-4-frames"
-        assert resolve_template("walk", "dog", 5) is None
-
-    def test_an_action_no_skeleton_knows_resolves_to_nothing(self):
-        assert resolve_template("juggling three apples", "mannequin", None) is None
-
-    def test_an_unknown_family_searches_every_family(self):
-        assert resolve_template("walking", None, None) == "walking"
-
-
 class TestTheDryRunPredictsTheRealCall:
     @respx.mock
-    def test_a_character_without_a_skeleton_is_previewed_as_free_text(self, tmp_path, monkeypatch):
-        """The preview picked a template mode and its cheaper tier for a character
-        that would really have been charged per frame."""
+    def test_an_action_is_previewed_as_free_text(self, tmp_path, monkeypatch):
+        """An action is `mode=v3`, so the preview is one generation per frame."""
         respx.get(f"{PIXELLAB_BASE_URL}/characters/char-9").respond(
             json={"id": "char-9", "template_id": "mannequin", "skeletons": {}}
         )
@@ -1168,7 +1156,9 @@ class TestTheDryRunPredictsTheRealCall:
         assert "8 generations" in result.output
 
     @respx.mock
-    def test_a_character_with_a_skeleton_is_previewed_as_driven(self, tmp_path, monkeypatch):
+    def test_a_skeleton_does_not_make_the_preview_cheaper(self, tmp_path, monkeypatch):
+        """A character whose skeleton knows `walking` is charged per frame like any
+        other, because the action is no longer promoted to a template."""
         respx.get(f"{PIXELLAB_BASE_URL}/characters/char-9").respond(
             json={"id": "char-9", "template_id": "mannequin", "skeletons": {"south": {}}}
         )
@@ -1180,7 +1170,7 @@ class TestTheDryRunPredictsTheRealCall:
         )
 
         assert result.exit_code == 0
-        assert "skeleton knows" in result.output
+        assert "8 generations" in result.output
 
     @respx.mock
     def test_a_character_that_does_not_exist_is_reported(self, tmp_path, monkeypatch):

@@ -50,7 +50,7 @@ over this file answers with the example above as well as with the notes. -->
 - n-0010 2026-09-15 #gotcha @src/pixellab_cli/__init__.py — the version lives in pyproject.toml only; __init__ reads installed metadata, and a test compares the two
 - n-0011 2026-09-15 #gotcha @src/pixellab_cli/commands/character.py — create-character-with-4-directions has no name parameter, so character new --directions 4 keeps --name for file names only and sends no display name
 - n-0012 2026-09-15 #gotcha @src/pixellab_cli/config.py — a stray project marker in the real home directory (package.json) lets the credentials walk climb out of a test fixture whenever the test names a home that is not an ancestor of its start
-- n-0013 2026-09-15 #ceiling @src/pixellab_cli/commands/character.py — character animate has no way to force free text once an action names a template; rephrase the action until a template stops matching
+<!-- n-0013 removed -->
 - n-0014 2026-09-15 #ceiling @src/pixellab_cli/commands/art.py — a mid-list upload failure strands the files already on fal's CDN; nothing records their URLs
 - n-0015 2026-09-15 #gotcha @src/pixellab_cli/commands/character.py — a character reports animation_count 0 for a while after an animation is created; the spritesheet export shows it before GET /characters does
 - n-0016 2026-09-15 #gotcha @src/pixellab_cli/pixels.py — the GIF writer merges a frame identical to the one before it and adds its time to that frame, so the file's frame count can be lower than the frames given while playback stays the same length
@@ -59,3 +59,4 @@ over this file answers with the example above as well as with the notes. -->
 - n-0019 2026-09-16 #gotcha @src/pixellab_cli/fal.py — fal's subscribe returns the model output and no request id; the id exists only at enqueue, so on_enqueue is the one place to catch it and the finished job's timing depends on having it
 - n-0020 2026-09-16 #gotcha @src/pixellab_cli/workspace.py — a run under a subject is claimed by creating its version directory, not by checking whether one is free; the check-then-act version let two processes pick the same name
 - n-0021 2026-09-16 #gotcha @src/pixellab_cli/commands/job.py — a filename built by hand skips the slugify that asset_filename does, and Workspace.inside only catches an escape past the root, not a write into a sibling run
+- n-0022 2026-09-16 #gotcha @src/pixellab_cli/commands/character.py — template mode drives the skeleton and PixelLab returns wrong frames for it as of 2026-09-16; an action goes to mode=v3 and --template is opt-in until the provider fixes it

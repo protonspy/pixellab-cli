@@ -28,8 +28,6 @@ from pixellab_cli.validate import build_request
 app = typer.Typer(name="character", help="Characters: create, animate, list, export.")
 
 TEMPLATES_PATH = REFERENCE_DIR / "pixellab-animation-templates.json"
-# How many frames the animation route draws when nobody says.
-_FRAME_DEFAULT = 8
 
 # The four-direction route requires a frame size where v3 leaves it to PixelLab,
 # so one has to come from somewhere when the caller named neither a size nor a
@@ -64,52 +62,16 @@ def load_templates() -> dict[str, Any]:
     return json.loads(TEMPLATES_PATH.read_text(encoding="utf-8"))
 
 
-def resolve_template(action: str, family: str | None, frames: int | None) -> str | None:
-    """The skeleton template that matches `action`, or None to leave it to free text.
+def _require_character(app_context, character_id: str) -> None:
+    """Refuse an animation for a character this account does not have.
 
-    A character made here has a skeleton, and driving it is both cheaper and steadier
-    than describing the motion in words — `-a walking` as free text drifted in pose
-    and scale where the `mannequin` skeleton carried a template of that exact name.
-
-    The match is deliberately narrow: the template's name is the action, or the action
-    with an explicit frame count after it. Anything looser substitutes a motion nobody
-    asked for — matching `run` against the shortest name starting with it picks
-    `running-jump`, which is a jump, and charges for it.
-
-    `family` is the character's own `template_id`. Without it every family is searched,
-    which is what a character whose skeleton could not be read falls back to.
-    """
-    catalogue = load_templates().get("families", {})
-    names = set(catalogue.get(family, [])) if family else known_templates()
-    if not names:
-        return None
-
-    wanted = action.strip().lower().replace(" ", "-")
-    if wanted in names:
-        return wanted
-
-    # Only the count the caller asked for. Substituting the route's default here sends
-    # a template of eight frames alongside a `frame_count` of five, and neither the
-    # request nor the caller is told which one won.
-    count = frames or _FRAME_DEFAULT
-    variant = f"{wanted}-{count}-frames"
-    return variant if variant in names else None
-
-
-def _skeleton_of(app_context, character_id: str) -> tuple[bool, str | None]:
-    """Whether this character has a skeleton, and which family of motions it knows.
-
-    Free, and it decides whether the animation is driven or described — and therefore
-    what it costs, so a dry run asks too rather than assuming an answer that would
-    make its estimate a different number from the bill.
-
-    A failure here is not swallowed: a character id that names nothing, or a
-    credential that does not work, is reported rather than turned into a guess.
+    Free, and it turns a provider rejection mid-run into a refusal that names the
+    identifier — including under a dry run, where the preview would otherwise
+    describe a call that could never have been made.
     """
     payload = app_context.pixellab().call("character", character_id=character_id).raw
     if not payload:
         raise ValidationError(f"no character {character_id!r} on this account")
-    return bool(payload.get("skeletons")), payload.get("template_id")
 
 
 def _frame_default(route) -> int:
@@ -445,7 +407,9 @@ def animate(
     context: typer.Context,
     character_id: str = typer.Argument(..., help="The character to animate."),
     action: str = typer.Option(None, "--action", "-a", help="'walking', 'attacking'."),
-    template: str = typer.Option(None, "--template", help="A named motion instead of an action."),
+    template: str = typer.Option(
+        None, "--template", help="A named skeleton motion instead of an action. Unreliable."
+    ),
     directions: list[str] = typer.Option(
         None, "--direction", "-d", help="Repeatable. Defaults to south alone."
     ),
@@ -476,19 +440,18 @@ def _animate(
             f"not a direction: {', '.join(unknown)}. The directions are: {', '.join(DIRECTION)}"
         )
 
-    # A character made here has a skeleton, and a motion that skeleton already knows
-    # is the same motion driven rather than described. `-a walking` on a mannequin
-    # character sent "walking" as free text to `v3` while the skeleton carried a
-    # template of that exact name, and what came back drifted in pose and scale
-    # rather than taking a step.
-    if action and not template:
-        driven, family = _skeleton_of(app_context, character_id)
-        if driven and (resolved := resolve_template(action, family, frames)):
-            template, action = resolved, None
-            output.stderr(
-                f"{template!r} is a motion this character's skeleton knows, so it is "
-                f"animated from the skeleton rather than from the description."
-            )
+    _require_character(app_context, character_id)
+
+    # An action is animated from its description, never from the skeleton. Driving
+    # the skeleton is cheaper and was preferred here until it was checked against
+    # PixelLab: the frames it returns are wrong, and `v3` is the route PixelLab
+    # recommends. So the skeleton is reached only when `--template` names it.
+    if template:
+        output.stderr(
+            "warning: a template animates from the character's skeleton, which "
+            "PixelLab does not currently return correct frames for. An action "
+            "description animates with text V3 instead."
+        )
 
     if template and template not in known_templates():
         catalogue = load_templates()
