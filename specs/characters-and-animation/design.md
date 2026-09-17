@@ -65,6 +65,25 @@ rejection prints it too, which is the moment the caller actually needed it. Refu
 locally against a list known to be incomplete would block working requests, which is
 worse than the round trip it saves.
 
+## Why an action does not drive the skeleton
+
+An action naming a motion the character's skeleton knows used to be promoted to
+`mode=template`: cheaper, one generation per direction instead of one per frame, and
+steadier than describing a walk in words. Validated against PixelLab, the frames that
+route returns are not correct, and PixelLab's own recommendation for animating a
+character is Animate with text V3.
+
+So the promotion is gone. `-a <action>` is `mode=v3` whatever the skeleton knows
+(R2.8), and `mode=template` is reached only by `--template`, which says what it is
+driving and that the provider is not returning it correctly (R2.9). The flag, the
+catalogue and `pixellab-cli character templates` stay: the failure is the provider's
+and may be fixed there, and deleting them would take the record of the template
+families with them.
+
+Reading the character before animating it survives the promotion it existed for: it
+is a free call, and it turns a bad identifier into a refusal that names it rather
+than a provider rejection mid-run (R2.11).
+
 ## A state is a character, not a variant of one
 
 `create-character-state` takes a `character_id` and an edit description, applies that
