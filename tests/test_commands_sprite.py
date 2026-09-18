@@ -355,3 +355,75 @@ class TestStyleReference:
 
         assert result.exit_code == 2
         assert "4" in result.output
+
+
+class TestWhatTheStyleCallWillReturn:
+    """The tier says what the call costs; the count says what it costs per image.
+
+    `generate-with-style-v2` is flat-priced and returns between one and sixty-four
+    images depending on a size deduced from the references. A caller who is told the
+    tier and not the count has been told half the price (R1.10, R1.11).
+    """
+
+    def _style_file(self, tmp_path, name: str, width: int = 64, height: int = 64):
+        path = tmp_path / name
+        path.write_bytes(png_bytes(width, height))
+        return str(path)
+
+    def _invoke(self, tmp_path, monkeypatch, *sides):
+        arguments = ["--dry-run", "--json", "sprite", "a knight"]
+        for index, (width, height) in enumerate(sides):
+            arguments += ["--style", self._style_file(tmp_path, f"{index}.png", width, height)]
+        return invoke(arguments, tmp_path, monkeypatch)
+
+    def test_the_deduced_size_and_the_count_are_both_said(self, tmp_path, monkeypatch):
+        result = self._invoke(tmp_path, monkeypatch, (64, 64), (32, 48))
+
+        assert "64x64" in result.stderr
+        assert "16 images" in result.stderr
+
+    def test_the_largest_dimension_across_the_references_wins(self, tmp_path, monkeypatch):
+        result = self._invoke(tmp_path, monkeypatch, (40, 40), (32, 120))
+
+        assert "120x120" in result.stderr
+        assert "4 images" in result.stderr
+
+    def test_a_padded_reference_is_told_what_a_crop_would_buy(self, tmp_path, monkeypatch):
+        result = self._invoke(tmp_path, monkeypatch, (256, 256), (200, 200))
+
+        assert "1 image" in result.stderr
+        assert "170" in result.stderr
+        assert "4 for the same price" in result.stderr
+
+    def test_a_reference_already_buying_several_is_advised_nothing(self, tmp_path, monkeypatch):
+        result = self._invoke(tmp_path, monkeypatch, (64, 64), (64, 64))
+
+        assert "for the same price" not in result.stderr
+
+    def test_the_cheap_route_says_nothing_about_a_count(self, tmp_path, monkeypatch):
+        result = self._invoke(tmp_path, monkeypatch, (64, 64))
+
+        assert json.loads(result.stdout)["route"] == "create-image-bitforge"
+        assert "deduce" not in result.stderr
+
+    @respx.mock
+    def test_the_count_is_said_on_a_real_call_too(self, tmp_path, monkeypatch):
+        mock_route("/generate-with-style-v2", background_job_id="job-1")
+        respx.get(f"{PIXELLAB_BASE_URL}/background-jobs/job-1").respond(
+            json={
+                "status": "completed",
+                "last_response": {"images": [image_payload()]},
+                "usage": {"generations": 30.0, "usd": 0.15},
+            }
+        )
+        first = self._style_file(tmp_path, "one.png", 64, 64)
+        second = self._style_file(tmp_path, "two.png", 64, 64)
+
+        result = invoke(
+            ["sprite", "a knight", "--style", first, "--style", second],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 0
+        assert "16 images" in result.stderr

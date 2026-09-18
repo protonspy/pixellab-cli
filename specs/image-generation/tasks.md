@@ -6,6 +6,9 @@
 - [x] 1.2 (Unit) Parse a size argument written as `WxH` or as one number meaning a square — R1.1
 - [x] 1.3 (TDD) Route more than one style image to the Pro route — R1.5, R1.7, R1.8, R1.9
   _Reason style reference route added after delivery_
+- [x] 1.4 (TDD) Deduce the output size and image count from the style images — R1.10,
+      R1.11
+  _Reason the style route's yield was never reported; added after delivery_
 
 ## 2 · The sprite command
 
@@ -20,6 +23,9 @@
 - [x] 2.5 (Unit) Accept repeated --style and announce the tier — R1.7
   _Depends 1.3_
   _Reason style reference route added after delivery_
+- [x] 2.6 (Unit) Print the size, the count, and the smaller-crop advice — R1.10, R1.11
+  _Depends 1.4_
+  _Reason the style route's yield was never reported; added after delivery_
 
 ## 3 · The clean commands
 

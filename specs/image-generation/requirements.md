@@ -1,8 +1,8 @@
 ---
 autonomy: auto
 ci: wait
-branch: feat/asset-consistency
-delivery: merged
+branch: feat/style-route-yield
+delivery: in-progress
 pr: 2
 ---
 
@@ -26,6 +26,8 @@ settled — a description in, a file and a manifest out, a cost printed.
 - **R1.7** (ADDED) Where more than one style image is given, the image generation commands shall use the style reference route, which accepts up to four, and shall say that it is priced as a Pro Tools route.
 - **R1.8** (ADDED) If a size is given together with more than one style image, then the image generation commands shall say that the style reference route takes its output size from the style images, before spending anything.
 - **R1.9** (ADDED) If more than four style images are given, then the image generation commands shall say so before spending anything.
+- **R1.10** (ADDED) Where the style reference route is chosen, the image generation commands shall report the output size deduced from the style images and the number of images that size returns, before spending anything.
+- **R1.11** (ADDED) If the deduced output size returns a single image, then the image generation commands shall say what a smaller style image would return for the same price, before spending anything.
 
 ## R2 · Cleaning up
 

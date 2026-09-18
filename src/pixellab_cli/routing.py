@@ -9,6 +9,7 @@ route is unreadable.
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 
 from pixellab_cli import catalog
 from pixellab_cli.errors import ValidationError
@@ -27,6 +28,13 @@ STYLE_REFERENCE_MAX = 4
 # that "no size was named" survives as far as the style reference route, which is the
 # one route that refuses a size outright.
 DEFAULT_SIZE = {"width": 64, "height": 64}
+# What `generate-with-style-v2` returns, by the size it deduced: the ceiling of each
+# band and the number of images that band yields. From the route's own documentation in
+# reference/pixellab-openapi.json, which adr:0002-call-pixellab-rest-v2-directly makes
+# the source of truth. Ascending, so the first ceiling a size fits under is its band.
+STYLE_REFERENCE_BANDS = ((42, 64), (85, 16), (170, 4), (512, 1))
+STYLE_REFERENCE_MIN_SIDE = 16
+STYLE_REFERENCE_MAX_SIDE = 512
 
 _SIZE = re.compile(r"^\s*(\d+)\s*(?:[x*]\s*(\d+)\s*)?$", re.IGNORECASE)
 
@@ -180,3 +188,38 @@ def _no_route_message(size: dict[str, int]) -> str:
     for name in IMAGE_ROUTES:
         lines.append(f"  {name}: {_ceiling(catalog.route(name))}")
     return "\n".join(lines)
+
+
+@dataclass(frozen=True)
+class StyleYield:
+    """What a style reference call will return, worked out before it is made.
+
+    `size` is what the route deduces, `count` is how many images that size is worth,
+    and `better` names the band below when the deduction bought a single image — the
+    ceiling to crop under, and what cropping under it would return instead.
+    """
+
+    size: int
+    count: int
+    better: tuple[int, int] | None
+
+
+def style_reference_yield(sides: list[tuple[int, int]]) -> StyleYield:
+    """The size `generate-with-style-v2` will deduce, and the images it will return.
+
+    The route takes no `image_size`: it squares the largest dimension across the style
+    images, and that size decides the count. Both are computable from files already on
+    disk, which is the whole reason this is said before the call rather than discovered
+    after it — the price is flat per call, so the count is the price per image.
+    """
+    largest = max((side for pair in sides for side in pair), default=STYLE_REFERENCE_MIN_SIDE)
+    size = min(max(largest, STYLE_REFERENCE_MIN_SIDE), STYLE_REFERENCE_MAX_SIDE)
+    count = next(images for ceiling, images in STYLE_REFERENCE_BANDS if size <= ceiling)
+    # Only the single-image band earns advice. Every other band is already plural, and
+    # telling a caller who asked for sixteen that sixty-four exists is noise on a
+    # decision they have already made.
+    better = None
+    if count == 1:
+        ceiling, images = STYLE_REFERENCE_BANDS[-2]
+        better = (ceiling, images)
+    return StyleYield(size=size, count=count, better=better)
