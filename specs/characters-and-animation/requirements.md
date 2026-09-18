@@ -2,7 +2,7 @@
 autonomy: auto
 ci: wait
 branch: feat/pose-first-animation
-delivery: in-review
+delivery: merged
 pr: 34
 ---
 
