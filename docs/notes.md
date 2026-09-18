@@ -66,3 +66,5 @@ over this file answers with the example above as well as with the notes. -->
 - n-0026 2026-09-18 #gotcha @specs/characters-and-animation/tasks.md — a task line wrapping past ~90 columns loses the citations on its continuation line, so keep the requirement list on line one
 - n-0027 2026-09-18 #cost @src/pixellab_cli/catalog.py — pixminimax pricing halved on 2026-09-18; the vendored schema's description is the only place the provider publishes it
 - n-0028 2026-09-18 #ceiling @src/pixellab_cli/catalog.py — animate-pixminimax is priced by generation time; the 2.0 estimate is a mid-range guess from published examples, not a tier
+<!-- n-0029 removed -->
+- n-0030 2026-09-18 #gotcha @src/pixellab_cli/routing.py @reference/pixellab-openapi.json — STYLE_REFERENCE_BANDS comes from prose in the endpoint description, so drift shows only as a changed path and someone has to read the diff

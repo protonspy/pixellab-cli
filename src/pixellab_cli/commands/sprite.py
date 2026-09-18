@@ -22,6 +22,7 @@ from pixellab_cli.routing import (
     STYLE_REFERENCE_ROUTE,
     choose_image_route,
     parse_size,
+    style_reference_yield,
 )
 from pixellab_cli.run import from_pixellab
 from pixellab_cli.validate import build_request
@@ -132,6 +133,8 @@ def _sprite(
         output.stderr(
             f"{route.name} is a Pro Tools route: about {estimate.generations:g} generations."
         )
+    if route.name == STYLE_REFERENCE_ROUTE:
+        _announce_yield(arguments["style_images"])
 
     if app_context.dry_run:
         output.emit(
@@ -183,3 +186,26 @@ def _style_reference(path: Path) -> dict[str, Any]:
         "width": encoded.width,
         "height": encoded.height,
     }
+
+
+def _announce_yield(style_images: list[dict[str, Any]]) -> None:
+    """Say how many images the deduced size buys, before the money is spent (R1.10).
+
+    The tier announcement above says what the call costs; this says what it costs per
+    image, which is the number that actually moves between a tight crop and a padded
+    one. Said on both the dry run and the real call, because the decision it informs
+    is the same one.
+    """
+    yielded = style_reference_yield([(image["width"], image["height"]) for image in style_images])
+    images_word = "image" if yielded.count == 1 else "images"
+    output.stderr(
+        f"the style images deduce a {yielded.size}x{yielded.size} output, which returns "
+        f"{yielded.count} {images_word}."
+    )
+    # Legal, and almost never what anyone wanted: the same flat price for a single
+    # image because the reference carried padding nobody needed (R1.11).
+    if yielded.better is not None:
+        ceiling, count = yielded.better
+        output.stderr(
+            f"style images at most {ceiling} per side would return {count} for the same price."
+        )

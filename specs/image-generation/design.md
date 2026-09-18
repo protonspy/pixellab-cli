@@ -39,6 +39,33 @@ output size from the style images. A `--size` passed with two or more style imag
 therefore refused rather than ignored (R1.8) — silently dropping an argument a caller
 paid attention to is how a surprising image gets billed.
 
+## What the style reference route returns
+
+`generate-with-style-v2` does not return one image. The output size it deduced decides
+how many come back, and the bands are steep — between sixty-four images and one, for the
+same flat price. `docs/wiki/pages/character-consistency.md` carries the band table and
+the deduction rule; it is not copied here, because a second copy is a second thing to
+keep true.
+
+The command already reads each style file's dimensions to build
+the `StyleImage` payload, so it has everything it needs to compute both numbers before
+it calls — no extra read, no request to the provider.
+
+Both are then printed with the tier announcement (R1.10), because the price is flat per
+call and the count is what turns it into a price per image. Twenty to forty generations
+is a different decision at sixteen images than at one, and today the caller is told the
+first number and not the second.
+
+R1.11 is the case worth interrupting for: a style image over 170 pixels a side buys a
+single image at Pro Tools price, where the same subject cropped to its own bounds would
+have bought four or sixteen. That is not a validation failure — the call is legal and
+will succeed — so it is said and not refused, the same way the tier announcement is.
+
+The bands come from the vendored schema's own documentation of the route, which is what
+`adr:0002-call-pixellab-rest-v2-directly` makes the source of truth here; they are
+carried in `routing.py` beside the route choice rather than in the command, so a drift
+report against `reference/` has one place to land.
+
 Chosen, then **named in the output** (R1.2). A tool that silently picks between
 routes with different prices and different ceilings has to say which one it picked,
 or the cost report is unreadable.

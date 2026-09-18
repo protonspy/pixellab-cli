@@ -8,7 +8,7 @@ times the price it needed to be.
 import pytest
 
 from pixellab_cli.errors import ValidationError
-from pixellab_cli.routing import choose_image_route, parse_size
+from pixellab_cli.routing import choose_image_route, parse_size, style_reference_yield
 
 
 class TestParseSize:
@@ -170,3 +170,60 @@ class TestAnExplicitRouteWinsOverTheStyleCount:
             choose_image_route(None, route_name="make-art")
 
         assert "generate-with-style-v2" in str(raised.value)
+
+
+class TestWhatTheStyleReferenceRouteReturns:
+    """The deduced size decides the image count, and the count decides the real price.
+
+    `generate-with-style-v2` is flat-priced per call and returns between one and
+    sixty-four images depending on a size nobody passed. A caller told only the tier
+    has been told half of what they are spending.
+    """
+
+    def test_the_size_is_the_largest_dimension_across_the_style_images(self):
+        assert style_reference_yield([(64, 48), (32, 90)]).size == 90
+
+    def test_a_square_reference_deduces_its_own_side(self):
+        assert style_reference_yield([(64, 64)]).size == 64
+
+    def test_the_smallest_band_returns_sixty_four(self):
+        assert style_reference_yield([(42, 42)]).count == 64
+
+    def test_a_tight_crop_returns_sixteen(self):
+        assert style_reference_yield([(64, 64)]).count == 16
+
+    def test_the_middle_band_returns_four(self):
+        assert style_reference_yield([(170, 170)]).count == 4
+
+    def test_the_seam_below_sixteen_images(self):
+        assert style_reference_yield([(43, 43)]).count == 16
+
+    def test_the_seam_above_sixteen_images(self):
+        assert style_reference_yield([(85, 85)]).count == 16
+
+    def test_the_seam_into_four_images(self):
+        assert style_reference_yield([(86, 86)]).count == 4
+
+    def test_no_style_images_deduces_the_floor(self):
+        assert style_reference_yield([]).size == 16
+
+    def test_a_large_reference_returns_a_single_image(self):
+        assert style_reference_yield([(171, 171)]).count == 1
+
+    def test_the_deduced_size_is_floored_at_sixteen(self):
+        assert style_reference_yield([(8, 8)]).size == 16
+
+    def test_the_deduced_size_is_capped_at_the_route_maximum(self):
+        assert style_reference_yield([(900, 900)]).size == 512
+
+    def test_a_single_image_band_knows_what_a_smaller_crop_would_buy(self):
+        yielded = style_reference_yield([(256, 256)])
+
+        assert yielded.count == 1
+        assert yielded.better == (170, 4)
+
+    def test_a_band_that_is_already_plural_advises_nothing(self):
+        assert style_reference_yield([(64, 64)]).better is None
+
+    def test_the_smallest_band_advises_nothing(self):
+        assert style_reference_yield([(16, 16)]).better is None
