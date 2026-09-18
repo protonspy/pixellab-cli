@@ -8,7 +8,7 @@ sending eight to the second is paying a beta route for what the cheap one does.
 
 import pytest
 
-from pixellab_cli.commands.motion import choose_animation_route
+from pixellab_cli.commands.motion import check_pixel_budget, choose_animation_route
 from pixellab_cli.errors import ValidationError
 
 
@@ -65,3 +65,49 @@ class TestChooseAnimationRoute:
             choose_animation_route(8, route_name="create-tileset")
 
         assert "animate-with-text-v3" in str(raised.value)
+
+
+class TestThePixelBudget:
+    """`animate-with-text-v3` caps width * height * frame_count at 524,288.
+
+    It is the limit a caller actually hits on a large sprite, and the one the frame
+    count alone never reveals: sixteen frames is legal, 256x256 is legal, and the two
+    together are not. Refused here rather than discovered as a provider rejection.
+    """
+
+    def test_a_small_sprite_is_unaffected(self):
+        check_pixel_budget("animate-with-text-v3", 16, 64, 64)
+
+    def test_the_budget_is_reached_exactly(self):
+        check_pixel_budget("animate-with-text-v3", 8, 256, 256)
+
+    def test_one_frame_past_the_budget_is_refused(self):
+        with pytest.raises(ValidationError) as raised:
+            check_pixel_budget("animate-with-text-v3", 10, 256, 256)
+
+        assert "524288" in str(raised.value).replace(",", "")
+
+    def test_the_refusal_says_how_many_frames_would_fit(self):
+        with pytest.raises(ValidationError) as raised:
+            check_pixel_budget("animate-with-text-v3", 16, 256, 256)
+
+        assert "8" in str(raised.value)
+
+    def test_the_largest_square_that_still_takes_sixteen_frames_is_accepted(self):
+        check_pixel_budget("animate-with-text-v3", 16, 181, 181)
+
+    def test_one_pixel_wider_no_longer_takes_sixteen(self):
+        with pytest.raises(ValidationError):
+            check_pixel_budget("animate-with-text-v3", 16, 182, 182)
+
+    def test_an_unknown_size_is_not_guessed_at(self):
+        check_pixel_budget("animate-with-text-v3", 16, None, None)
+
+    def test_the_long_form_route_has_no_such_budget(self):
+        check_pixel_budget("animate-pixminimax", 40, 256, 256)
+
+    def test_a_zero_side_is_refused_rather_than_skipped(self):
+        with pytest.raises(ValidationError) as raised:
+            check_pixel_budget("animate-with-text-v3", 8, 0, 256)
+
+        assert "nothing to animate" in str(raised.value)

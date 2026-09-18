@@ -180,18 +180,56 @@ def variants(
     connect: str = typer.Option(
         None, "--connect", help="roads, tileset or building: makes a connectable set."
     ),
+    angle: float = typer.Option(
+        None, "--angle", help="View angle in degrees, 0 side to 90 top-down. Overrides --view."
+    ),
+    depth: float = typer.Option(
+        None, "--depth", help="Tile thickness, 0 to 1. Overrides what --view implies."
+    ),
+    lean: float = typer.Option(
+        None, "--lean", help="Oblique shear, 0 to 1. 0.5 is cabinet, 1.0 a full 45 degrees."
+    ),
+    outline_mode: str = typer.Option(
+        None, "--outline-mode", help="outline, or segmentation for cleaner seams."
+    ),
     view: str = typer.Option(None, "--view", help="top-down, high top-down, low top-down, side."),
     name: str = typer.Option(None, "--name", help="What to call the files."),
     seed: int = typer.Option(None, "--seed", help="Repeat a previous generation."),
 ) -> None:
     """Tile variants, or a connectable road, terrain or building set. Pro pricing."""
     try:
-        _variants(context, description, shape, tile_size, connect, view, name, seed)
+        _variants(
+            context,
+            description,
+            shape,
+            tile_size,
+            connect,
+            view,
+            angle,
+            depth,
+            lean,
+            outline_mode,
+            name,
+            seed,
+        )
     except PixellabCliError as failure:
         output.handle(failure)
 
 
-def _variants(context, description, shape, tile_size, connect, view, name, seed) -> None:
+def _variants(
+    context,
+    description,
+    shape,
+    tile_size,
+    connect,
+    view,
+    angle,
+    depth,
+    lean,
+    outline_mode,
+    name,
+    seed,
+) -> None:
     app_context: AppContext = context.obj
     _execute(
         app_context,
@@ -205,6 +243,12 @@ def _variants(context, description, shape, tile_size, connect, view, name, seed)
             "tile_size": tile_size,
             "tile_feature": connect,
             "tile_view": view,
+            # Each of these overrides something `tile_view` implies, so they are passed
+            # only when named: a default here would silently outrank the view.
+            "tile_view_angle": angle,
+            "tile_depth_ratio": depth,
+            "oblique_lean": lean,
+            "outline_mode": outline_mode,
             "seed": seed,
         },
     )

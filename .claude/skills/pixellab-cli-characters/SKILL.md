@@ -157,8 +157,9 @@ generation time, and `--deflicker` belongs to that route alone.
 
 **There is a pixel budget, not just a frame count:** width times height times frames may
 not exceed 524,288. At 256x256 that is exactly eight frames. Sixteen frames means a canvas
-under about 181 a side. A large sprite asked for many frames is refused by the provider,
-so shrink the canvas rather than arguing with the frame count.
+under about 181 a side. The command reads the size off the file and **refuses before
+calling**, naming the budget and how many frames that size does take — so shrink the
+canvas with `pixellab-cli image resize` rather than arguing with the frame count.
 
 Stores nothing on the account — for a managed character use `character animate`.
 

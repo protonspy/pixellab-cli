@@ -72,6 +72,7 @@ class ParamKind(StrEnum):
     SIZE = "size"
     STRING_LIST = "string_list"
     OBJECT = "object"
+    OBJECT_LIST = "object_list"
 
 
 @dataclass(frozen=True)

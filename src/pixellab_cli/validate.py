@@ -98,6 +98,8 @@ def _check(route: Route, param: Param, value: Any) -> Any:
         return _check_image_list(route, param, value)
     elif param.kind is ParamKind.STRING_LIST:
         _check_list(route, param, value)
+    elif param.kind is ParamKind.OBJECT_LIST:
+        _check_object_list(route, param, value)
     return value
 
 
@@ -218,6 +220,20 @@ def _check_bounds(
             f"{route.name}: {param.name} of {width}x{height} is out of range — {described}",
             context={"route": route.name, "parameter": param.name, "size": f"{width}x{height}"},
         )
+
+
+def _check_object_list(route: Route, param: Param, value: Any) -> None:
+    """A list whose items are objects rather than strings.
+
+    The provider validates each object's own fields, and this does not try to: the
+    shapes differ by `kind` and re-deriving that here would be a second copy to keep
+    true. What it does catch is the shape confusion that a list of strings would be —
+    a caller who passed text where the wire wants an object.
+    """
+    _check_list(route, param, value)
+    for item in value:
+        if not isinstance(item, Mapping):
+            _require(False, route, param, item, "a list of objects")
 
 
 def _check_list(route: Route, param: Param, value: Any) -> None:

@@ -27,6 +27,8 @@
 - [x] 2.7 (Unit) Refuse a reference whose size differs from the frame size — R1.9
   _Depends 2.6_
   _Reason four directions asked for after delivery_
+- [x] 2.8 (TDD) Refuse an animation over the route's pixel budget — R2.31
+  _Reason the budget is documented and unenforced, see n-0031_
 
 ## 3 · Animating and rotating
 

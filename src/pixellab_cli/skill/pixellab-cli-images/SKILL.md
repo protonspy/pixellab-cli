@@ -10,8 +10,9 @@ Read `pixellab-cli-assets` first for the spending rule and the credentials.
 ## One sprite
 
 ```
-pixellab-cli sprite <description> --size/-s --name --route --style --from --palette
-                                  --outline --shading --detail --view --direction --transparent --seed
+pixellab-cli sprite <description> --size/-s --name --route --style --style-description
+                                  --from --palette --outline --shading --detail --view
+                                  --direction --transparent --seed
 ```
 
 About one generation. `--size` defaults to 64. `--transparent` for anything that will sit
@@ -46,6 +47,10 @@ decision and therefore the count decision**. A 64-pixel character cropped to its
 bounds returns sixteen new characters in that style; the same character left on a
 200-pixel canvas returns one, for the same Pro Tools price. Crop tight with
 `pixellab-cli image trim` before spending.
+
+`--style-description` names the style in words alongside the images — "16-bit RPG, bright
+flat colours" — and is sent on this route only, because the base routes have a style slot
+and no words to go with it.
 
 ### Chaining
 

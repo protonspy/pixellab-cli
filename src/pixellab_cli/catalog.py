@@ -685,7 +685,7 @@ CREATE_TILES_PRO = Route(
         Param("tile_view_angle", ParamKind.NUMBER, minimum=0.0, maximum=90.0),
         Param("tile_depth_ratio", ParamKind.NUMBER, minimum=0.0, maximum=1.0),
         Param("tile_flat_top_px", ParamKind.INTEGER, help="Isometric only: 2 classic, 4 modern."),
-        Param("oblique_lean", ParamKind.NUMBER),
+        Param("oblique_lean", ParamKind.NUMBER, minimum=0, maximum=1),
         Param(
             "outline_mode", ParamKind.STRING, choices=("outline", "segmentation"), default="outline"
         ),
@@ -971,7 +971,7 @@ CREATE_UI_ASSET = Route(
     params=(
         Param("description", ParamKind.STRING, required=True, help="'wooden RPG panel'."),
         Param("image_size", ParamKind.SIZE, size=SizeLimit(min_side=192, max_side=688)),
-        Param("pieces", ParamKind.STRING_LIST, help="Shape template, validated server side."),
+        Param("pieces", ParamKind.OBJECT_LIST, help="Shape template, validated server side."),
         Param("elements", ParamKind.STRING_LIST, help="Named elements, auto-positioned."),
         _image("style_image"),
         Param("color_palette", ParamKind.STRING, help="'brown and gold'."),

@@ -10,7 +10,7 @@ Read `pixellab-cli-assets` first for the spending rule and the credentials.
 ## A panel
 
 ```
-pixellab-cli ui <description> --size --element --palette --style --name --seed
+pixellab-cli ui <description> --size --element --piece --palette --style --name --seed
 ```
 
 **Pro pricing**, twenty to forty generations. `--size` is 192 to 688 per axis, and the
@@ -29,7 +29,21 @@ pixellab-cli ui "deep charcoal slate framed by cool iron, hearth-fire orange acc
 `--palette` takes the colours **in words** — `"brown and gold"` — where most of this tool
 takes a palette as an image. `--style` takes an image whose look to match.
 
-With no `--element` the result is one full-canvas rounded panel.
+`--piece` is the other way to describe a layout: an explicit shape, repeatable, as JSON
+on a canvas whose longer side is 512. `rounded_rect` takes `x, y, w, h, radius`, `circle`
+takes `x, y, r`, `polygon` takes `x, y, r, sides, phase`, and each needs a unique `id`
+and a `kind`. The shapes are validated server side.
+
+```bash
+pixellab-cli ui "wooden RPG panel with gold trim" \
+  --piece '{"id":"frame","kind":"rounded_rect","x":0,"y":0,"w":512,"h":320,"radius":12}' \
+  --piece '{"id":"bar","kind":"rounded_rect","x":24,"y":24,"w":200,"h":20,"radius":6}'
+```
+
+`radius` is the corner curvature, and it changes a panel's character more than any
+adjective in the description.
+
+With neither `--element` nor `--piece` the result is one full-canvas rounded panel.
 
 ## What comes back is one image
 
