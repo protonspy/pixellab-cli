@@ -101,6 +101,15 @@ def ui(
     element: list[str] = typer.Option(
         None, "--element", help="Repeatable: button, icon_button, toolbar, tab, panel…"
     ),
+    piece: list[str] = typer.Option(
+        None,
+        "--piece",
+        help=(
+            "Repeatable JSON shape, coordinates on a canvas whose longer side is 512: "
+            "rounded_rect needs x, y, w, h, radius; circle x, y, r; polygon x, y, r, "
+            "sides, phase. Each needs a unique id and a kind."
+        ),
+    ),
     palette: str = typer.Option(None, "--palette", help="'brown and gold'."),
     style: Path = typer.Option(None, "--style", help="An image whose style to match."),
     name: str = typer.Option(None, "--name", help="What to call the file."),
@@ -108,12 +117,12 @@ def ui(
 ) -> None:
     """Generate a pixel-art UI panel. Pro pricing."""
     try:
-        _ui(context, description, size, element, palette, style, name, seed)
+        _ui(context, description, size, element, piece, palette, style, name, seed)
     except PixellabCliError as failure:
         output.handle(failure)
 
 
-def _ui(context, description, size, element, palette, style, name, seed) -> None:
+def _ui(context, description, size, element, piece, palette, style, name, seed) -> None:
     app_context: AppContext = context.obj
     _execute(
         app_context,
@@ -125,6 +134,9 @@ def _ui(context, description, size, element, palette, style, name, seed) -> None
             "description": description,
             "image_size": parse_size(size) if size else None,
             "elements": list(element) if element else None,
+            # Passed through as given: the shapes are validated server side, and a
+            # coordinate system this tool re-derived would be a second thing to keep true.
+            "pieces": list(piece) if piece else None,
             "color_palette": palette,
             "style_image": _load(style) if style else None,
             "name": name,

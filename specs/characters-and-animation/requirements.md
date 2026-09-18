@@ -62,6 +62,7 @@ different endpoint family and no skeleton.
 - **R2.28** (ADDED) If the two images given to interpolate differ in size, then the character commands shall refuse the call and name both sizes, before spending anything.
 - **R2.29** (ADDED) If an image given to interpolate is outside the size the interpolation route accepts, then the character commands shall refuse the call and name that route's limit, before spending anything.
 - **R2.30** (ADDED) If a frame count is given for an interpolation, then the character commands shall refuse the call and say that the interpolation route decides its own frame count, before spending anything.
+- **R2.31** (ADDED) If the frame count and the frame size together exceed the pixel budget the animation route allows, then the character commands shall refuse the call, name the budget, and say how many frames that size does allow, before spending anything.
 
 ## R3 · Rotating
 

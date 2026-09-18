@@ -237,3 +237,29 @@ class TestDryRun:
 
         assert result.exit_code == 0
         assert not (tmp_path / "out" / "ledger.jsonl").exists()
+
+
+class TestAnExplicitPanelShape:
+    """`pieces` was modelled in the catalog and the command had no flag for it."""
+
+    def _sent(self, tmp_path, monkeypatch, *extra):
+        result = invoke(
+            ["--dry-run", "--json", "ui", "wooden RPG panel", *extra], tmp_path, monkeypatch
+        )
+        return json.loads(result.stdout)["arguments"]
+
+    def test_a_piece_is_sent(self, tmp_path, monkeypatch):
+        shape = '{"id":"bar","kind":"rounded_rect","x":8,"y":8,"w":180,"h":24,"radius":6}'
+
+        assert self._sent(tmp_path, monkeypatch, "--piece", shape)["pieces"] == [shape]
+
+    def test_several_pieces_keep_their_order(self, tmp_path, monkeypatch):
+        first = '{"id":"a","kind":"circle","x":8,"y":8,"r":6}'
+        second = '{"id":"b","kind":"circle","x":40,"y":8,"r":6}'
+
+        sent = self._sent(tmp_path, monkeypatch, "--piece", first, "--piece", second)
+
+        assert sent["pieces"] == [first, second]
+
+    def test_nothing_is_sent_unasked(self, tmp_path, monkeypatch):
+        assert "pieces" not in self._sent(tmp_path, monkeypatch)

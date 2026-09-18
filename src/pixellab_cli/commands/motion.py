@@ -78,6 +78,58 @@ def choose_animation_route(frames: int | None, *, route_name: str | None = None)
     return long_form
 
 
+# `animate-with-text-v3` documents a second limit beside the frame count: the product of
+# width, height and frame_count. It is the one a caller actually hits on a large sprite,
+# because each half is legal alone — sixteen frames is allowed, 256x256 is allowed, and
+# together they are not. See docs/wiki/pages/animation-frames.md.
+PIXEL_BUDGET = 524_288
+BUDGETED_ROUTE = "animate-with-text-v3"
+
+
+def check_pixel_budget(
+    route_name: str, frames: int | None, width: int | None, height: int | None
+) -> None:
+    """Refuse a frame count that does not fit the frame size, before anything is sent.
+
+    Silent when the size is unknown: the budget is checked against what was read off
+    the file, and refusing on a size nobody could measure would be worse than letting
+    the provider answer.
+    """
+    # `is None` rather than falsiness: a header can legitimately report a zero side, and
+    # a zero is something to refuse rather than a reason to skip the check.
+    if route_name != BUDGETED_ROUTE or frames is None or width is None or height is None:
+        return
+    area = width * height
+    if area and area * frames <= PIXEL_BUDGET:
+        return
+    if not area:
+        raise ValidationError(
+            f"{width}x{height} is not a frame size this can animate: a side of zero leaves "
+            f"nothing to animate, and the file's header is what reported it.",
+            context={"route": BUDGETED_ROUTE, "width": width, "height": height},
+        )
+    fits = PIXEL_BUDGET // area
+    # Frame counts are even, so the largest usable count is the even number below the
+    # budget's own answer; zero means the frame is too big to animate at any count.
+    fits -= fits % 2
+    advice = (
+        f"at {width}x{height} the most it takes is {fits}"
+        if fits >= int(catalog.route(BUDGETED_ROUTE).param("frame_count").minimum or 4)
+        else "a frame this size does not fit the budget at any count"
+    )
+    raise ValidationError(
+        f"{BUDGETED_ROUTE} allows width x height x frames of at most {PIXEL_BUDGET}, and "
+        f"{width}x{height} over {frames} frames is {area * frames}. {advice}; a smaller "
+        f"frame takes more.",
+        context={
+            "route": BUDGETED_ROUTE,
+            "budget": PIXEL_BUDGET,
+            "asked": area * frames,
+            "frames_that_fit": fits,
+        },
+    )
+
+
 def _check_frames(route: Route, frames: int | None) -> None:
     """Hold a count to one route's rules, naming that route's own allowed counts."""
     if frames is None:
@@ -238,6 +290,11 @@ def _animate(
     route = choose_animation_route(frames, route_name=route_name)
     long_form = route.name == LONG_ANIMATION_ROUTE
 
+    # Read off the file rather than asked for, and checked here rather than left to the
+    # provider: the frame count and the frame size are each legal alone.
+    first = _load(file)
+    check_pixel_budget(route.name, frames, first.width, first.height)
+
     if deflicker is not None and not long_form:
         raise ValidationError(
             f"--deflicker belongs to {LONG_ANIMATION_ROUTE}, and this is {route.name}. "
@@ -256,7 +313,7 @@ def _animate(
         )
 
     arguments: dict[str, Any] = {
-        "first_frame": _load(file),
+        "first_frame": first,
         "last_frame": _load(last) if last else None,
         "frame_count": frames,
         "no_background": True if transparent else None,

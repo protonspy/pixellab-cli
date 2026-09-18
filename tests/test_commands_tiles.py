@@ -249,3 +249,47 @@ class TestReporting:
 
         assert result.exit_code == 0
         assert not (tmp_path / "out" / "ledger.jsonl").exists()
+
+
+class TestTheTilesetShapeControls:
+    """The controls PixelLab's own tileset tool exposes, which were modelled and unsent."""
+
+    def _sent(self, tmp_path, monkeypatch, *extra):
+        result = invoke(
+            ["--dry-run", "--json", "tiles", "variants", "grass to water", *extra],
+            tmp_path,
+            monkeypatch,
+        )
+        return json.loads(result.stdout)["arguments"]
+
+    def test_the_view_angle_is_sent(self, tmp_path, monkeypatch):
+        assert self._sent(tmp_path, monkeypatch, "--angle", "30")["tile_view_angle"] == 30
+
+    def test_the_depth_ratio_is_sent(self, tmp_path, monkeypatch):
+        assert self._sent(tmp_path, monkeypatch, "--depth", "0.4")["tile_depth_ratio"] == 0.4
+
+    def test_the_oblique_lean_is_sent(self, tmp_path, monkeypatch):
+        sent = self._sent(tmp_path, monkeypatch, "--shape", "oblique", "--lean", "0.5")
+
+        assert sent["oblique_lean"] == 0.5
+
+    def test_the_outline_mode_is_sent(self, tmp_path, monkeypatch):
+        sent = self._sent(tmp_path, monkeypatch, "--outline-mode", "segmentation")
+
+        assert sent["outline_mode"] == "segmentation"
+
+    def test_none_of_them_is_sent_unasked(self, tmp_path, monkeypatch):
+        sent = self._sent(tmp_path, monkeypatch)
+
+        for field in ("tile_view_angle", "tile_depth_ratio", "oblique_lean", "outline_mode"):
+            assert field not in sent
+
+    def test_a_lean_outside_its_range_is_refused_before_spending(self, tmp_path, monkeypatch):
+        result = invoke(
+            ["--dry-run", "tiles", "variants", "grass to water", "--lean", "2"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code != 0
+        assert "oblique_lean" in result.stderr

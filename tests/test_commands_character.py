@@ -1802,3 +1802,46 @@ class TestInterpolate:
         assert result.exit_code == 2
         assert "pixellab-cli animate" in result.output
         assert not respx.calls
+
+
+class TestTheAnimationPixelBudget:
+    """Refused before the call, not discovered as a provider rejection afterwards."""
+
+    def _frame(self, tmp_path, width, height):
+        path = tmp_path / "frame.png"
+        path.write_bytes(png_bytes(width, height))
+        return str(path)
+
+    def test_a_large_frame_with_many_frames_is_refused(self, tmp_path, monkeypatch):
+        frame = self._frame(tmp_path, 256, 256)
+
+        result = invoke(
+            ["--dry-run", "animate", frame, "-a", "walking", "--frames", "16"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code != 0
+        assert "524288" in result.stderr.replace(",", "")
+
+    def test_it_says_how_many_frames_that_size_would_take(self, tmp_path, monkeypatch):
+        frame = self._frame(tmp_path, 256, 256)
+
+        result = invoke(
+            ["--dry-run", "animate", frame, "-a", "walking", "--frames", "16"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert "the most it takes is 8" in result.stderr
+
+    def test_the_same_frame_count_on_a_small_sprite_is_fine(self, tmp_path, monkeypatch):
+        frame = self._frame(tmp_path, 64, 64)
+
+        result = invoke(
+            ["--dry-run", "animate", frame, "-a", "walking", "--frames", "16"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 0

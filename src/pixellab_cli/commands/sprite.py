@@ -41,6 +41,9 @@ def sprite(
     style_image: list[Path] = typer.Option(
         None, "--style", help="An image whose style to match. Twice or more reaches the Pro route."
     ),
+    style_description: str = typer.Option(
+        None, "--style-description", help="The style in words, alongside the style images."
+    ),
     init_image: Path = typer.Option(None, "--from", help="An image to start from."),
     palette_image: Path = typer.Option(None, "--palette", help="An image whose colours to force."),
     outline: str = typer.Option(None, "--outline", help=f"One of: {', '.join(OUTLINE)}"),
@@ -61,6 +64,7 @@ def sprite(
             name=name,
             route_name=route_name,
             style_image=style_image,
+            style_description=style_description,
             init_image=init_image,
             palette_image=palette_image,
             outline=outline,
@@ -83,6 +87,7 @@ def _sprite(
     name: str | None,
     route_name: str | None,
     style_image: list[Path],
+    style_description: str | None,
     init_image: Path | None,
     palette_image: Path | None,
     outline: str | None,
@@ -117,6 +122,9 @@ def _sprite(
     # the payload it actually accepts.
     if route.name == STYLE_REFERENCE_ROUTE:
         arguments["style_images"] = [_style_reference(path) for path in style_images]
+        # Only this route takes it: the base routes have a style slot but no words to
+        # go with it, and sending one there would be a silent no-op.
+        arguments["style_description"] = style_description
     elif style_images:
         arguments["style_image"] = images.encode_file(style_images[0])
     if init_image is not None:

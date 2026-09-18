@@ -427,3 +427,49 @@ class TestWhatTheStyleCallWillReturn:
 
         assert result.exit_code == 0
         assert "16 images" in result.stderr
+
+
+class TestDescribingTheStyle:
+    """`style_description` is on the style reference route alone."""
+
+    def _style_file(self, tmp_path, name: str, width: int = 64, height: int = 64):
+        path = tmp_path / name
+        path.write_bytes(png_bytes(width, height))
+        return str(path)
+
+    def test_the_description_is_sent_with_several_style_images(self, tmp_path, monkeypatch):
+        first = self._style_file(tmp_path, "one.png")
+        second = self._style_file(tmp_path, "two.png")
+
+        result = invoke(
+            [
+                "--dry-run",
+                "--json",
+                "sprite",
+                "a knight",
+                "--style",
+                first,
+                "--style",
+                second,
+                "--style-description",
+                "16-bit RPG, bright",
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert json.loads(result.stdout)["arguments"]["style_description"] == "16-bit RPG, bright"
+
+    def test_it_is_not_sent_to_a_base_route(self, tmp_path, monkeypatch):
+        style = self._style_file(tmp_path, "one.png")
+
+        result = invoke(
+            ["--dry-run", "--json", "sprite", "a knight", "--style", style],
+            tmp_path,
+            monkeypatch,
+        )
+
+        payload = json.loads(result.stdout)
+
+        assert payload["route"] == "create-image-bitforge"
+        assert "style_description" not in payload["arguments"]

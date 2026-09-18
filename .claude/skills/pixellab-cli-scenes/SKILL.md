@@ -33,7 +33,8 @@ generations. `--top` is the decorative layer on the surface — moss, snow, rust
 ## Variants and connectable sets
 
 ```
-pixellab-cli tiles variants <description> --shape --tile-size --connect --view --name --seed
+pixellab-cli tiles variants <description> --shape --tile-size --connect --view
+                                          --angle --depth --lean --outline-mode --name --seed
 ```
 
 **Pro pricing**, twenty to forty generations. Two different jobs:
@@ -51,8 +52,16 @@ hexagonal ones — describe it as a transition, `"grass to water"`, first terrai
 
 Oblique is the classic sheared perspective, and it exists for connectable sets only.
 
-`--view` controls how much vertical depth a tile has. For a square top-down terrain
-transition specifically, `tiles terrain` is the dedicated model and the better answer.
+`--view` controls how much vertical depth a tile has, and three flags override what it
+implies: `--angle` is a continuous view angle in degrees, 0 side to 90 top-down;
+`--depth` is the tile's thickness as a ratio from 0 to 1; and `--lean` is the oblique
+shear, where 0.5 is classic cabinet at about 27 degrees and 1.0 a full 45. `--outline-mode`
+switches between drawn outlines and `segmentation`, which gives cleaner seamless edges.
+
+None of the four is sent unless you name it, so the view stays in charge by default.
+
+For a square top-down terrain transition specifically, `tiles terrain` is the dedicated
+model and the better answer.
 
 ```
 pixellab-cli tiles isometric <description> --size --shape --outline --shading --detail --name --seed
