@@ -2,8 +2,8 @@
 autonomy: auto
 ci: wait
 branch: feat/style-route-yield
-delivery: merged
-pr: 41
+delivery: in-review
+pr: 49
 ---
 
 # Image generation — requirements
