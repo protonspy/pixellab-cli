@@ -1,0 +1,96 @@
+---
+name: pixellab-cli-scenes
+description: Make the ground a game is played on with `pixellab-cli tiles` — seamless terrain transitions, side-scroller platforms, connectable road and building sets, isometric tiles, and props placed onto a map — plus managed props from eight angles with `pixellab-cli object`. Use it for a tileset, terrain, a level's floor, a map, scenery, or a barrel that needs more than one angle.
+---
+
+Ground, and the things standing on it. This is the one area where a concept image is no
+help: the work is seam geometry, which a picture of grass has no opinion about.
+
+Read `pixellab-cli-assets` first for the spending rule and the credentials.
+
+## Terrain that connects
+
+```
+pixellab-cli tiles terrain --lower --upper --transition --tile-size --mode
+                           --outline --shading --detail --name --seed
+```
+
+About three generations. Two terrains that meet seamlessly, and every corner and
+transition piece needed to join them. **If the person said "tileset" they most likely mean
+this one.**
+
+`--lower` is the base, `--upper` the elevated one: `--lower grass --upper stone`. `--mode`
+picks the pipeline — the standard Wang set, or the newer corner-pair one that reaches
+larger tiles and controls how ragged and how gradual the boundary between terrains is.
+
+```
+pixellab-cli tiles platform --material --top --tile-size --outline --shading --detail --name --seed
+```
+
+The side-scroller equivalent: transparent floating platforms, side view, about three
+generations. `--top` is the decorative layer on the surface — moss, snow, rust.
+
+## Variants and connectable sets
+
+```
+pixellab-cli tiles variants <description> --shape --tile-size --connect --view --name --seed
+```
+
+**Pro pricing**, twenty to forty generations. Two different jobs:
+
+- **Independent variants.** Number them in the description for control:
+  `"1). grass tile 2). dirt tile 3). stone tile"`.
+- **A connectable set**, with `--connect`: a road set with its eighteen configurations, a
+  terrain transition, or a building kit with floor, walls, doorways, a pillar and a
+  staircase.
+
+`--shape` picks the geometry: square top-down, isometric, oblique, or flat-top and
+pointy-top hexagonal. A terrain transition comes back as sixteen corner tiles for the
+square, isometric and oblique shapes, and as a **thirty-two tile coastline** for the
+hexagonal ones — describe it as a transition, `"grass to water"`, first terrain first.
+
+Oblique is the classic sheared perspective, and it exists for connectable sets only.
+
+`--view` controls how much vertical depth a tile has. For a square top-down terrain
+transition specifically, `tiles terrain` is the dedicated model and the better answer.
+
+```
+pixellab-cli tiles isometric <description> --size --shape --outline --shading --detail --name --seed
+```
+
+One isometric ground tile, about one generation. `--shape` is its thickness: thin, thick
+or a full block, which is how much height variation a map can have.
+
+## Props on a map
+
+```
+pixellab-cli tiles prop <description> --size --into --view --name --seed
+```
+
+About one generation. `--into <map.png>` style-matches the prop to the map it will sit on,
+so it does not read as pasted from another game.
+
+```
+pixellab-cli object new <description> --directions --size --view --style --reference --name
+pixellab-cli object list
+```
+
+**Pro pricing.** A managed prop with its own id, in one direction or eight. Reach for it
+when the prop has to be seen from several angles or referred to later; a prop that only
+has to look right from one angle is `pixellab-cli sprite` for about one generation.
+
+## Assembling a map is not a generation problem
+
+This tool makes tiles and props. Painting them into a level, auto-tiling while you paint,
+stacking tiles on height layers, and masking a region of an assembled map to generate
+stairs into it are all things PixelLab's own map editor does and this API does not.
+
+What you can hand over is the set itself:
+
+```bash
+pixellab-cli export tileset tiles/*.png --name terrain
+```
+
+An image and a standalone Tiled tileset. It writes **no map**, because nothing here knows
+which tile belongs in which cell. Say that when you hand the files over, rather than
+letting the absence read as a failure.

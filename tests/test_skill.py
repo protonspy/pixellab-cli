@@ -1,9 +1,12 @@
-"""Hold the skill to the CLI.
+"""Hold the skills to the CLI.
 
-The skill is the only interface an agent has to this tool. A command it names that
-does not exist sends an agent down a dead end; a command the tool has that the skill
-never mentions is a capability nobody will find. Both are caught here, because
-neither is visible by reading either file alone.
+The skills are the only interface an agent has to this tool. A command they name that
+does not exist sends an agent down a dead end; a command the tool has that no skill
+mentions is a capability nobody will find. Both are caught here, because neither is
+visible by reading any one file alone.
+
+Since the split there is a third failure worth catching: a command owned by two skills.
+Two owners is two places to keep true, and the copy is the one that goes stale.
 """
 
 import re
@@ -13,14 +16,24 @@ import pytest
 import typer
 
 from pixellab_cli.cli import app
+from pixellab_cli.harness import ENTRY_SKILL
 
-SKILL_DIR = Path(__file__).resolve().parents[1] / ".claude" / "skills" / "pixellab-assets"
-SKILL = SKILL_DIR / "SKILL.md"
-REFERENCES = SKILL_DIR / "references"
+SKILLS_DIR = Path(__file__).resolve().parents[1] / ".claude" / "skills"
+ENTRY_DIR = SKILLS_DIR / ENTRY_SKILL
+ENTRY = ENTRY_DIR / "SKILL.md"
+REFERENCES = ENTRY_DIR / "references"
 
-# Commands whose absence from the skill body is deliberate: they are listed in the
-# generated reference and are not something an agent reaches for unprompted.
-NOT_IN_BODY: set[str] = set()
+PACKAGED = Path(__file__).resolve().parents[1] / "src" / "pixellab_cli" / "skill"
+
+CATEGORY_SKILLS = (
+    "pixellab-cli-images",
+    "pixellab-cli-characters",
+    "pixellab-cli-editing",
+    "pixellab-cli-scenes",
+    "pixellab-cli-interface",
+)
+
+ALL_SKILLS = (ENTRY_SKILL, *CATEGORY_SKILLS)
 
 
 def cli_commands() -> set[str]:
@@ -41,54 +54,72 @@ def cli_commands() -> set[str]:
     return found
 
 
-def skill_text() -> str:
-    return SKILL.read_text(encoding="utf-8")
+def entry_text() -> str:
+    return ENTRY.read_text(encoding="utf-8")
+
+
+def skill_body(name: str) -> str:
+    return (SKILLS_DIR / name / "SKILL.md").read_text(encoding="utf-8")
 
 
 def all_skill_text() -> str:
-    return "\n".join(
-        path.read_text(encoding="utf-8") for path in [SKILL, *sorted(REFERENCES.glob("*.md"))]
-    )
+    parts = [entry_text(), *(skill_body(name) for name in CATEGORY_SKILLS)]
+    parts += [path.read_text(encoding="utf-8") for path in sorted(REFERENCES.glob("*.md"))]
+    return "\n".join(parts)
+
+
+def documents(text: str, command: str) -> bool:
+    """Whether `text` carries this command's usage line, not merely its name."""
+    return bool(re.search(rf"^pixellab-cli {re.escape(command)} <", text, re.MULTILINE))
 
 
 def named_commands(text: str) -> set[str]:
     """Every `pixellab …` invocation the text mentions, as a command path."""
     found = set()
-    for match in re.finditer(r"pixellab ((?:[a-z][a-z-]*)(?: [a-z][a-z-]*)?)", text):
+    for match in re.finditer(r"pixellab-cli ((?:[a-z][a-z-]*)(?: [a-z][a-z-]*)?)", text):
         found.add(match.group(1).strip())
     return found
 
 
-class TestTheSkillIsWellFormed:
-    def test_it_exists_where_the_agent_looks_for_it(self):
-        assert SKILL.is_file()
+class TestTheSkillsAreWellFormed:
+    def test_the_entry_exists_where_the_agent_looks_for_it(self):
+        assert ENTRY.is_file()
 
-    def test_it_has_a_name_and_a_description(self):
-        text = skill_text()
+    @pytest.mark.parametrize("name", (ENTRY_SKILL, *CATEGORY_SKILLS))
+    def test_each_skill_has_a_name_matching_its_directory(self, name):
+        text = skill_body(name)
 
         assert text.startswith("---")
-        assert re.search(r"^name: pixellab-assets$", text, re.MULTILINE)
-        assert re.search(r"^description: .{40,}$", text, re.MULTILINE)
+        assert re.search(rf"^name: {re.escape(name)}$", text, re.MULTILINE)
 
-    def test_the_description_says_when_to_use_it(self):
-        description = re.search(r"^description: (.+)$", skill_text(), re.MULTILINE).group(1)
+    @pytest.mark.parametrize("name", (ENTRY_SKILL, *CATEGORY_SKILLS))
+    def test_each_description_says_when_to_use_it(self, name):
+        description = re.search(r"^description: (.+)$", skill_body(name), re.MULTILINE).group(1)
 
+        assert len(description) > 40
         assert "Use it" in description
 
-    def test_both_reference_files_are_there(self):
-        assert (REFERENCES / "commands.md").is_file()
-        assert (REFERENCES / "choosing.md").is_file()
+    def test_the_cost_reference_is_there(self):
+        assert (REFERENCES / "costs.md").is_file()
 
-    def test_the_body_stays_shorter_than_the_references_it_defers_to(self):
-        # R4.2: detail that is only sometimes needed does not belong in the body.
-        body = len(skill_text())
-        references = sum(len(path.read_text(encoding="utf-8")) for path in REFERENCES.glob("*.md"))
+    def test_the_entry_stays_shorter_than_what_it_routes_to(self):
+        # R4.2, carried across the split: the entry loads whenever art is mentioned, so
+        # the detail that is only needed once a category is chosen lives in the category.
+        routed = sum(len(skill_body(name)) for name in CATEGORY_SKILLS)
 
-        assert body < references
+        assert len(entry_text()) < routed
 
 
-class TestEveryCommandItNamesExists:
-    def test_no_command_in_the_skill_is_invented(self):
+class TestTheEntryRoutes:
+    """R5.1: an agent that loaded only the entry has to be able to find the rest."""
+
+    @pytest.mark.parametrize("name", CATEGORY_SKILLS)
+    def test_the_entry_names_every_category_skill(self, name):
+        assert name in entry_text()
+
+
+class TestEveryCommandHasExactlyOneOwner:
+    def test_no_command_in_any_skill_is_invented(self):
         known = cli_commands()
         groups = {name.split(" ")[0] for name in known if " " in name}
         mentioned = named_commands(all_skill_text())
@@ -99,107 +130,112 @@ class TestEveryCommandItNamesExists:
             if name not in known and name not in groups and name.split(" ")[0] not in known | groups
         }
 
-        assert not unknown, f"the skill names commands that do not exist: {sorted(unknown)}"
+        assert not unknown, f"the skills name commands that do not exist: {sorted(unknown)}"
 
     @pytest.mark.parametrize("command", sorted(cli_commands()))
-    def test_every_command_the_tool_has_is_named_somewhere_in_the_skill(self, command):
-        if command in NOT_IN_BODY:
-            pytest.skip("deliberately not in the skill")
+    def test_every_command_the_tool_has_is_named_somewhere(self, command):
+        assert command in all_skill_text(), f"{command} is not mentioned in any skill"
 
-        assert command in all_skill_text(), f"{command} is not mentioned anywhere in the skill"
+    @pytest.mark.parametrize("command", sorted(cli_commands()))
+    def test_no_command_is_documented_by_two_skills(self, command):
+        # Owning a command means documenting its signature — a usage line naming it and
+        # its placeholders. Mentioning one in prose is a cross-reference and is what
+        # holds the set together, so it deliberately does not count as ownership.
+        owners = [name for name in ALL_SKILLS if documents(skill_body(name), command)]
+
+        assert len(owners) <= 1, f"{command} has its signature in {owners}"
 
 
-class TestTheRulesThatCostMoney:
+class TestTheEntryIsSafeAlone:
+    """R5.2: a harness may load the entry and nothing else."""
+
     def test_it_requires_a_dry_run_before_the_first_paid_call(self):
-        text = skill_text()
+        text = entry_text()
 
         assert "--dry-run" in text
         assert "wait" in text.lower()
 
     def test_it_says_a_failed_generation_is_charged(self):
-        assert "failed generation is charged" in skill_text()
+        assert "failed generation is charged" in entry_text()
 
     def test_it_points_at_the_ledger_for_what_has_been_spent(self):
-        assert "pixellab-cli ledger" in skill_text()
+        assert "pixellab-cli ledger" in entry_text()
 
     def test_it_names_the_pro_tools_commands(self):
-        text = skill_text()
+        text = entry_text()
 
         assert "Pro Tools" in text
-        assert "pixellab-cli object new" in text
+        assert "object new" in text
 
     def test_it_says_animation_costs_per_direction(self):
-        assert "per direction" in skill_text()
+        assert "per direction" in entry_text()
 
     def test_it_offers_the_budget_flag(self):
-        assert "--max-generations" in skill_text()
+        assert "--max-generations" in entry_text()
 
-
-class TestCredentials:
     def test_it_names_both_variables(self):
-        text = skill_text()
+        text = entry_text()
 
         assert "PIXELLAB_SECRET" in text
         assert "FAL_KEY" in text
 
     def test_it_says_where_the_values_come_from(self):
-        text = skill_text()
+        text = entry_text()
 
         assert "pixellab.ai/account" in text
         assert "fal.ai/dashboard/keys" in text
 
     def test_it_forbids_printing_a_credential(self):
-        text = skill_text().lower()
+        assert "never read, print, echo" in entry_text().lower()
 
-        assert "never read, print, echo" in text
-
-    def test_it_contains_nothing_that_looks_like_a_credential(self):
-        text = all_skill_text()
-
-        assert not re.search(r"\b(sk|fal|pl)-[A-Za-z0-9]{16,}", text)
-
-
-class TestRoutingAdvice:
     def test_it_tells_the_agent_not_to_name_a_route(self):
-        assert "Do not name a provider route" in skill_text()
+        assert "Pass `--route` only when the person named one" in entry_text()
 
-    def test_it_tells_the_agent_not_to_guess_enum_values(self):
-        assert "Do not guess enum spellings" in skill_text()
+    def test_it_tells_the_agent_not_to_guess_a_limit(self):
+        assert "do not guess a limit" in entry_text().lower()
 
     def test_it_explains_how_to_resume_a_stopped_recipe(self):
-        text = skill_text()
+        text = entry_text()
 
         assert "recipe resume" in text
         assert "recipe.json" in text
 
     def test_it_says_where_the_output_lands(self):
-        assert "pixellab-out/" in skill_text()
+        assert "pixellab-out/" in entry_text()
 
 
-PACKAGED = Path(__file__).resolve().parents[1] / "src" / "pixellab_cli" / "skill"
+class TestNoCredentialLeaks:
+    def test_nothing_looks_like_a_credential(self):
+        assert not re.search(r"\b(sk|fal|pl)-[A-Za-z0-9]{16,}", all_skill_text())
 
 
 class TestTheInstalledCopyMatchesThePackagedOne:
-    """This repository's own skill is the output of `pixellab setup --claude` run here.
+    """This repository's own skills are the output of `pixellab-cli setup --claude` here.
 
-    Two copies of anything drift. The packaged one is what ships and what every other
-    project gets; if they ever disagree, this repository is testing a skill nobody
-    else has.
+    Two copies of anything drift. The packaged ones are what ship and what every other
+    project gets; if they ever disagree, this repository is testing skills nobody else
+    has.
     """
 
-    def test_the_bodies_are_identical(self):
-        assert SKILL.read_text(encoding="utf-8") == (PACKAGED / "SKILL.md").read_text(
-            encoding="utf-8"
-        )
-
-    def test_the_same_reference_files_are_present(self):
-        installed = {path.name for path in REFERENCES.glob("*.md")}
-        packaged = {path.name for path in (PACKAGED / "references").glob("*.md")}
+    def test_the_same_skills_are_present(self):
+        packaged = {path.name for path in PACKAGED.iterdir() if path.is_dir()}
+        installed = {path.name for path in SKILLS_DIR.iterdir() if path.name.startswith("pixellab")}
 
         assert installed == packaged
 
-    @pytest.mark.parametrize("name", sorted(path.name for path in PACKAGED.glob("references/*.md")))
-    def test_each_reference_is_identical(self, name):
-        assert (REFERENCES / name).read_text(encoding="utf-8") == (
-            PACKAGED / "references" / name
-        ).read_text(encoding="utf-8")
+    @pytest.mark.parametrize("name", (ENTRY_SKILL, *CATEGORY_SKILLS))
+    def test_every_packaged_file_is_installed_unchanged(self, name):
+        source = PACKAGED / name
+        packaged = {
+            found.relative_to(source): found.read_text(encoding="utf-8")
+            for found in source.rglob("*")
+            if found.is_file()
+        }
+        destination = SKILLS_DIR / name
+        installed = {
+            found.relative_to(destination): found.read_text(encoding="utf-8")
+            for found in destination.rglob("*")
+            if found.is_file()
+        }
+
+        assert installed == packaged

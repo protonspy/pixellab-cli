@@ -21,8 +21,16 @@ from pathlib import Path
 BEGIN = "<!-- pixellab-cli:begin -->"
 END = "<!-- pixellab-cli:end -->"
 
-SKILL_NAME = "pixellab-assets"
+# The skill an agent loads first, and the one every managed block points at. The rest
+# are category skills it routes to; they are discovered from the packaged tree rather
+# than listed, so adding one is adding a directory.
+ENTRY_SKILL = "pixellab-cli-assets"
 PACKAGED_SKILL = Path(__file__).resolve().parent / "skill"
+
+# Skill directories this tool installed once and no longer ships. Named, never matched
+# by pattern: `.claude/skills/` holds skills this tool did not write, and a pattern that
+# deleted one of those would be a far worse bug than a stale directory.
+RETIRED_SKILLS = ("pixellab-assets",)
 
 # Where the references land for the harnesses that have no skill format. Beside the
 # `AGENTS.md` that points at them, so moving the project moves both.
@@ -43,6 +51,24 @@ class Written:
     paths: tuple[Path, ...] = ()
     changed: bool = False
     skipped: str | None = None
+    retired: tuple[Path, ...] = ()
+
+
+def packaged_skills() -> tuple[str, ...]:
+    """Every skill directory shipped inside the package, in a stable order."""
+    return tuple(sorted(entry.name for entry in PACKAGED_SKILL.iterdir() if entry.is_dir()))
+
+
+def retired_skills(root: Path) -> tuple[Path, ...]:
+    """Installed skill directories this tool used to ship and no longer does.
+
+    Reported rather than removed. A stale `SKILL.md` is not an inert file — it is
+    instructions an agent reads — but the directory is the person's, and deleting
+    something under `.claude/skills/` that somebody may have edited is not an install
+    step's decision to make.
+    """
+    base = root / ".claude" / "skills"
+    return tuple(base / name for name in RETIRED_SKILLS if (base / name).is_dir())
 
 
 def refuse_symlink(path: Path) -> None:
@@ -119,8 +145,8 @@ def write_block(path: Path, body: str) -> bool:
     return True
 
 
-def skill_matches(destination: Path) -> bool:
-    """Whether `destination` already holds exactly the packaged skill.
+def skill_matches(destination: Path, source: Path = PACKAGED_SKILL) -> bool:
+    """Whether `destination` already holds exactly the packaged tree at `source`.
 
     Asked before the copy, because the copy rewrites every file whether or not the
     bytes differ, and "already current" is a claim about what is there rather than
@@ -129,9 +155,9 @@ def skill_matches(destination: Path) -> bool:
     # Compared as text rather than as bytes: the copy writes Unix endings whatever the
     # checkout holds, so a byte comparison would call every install a change.
     packaged = {
-        source.relative_to(PACKAGED_SKILL): source.read_text(encoding="utf-8")
-        for source in PACKAGED_SKILL.rglob("*")
-        if source.is_file()
+        found.relative_to(source): found.read_text(encoding="utf-8")
+        for found in source.rglob("*")
+        if found.is_file()
     }
     if not destination.is_dir():
         return False
@@ -143,11 +169,12 @@ def skill_matches(destination: Path) -> bool:
     return present == packaged
 
 
-def copy_skill(destination: Path) -> tuple[Path, ...]:
-    """Replace `destination` with the packaged skill, and leave nothing else in it.
+def copy_skill(destination: Path, source: Path = PACKAGED_SKILL) -> tuple[Path, ...]:
+    """Replace `destination` with the packaged tree at `source`, leaving nothing else.
 
-    The destination is a directory this tool owns end to end — `skills/pixellab-assets`
-    or `.pixellab/skill` — so it is emptied first rather than copied over. A file left
+    The destination is a directory this tool owns end to end — `skills/<skill-name>` for
+    one skill, or the whole `.pixellab/skill` sidecar — so it is emptied first rather
+    than copied over. A file left
     behind by an older version, or added by somebody else, is instructions an agent
     reads; a reinstall that leaves it there is a clean slate that is not one.
 
@@ -160,12 +187,12 @@ def copy_skill(destination: Path) -> tuple[Path, ...]:
     destination.mkdir(parents=True, exist_ok=True)
 
     written: list[Path] = []
-    for source in sorted(PACKAGED_SKILL.rglob("*")):
-        if source.is_dir():
+    for found in sorted(source.rglob("*")):
+        if found.is_dir():
             continue
-        target = destination / source.relative_to(PACKAGED_SKILL)
+        target = destination / found.relative_to(source)
         target.parent.mkdir(parents=True, exist_ok=True)
-        write_text(target, source.read_text(encoding="utf-8"))
+        write_text(target, found.read_text(encoding="utf-8"))
         written.append(target)
     return tuple(written)
 
@@ -196,12 +223,14 @@ def block_body(references: Path) -> str:
 - Do not name a provider route, and do not guess enum spellings or size limits. The
   tool chooses, validates before spending, and its errors name what would have worked.
 
-Full instructions: `{references.as_posix()}/SKILL.md`, with `references/commands.md`
-for every command and `references/choosing.md` for what each one costs."""
+Full instructions: `{references.as_posix()}/{ENTRY_SKILL}/SKILL.md`, which routes to the
+category skill beside it — `pixellab-cli-images`, `pixellab-cli-characters`,
+`pixellab-cli-editing`, `pixellab-cli-scenes`, `pixellab-cli-interface` — and
+`{ENTRY_SKILL}/references/costs.md` for what each command costs."""
 
 
-def claude_skill_dir(root: Path) -> Path:
-    return root / ".claude" / "skills" / SKILL_NAME
+def claude_skill_dir(root: Path, name: str = ENTRY_SKILL) -> Path:
+    return root / ".claude" / "skills" / name
 
 
 def agents_file(harness: Harness, root: Path, *, global_install: bool) -> Path:
@@ -268,10 +297,16 @@ def install(harness: Harness, root: Path, *, global_install: bool = False) -> Wr
     changed = False
     try:
         if harness is Harness.CLAUDE:
-            skill = claude_skill_dir(root)
-            changed = not skill_matches(skill)
-            paths.extend(copy_skill(skill))
-            return Written(harness, tuple(paths), changed=changed)
+            # Each skill is its own owned directory, so the guarantee copy_skill makes
+            # — nothing left behind that an agent would read as current — is per skill
+            # rather than over the set.
+            stale = retired_skills(root)
+            for name in packaged_skills():
+                source = PACKAGED_SKILL / name
+                skill = claude_skill_dir(root, name)
+                changed = not skill_matches(skill, source) or changed
+                paths.extend(copy_skill(skill, source))
+            return Written(harness, tuple(paths), changed=changed, retired=stale)
 
         agents = agents_file(harness, root, global_install=global_install)
         sidecar = agents.parent / SIDECAR_DIR
@@ -283,7 +318,7 @@ def install(harness: Harness, root: Path, *, global_install: bool = False) -> Wr
 
         if harness is Harness.OPENCODE:
             config = opencode_config(root, global_install=global_install)
-            entry = (references / "SKILL.md").as_posix()
+            entry = (references / ENTRY_SKILL / "SKILL.md").as_posix()
             if add_instructions_entry(config, entry):
                 paths.append(config)
                 changed = True

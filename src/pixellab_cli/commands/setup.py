@@ -173,6 +173,7 @@ def _report(
             "paths": [str(path) for path in one.paths],
             "changed": one.changed,
             "skipped": one.skipped,
+            "retired": [str(path) for path in one.retired],
         }
         if one.skipped:
             lines.append(f"{one.harness}: skipped — {one.skipped}")
@@ -181,6 +182,15 @@ def _report(
         else:
             lines.append(f"{one.harness}: {'written' if one.changed else 'already current'}")
         lines.extend(f"  {path}" for path in one.paths)
+
+    # Reported, never removed. The directory is the person's and may have been edited,
+    # but a skill this tool no longer ships is still instructions an agent will read as
+    # current, so silence would be the wrong side to err on.
+    retired = [path for one in written for path in one.retired]
+    if retired:
+        lines.append("installed here but no longer shipped by this tool:")
+        lines.extend(f"  {path}" for path in retired)
+        lines.append("  an agent will read these as current — remove them when you are ready")
 
     lines.extend(f"{name}: {state}" for name, (_, state) in credentials.items())
 
