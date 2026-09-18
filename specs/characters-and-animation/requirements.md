@@ -54,6 +54,8 @@ different endpoint family and no skeleton.
 - **R2.20** (ADDED) Where an end pose is given to enrich from, the character commands shall ask the enhancer for the motion between the two poses.
 - **R2.21** (ADDED) The character commands shall report what the prompt enhancer costs before calling it.
 - **R2.22** (ADDED) If asked to enrich an action description with no pose, then the character commands shall refuse the call and say that the enhancer reads a frame, before spending anything.
+- **R2.24** (ADDED) The character commands shall keep the frame an animation starts on as its first frame, unless asked to store only the frames generated.
+- **R2.25** (ADDED) The character commands shall report, before the call, how many frames the animation will hold, counting the kept starting frame.
 
 ## R3 · Rotating
 

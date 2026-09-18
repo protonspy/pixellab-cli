@@ -81,8 +81,16 @@ that matters, three steps rather than one:
    — one direction per call, the animation kept on the original character.
 
 Skip step 1 when the motion is small or the budget is tight; step 2 is cheap enough
-that skipping it saves nothing worth having. `--end-pose` adds a target to interpolate
-toward, for a swing or a transition that has to land on a known frame.
+that skipping it saves nothing worth having.
+
+`--end-pose` adds a target to interpolate toward, which is what makes a transition
+rather than a loop — a state of the character lying down as the start pose and the
+character's own idle rotation as the end pose, prompted `stand up`, is a standing-up
+animation. Lay down, sit, recover, transform: the same shape.
+
+One pose serves several animations, so the Pro-priced state is paid once and the walk,
+the run and the idle all start from it. And because the frame it starts on is kept as
+frame 0, `--frames 6` holds seven — the command says both counts before calling.
 
 ## When to reach for a recipe
 

@@ -1615,3 +1615,75 @@ class TestWhichPoseWasRead:
 
         assert result.exit_code != 0
         assert "--start-pose" in result.output
+
+
+class TestTheFramesAnAnimationHolds:
+    @respx.mock
+    def test_the_kept_starting_frame_is_counted_before_the_call(self, tmp_path, monkeypatch):
+        mock_posed_animation()
+        mock_pose()
+
+        result = invoke(
+            [
+                "character",
+                "animate",
+                "char-9",
+                "-a",
+                "walking",
+                "--start-pose",
+                "pose-1",
+                "--frames",
+                "6",
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert "6 frame(s) generated per direction, 7 held" in result.output
+
+    @respx.mock
+    def test_dropping_the_first_frame_is_sent_and_counted(self, tmp_path, monkeypatch):
+        route = mock_posed_animation()
+
+        result = invoke(
+            [
+                "character",
+                "animate",
+                "char-9",
+                "-a",
+                "walking",
+                "--frames",
+                "6",
+                "--drop-first-frame",
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert json.loads(route.calls.last.request.content)["keep_first_frame"] is False
+        assert "6 frame(s) generated per direction, 6 held" in result.output
+
+    @respx.mock
+    def test_the_starting_frame_is_kept_unless_asked_otherwise(self, tmp_path, monkeypatch):
+        route = mock_posed_animation()
+
+        invoke(["character", "animate", "char-9", "-a", "walking"], tmp_path, monkeypatch)
+
+        assert "keep_first_frame" not in json.loads(route.calls.last.request.content)
+
+    def test_dropping_the_first_frame_with_a_template_is_refused(self, tmp_path, monkeypatch):
+        result = invoke(
+            [
+                "character",
+                "animate",
+                "char-9",
+                "--template",
+                "walking",
+                "--drop-first-frame",
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code != 0
+        assert "--drop-first-frame" in result.output

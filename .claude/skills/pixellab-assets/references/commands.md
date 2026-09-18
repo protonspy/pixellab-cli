@@ -219,7 +219,8 @@ Animate a character. Every direction is a separate job and a separate charge.
 
 ```
 pixellab-cli character animate <character_id> --action/-a --template --direction/-d --frames
-                                              --start-pose --end-pose --enhance --name --seed
+                                              --start-pose --end-pose --enhance
+                                              --drop-first-frame --name --seed
 ```
 
 `-a` animates with text V3, one generation per frame per direction. `--template`
@@ -236,6 +237,11 @@ one direction per call, and neither works with `--template`.
 `--enhance` lets the provider expand the action inside the paid call. Prefer
 `pixellab-cli character enrich`, which returns the text so it can be read, edited and
 reused across directions.
+
+The frame the motion starts on is kept as frame 0 of the stored animation, so
+`--frames 6` holds seven frames and is charged as six. The command says both counts
+before it calls. `--drop-first-frame` stores only the frames generated, for an
+animation that has to be exactly N frames long.
 
 ### `pixellab-cli character enrich`
 
