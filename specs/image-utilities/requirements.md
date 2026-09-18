@@ -1,8 +1,9 @@
 ---
 autonomy: auto
 ci: wait
-branch: feat/image-utilities-v2
-delivery: merged
+branch: feat/image-flip
+delivery: in-review
+pr: 35
 ---
 
 # Image utilities — requirements
