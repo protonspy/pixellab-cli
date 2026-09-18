@@ -213,6 +213,12 @@ It is also how a good animation starts. A state whose edit is a **pose** — `-p
 "mid-stride walking pose, legs apart, arms swinging"` — gives the animation a frame
 that is already in motion, which is what `character animate --start-pose` then reads.
 
+The other half of what a state is for is **variants**: `-p "the same goblin in a red
+outfit"`, a Christmas outfit, a damaged version, a powered-up one, an NPC in different
+armour. Each is its own call at Pro pricing and comes back with its own id grouped with
+the source, so a roster of five outfits is five states rather than one call — worth
+saying out loud before running the fifth.
+
 ### `pixellab-cli character animate`
 
 Animate a character. Every direction is a separate job and a separate charge.
