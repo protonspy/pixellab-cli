@@ -18,7 +18,7 @@ PixelLab's public pricing, and the tool records what each call actually reported
 | Tilesets | ~3 | `tiles terrain`, `tiles platform` |
 | Pro Tools | 20–40 | `object new`, `ui`, `inpaint`, `tiles variants`, `character state`, `outfit`, `sprite` with several `--style`, `edit` with several images or `--match`, `art`'s pixel-art conversion inside a recipe |
 | Fonts | 25 fixed | `font` |
-| By generation time | 1–12 | `animate` above sixteen frames, which is `animate-pixminimax`: beta, tier 1 and above, and the one route whose estimate here is rough |
+| By generation time | 1–6 | `animate` above sixteen frames, which is `animate-pixminimax`: beta, tier 1 and above, and the one route whose estimate here is rough |
 | fal | unpriced | `art concept`, `art anchor`, `art boxart`, `art edit` — fal reports no usage and no price is published, so the ledger records these as unknown rather than as a number nobody checked |
 
 ## Pairs that are easy to confuse

@@ -389,7 +389,7 @@ ANIMATE_PIXMINIMAX = Route(
     kind=RouteKind.BACKGROUND_JOB,
     summary="An animation of four to forty frames from a first frame. Beta, tier 1 and "
     "above, and priced by generation time rather than by a tier.",
-    estimated_generations=3.0,
+    estimated_generations=2.0,
     result_id_field="background_job_id",
     poll_path=BACKGROUND_JOBS_PATH,
     params=(

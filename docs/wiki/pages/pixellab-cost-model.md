@@ -44,9 +44,11 @@ public pricing page, reviewed 2026-09-12, and they move.
 | Free | 0 | 0 | `talking-gif`, `lip-sync`, setting a character portrait |
 
 `animate-pixminimax` is the one route priced by generation time rather than by a tier.
-Its published examples run from one generation at 32x32 over four frames to twelve at
-64x64 over forty, so a table entry would be a fiction: the tool estimates three, says
-the estimate is rougher than its others, and keeps the reported `usage`. It is also in
+Its published examples run from one generation at 32x32 over four frames to six at
+64x64 over forty, so a table entry would be a fiction: the tool estimates two, says
+the estimate is rougher than its others, and keeps the reported `usage`. Those examples
+halved between 2026-09-12 and 2026-09-18 — 64x64 over forty was twelve generations and
+is now six — which is the reason the reported figure is what the ledger keeps. It is also in
 beta behind a tier 1 subscription, which is an account fact no endpoint exposes — so it
 is stated before the call rather than discovered as a rejection.
 

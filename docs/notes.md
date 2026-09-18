@@ -43,7 +43,7 @@ over this file answers with the example above as well as with the notes. -->
 - n-0003 2026-09-14 #gotcha @src/pixellab_cli/recipe.py — a resumed recipe step reads its outputs back from disk because the bytes the next step needs live only in the files the earlier run wrote
 - n-0004 2026-09-14 #security @src/pixellab_cli/recipe.py — a recipe manifest is a document somebody can hand you, so every path in it is resolved against the workspace root before it is read or written
 - n-0005 2026-09-14 #security @src/pixellab_cli/workspace.py — the --name option reaches a filename directly, so it is slugified like a description: pathlib does not collapse .. on join and the filesystem resolves it at write time
-- n-0006 2026-09-15 #ceiling @src/pixellab_cli/catalog.py — animate-pixminimax is priced by generation time; the 3.0 estimate is a mid-range guess from published examples, not a tier
+<!-- n-0006 removed -->
 - n-0007 2026-09-15 #gotcha @src/pixellab_cli/routing.py — a style spread over several pictures costs thirty times one style image, so the second --style is the only thing that reaches it
 - n-0008 2026-09-15 #ceiling @src/pixellab_cli/catalog.py — transfer-outfit-v2 caps frames by size (15 at 64px, 8 at 80px, 3 at 256px); the local check is the flat 2-16 and the rest is a free 422
 - n-0009 2026-09-15 #gotcha @.github/workflows/release.yml — 0.1.0 was published by hand before the release pipeline existed; tagging v0.1.0 would fail at upload because PyPI never reuses a version
@@ -64,3 +64,5 @@ over this file answers with the example above as well as with the notes. -->
 - n-0024 2026-09-17 #gotcha @src/pixellab_cli/commands/character.py — animating a posed mid-walk state beat animating the neutral rotation on a real run, not just in PixelLab's advice
 - n-0025 2026-09-17 #ceiling @src/pixellab_cli/commands/character.py — a posed animation is one direction per call: characters/animations carries one custom_start_frame and the pose differs per direction
 - n-0026 2026-09-18 #gotcha @specs/characters-and-animation/tasks.md — a task line wrapping past ~90 columns loses the citations on its continuation line, so keep the requirement list on line one
+- n-0027 2026-09-18 #cost @src/pixellab_cli/catalog.py — pixminimax pricing halved on 2026-09-18; the vendored schema's description is the only place the provider publishes it
+- n-0028 2026-09-18 #ceiling @src/pixellab_cli/catalog.py — animate-pixminimax is priced by generation time; the 2.0 estimate is a mid-range guess from published examples, not a tier
