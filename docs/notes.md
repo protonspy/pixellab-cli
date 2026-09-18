@@ -69,3 +69,5 @@ over this file answers with the example above as well as with the notes. -->
 <!-- n-0029 removed -->
 - n-0030 2026-09-18 #gotcha @src/pixellab_cli/routing.py @reference/pixellab-openapi.json — STYLE_REFERENCE_BANDS comes from prose in the endpoint description, so drift shows only as a changed path and someone has to read the diff
 - n-0031 2026-09-18 #gotcha @src/pixellab_cli/commands/motion.py @src/pixellab_cli/catalog.py — animate-with-text-v3 caps width*height*frame_count at 524288, so 256x256 stops at 8 frames; nothing in the tool checks it and the provider refuses the call
+- n-0032 2026-09-18 #gotcha @src/pixellab_cli/catalog.py — generate-image-v2 and generate-ui-v2 are not in the catalog, so the Pro image route with style_image plus four subject references is unreachable
+- n-0033 2026-09-18 #gotcha @src/pixellab_cli/commands/interface.py @src/pixellab_cli/catalog.py — create-ui-asset models pieces but the ui command has no flag for it, so only the named-elements half of the panel route is reachable
