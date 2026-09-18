@@ -21,6 +21,7 @@ fixed documents, not pages, and neither is ever an orphan.
 - [[pixellab-style-controls]] — the style enums shared across routes, and how hard each one binds
 - [[inpainting]] — the mask, the size window, and why one mask can cover eight rotations
 - [[connectable-tiles]] — the two tile models, the sets they return, and which shape belongs to which
+- [[ui-assets]] — the panel route and the element route, and what the web tool does after generation
 - [[pixellab-cost-model]] — generations, credits, and which number to believe
 
 ### fal

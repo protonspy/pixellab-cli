@@ -36,6 +36,36 @@ These are route-specific integers on wildly different scales. They are passed th
 never normalized into a single strength knob, because a shared knob would have to lie
 about at least three of them.
 
+## Style and subject are different slots
+
+The Pro image routes separate two things the word "reference" runs together, and passing
+one where the other belongs is a wasted Pro Tools call. On `generate-image-v2`:
+
+- **`style_image`** — one image, and it must already be pixel art, because it sets the
+  output's pixel size as well as its look.
+- **`reference_images`** — up to four, for the *subject*. Any size and any medium: a
+  sketch, a photograph, a mood board, a costume design. Over 1024 a side is downscaled,
+  and a non-square one is padded to square with transparency before processing.
+
+The two combine, and that combination is the useful one: the references say what to
+draw, the style image says what it should look like. A character redesigned into an
+established style is that call.
+
+Each reference also carries a **`usage_description`**, up to 500 characters — "use as
+colour reference", "this is the background". With several references that is the
+difference between four pictures the model has to guess the roles of and four with jobs.
+
+### What the style image imposes
+
+`style_options` is four independent booleans, **all defaulting to true**:
+`color_palette`, `detail`, `outline`, `shading`. Turning one off is how a reference
+lends its palette without also imposing its outline style, which is otherwise the
+commonest reason a "style match" comes back looking more copied than intended.
+
+The single-slot `style_image` on the base routes has no such control — see the route
+table in [[pixellab-asset-routing]] for which routes have which slot, and
+[[character-consistency]] for the route that takes several style images instead of one.
+
 ## Seeds
 
 Every generation route takes `seed`. Zero means random on the routes that document a

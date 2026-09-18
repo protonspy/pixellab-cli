@@ -14,20 +14,28 @@ Tools money to find that out.
 ## Several characters, one look
 
 `POST /generate-with-style-v2` takes one to four style images and a description of what to
-make. What comes back is not one sprite: **the output size is deduced from the style
-images, and that size decides how many images the call returns.**
+make. What comes back is not one sprite: **the size decides how many images the call
+returns**, and the bands are the same ones every Pro image route uses.
 
-| Deduced size | Images returned |
+| Size, by largest dimension | Images returned |
 |---|---|
 | 16–42 | 64, as an 8x8 grid |
 | 43–85 | 16, as a 4x4 grid |
 | 86–170 | 4, as a 2x2 grid |
-| 171–512 | 1 |
+| above 170 | 1 |
 
-The deduced size is the largest dimension across all the style images, squared — a
-non-square reference is centred on a square canvas — floored at 16 and capped at 512.
-`image_size` is present in the schema and marked `REMOVED`, so there is no way to ask for
-a size directly: **the crop is the size decision, and therefore the count decision.**
+**This table is the family's, not this route's.** `generate-image-v2` documents it
+identically, so the count is a property of how much detail a Pro image call is being
+asked for rather than of which route asked. What differs is where the size comes from:
+
+- `generate-with-style-v2` **deduces** it — the largest dimension across the style
+  images, squared, a non-square reference centred on a square canvas, floored at 16 and
+  capped at 512. `image_size` is present in the schema and marked `REMOVED`, so there is
+  no way to ask for a size directly: **the crop is the size decision, and therefore the
+  count decision.**
+- `generate-image-v2` is **told** it, as an explicit `image_size` that need not be
+  square. The ceiling there depends on the aspect: 512 square, up to 792 wide or 688
+  tall at the extremes. A wide key-art canvas is that route's, not this one's.
 
 That is why a reference is cropped tight to the character rather than to the canvas it
 was sitting on. A 64-pixel character cropped to its own bounds returns sixteen new
