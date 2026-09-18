@@ -213,13 +213,20 @@ It is also how a good animation starts. A state whose edit is a **pose** — `-p
 "mid-stride walking pose, legs apart, arms swinging"` — gives the animation a frame
 that is already in motion, which is what `character animate --start-pose` then reads.
 
+The other half of what a state is for is **variants**: `-p "the same goblin in a red
+outfit"`, a Christmas outfit, a damaged version, a powered-up one, an NPC in different
+armour. Each is its own call at Pro pricing and comes back with its own id grouped with
+the source, so a roster of five outfits is five states rather than one call — worth
+saying out loud before running the fifth.
+
 ### `pixellab-cli character animate`
 
 Animate a character. Every direction is a separate job and a separate charge.
 
 ```
 pixellab-cli character animate <character_id> --action/-a --template --direction/-d --frames
-                                              --start-pose --end-pose --enhance --name --seed
+                                              --start-pose --end-pose --enhance
+                                              --drop-first-frame --name --seed
 ```
 
 `-a` animates with text V3, one generation per frame per direction. `--template`
@@ -236,6 +243,11 @@ one direction per call, and neither works with `--template`.
 `--enhance` lets the provider expand the action inside the paid call. Prefer
 `pixellab-cli character enrich`, which returns the text so it can be read, edited and
 reused across directions.
+
+The frame the motion starts on is kept as frame 0 of the stored animation, so
+`--frames 6` holds seven frames and is charged as six. The command says both counts
+before it calls. `--drop-first-frame` stores only the frames generated, for an
+animation that has to be exactly N frames long.
 
 ### `pixellab-cli character enrich`
 
@@ -355,6 +367,25 @@ Enlarge by a whole number with nearest neighbour, so the grid survives exactly.
 ```
 pixellab-cli image scale <file> --by 2 --out
 ```
+
+### `pixellab-cli image flip`
+
+Mirror images, naming each result after the direction it now faces. Free.
+
+```
+pixellab-cli image flip <files> --vertical --into
+```
+
+`walk-east-03.png` is written as `walk-west-03.png`, `south-east` as `south-west`,
+`north-east` as `north-west`. `north` and `south` mirror to themselves and take a
+`-flipped` suffix instead. Nothing is overwritten.
+
+This is how an eight-direction set stops costing eight paid animations: generate
+south-east, east and north-east, mirror those three for the west-facing half, and only
+south and north are left to pay for. **Wrong for a subject whose left and right
+differ** — a sword on one hip, a shoulder pad on one side, a scar on one cheek. The
+command says so on every left-to-right call. Every file is read before any is written,
+so a batch that names an unreadable file writes none of it.
 
 ### `pixellab-cli image sheet`
 

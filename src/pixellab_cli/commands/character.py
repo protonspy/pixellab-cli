@@ -482,6 +482,11 @@ def animate(
     enhance: bool = typer.Option(
         False, "--enhance", help="Let the provider expand the action inside the call. ~0.05 extra."
     ),
+    drop_first_frame: bool = typer.Option(
+        False,
+        "--drop-first-frame",
+        help="Store only the frames generated, without the frame the motion started on.",
+    ),
     seed: int = typer.Option(None, "--seed", help="Repeat a previous generation."),
 ) -> None:
     """Animate a character. Every direction is a separate job and a separate charge."""
@@ -497,6 +502,7 @@ def animate(
             start_pose,
             end_pose,
             enhance,
+            drop_first_frame,
             seed,
         )
     except PixellabCliError as failure:
@@ -514,6 +520,7 @@ def _animate(
     start_pose,
     end_pose,
     enhance,
+    drop_first_frame,
     seed,
 ) -> None:
     app_context: AppContext = context.obj
@@ -545,6 +552,15 @@ def _animate(
         raise ValidationError(
             "a pose belongs to the described-action route: give --action rather than "
             "--template, which animates from the character's skeleton",
+            context={"template": template},
+        )
+
+    # `keep_first_frame` is the same v3-only mechanism as the frame slots, and a
+    # template's frames are the template's.
+    if drop_first_frame and template:
+        raise ValidationError(
+            "--drop-first-frame belongs to the described-action route: a template "
+            "animates from the character's skeleton and holds exactly its own frames",
             context={"template": template},
         )
 
@@ -598,6 +614,7 @@ def _animate(
         "custom_start_frame": start_frame,
         "end_frame": end_frame,
         "enhance_prompt": True if enhance else None,
+        "keep_first_frame": False if drop_first_frame else None,
         "seed": seed,
     }
     body = build_request(route, arguments)
@@ -617,6 +634,19 @@ def _animate(
         f"{len(wanted)} direction(s), one job each — about "
         f"{estimate.generations:g} generations in total."
     )
+
+    # The route stores the frame it started from as frame 0 as well as the frames it
+    # drew, so eight frames asked for is nine frames held and charged as eight (see
+    # n-0023). Said before the call because the difference is otherwise discovered in
+    # the file names, and a frame count is usually chosen to fit a loop.
+    if not template:
+        generated = int(frames or _frame_default(route))
+        held = generated if drop_first_frame else generated + 1
+        output.stderr(
+            f"{generated} frame(s) generated per direction, {held} held"
+            + ("" if drop_first_frame else " — the frame it starts on is kept as frame 0")
+            + "."
+        )
 
     if app_context.dry_run:
         output.emit(

@@ -77,3 +77,7 @@
 - [x] 5.8 (Unit) Refuse a pose across two directions — R2.23
   _Depends 5.3_
   _Reason pose-first animation asked for after delivery_
+- [x] 5.9 (Unit) Expose the kept starting frame — R2.24
+  _Reason the states walkthrough named the kept starting frame and its frame arithmetic_
+- [x] 5.10 (Unit) Report the frames the animation will hold — R2.25
+  _Reason the states walkthrough named the kept starting frame and its frame arithmetic_

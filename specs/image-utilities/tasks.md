@@ -37,3 +37,10 @@ ci: wait
 
 - [x] 4.1 (Unit) Report size, mode, and the alpha split between transparent, partial and opaque — R2.9, R3.1
   _Depends 1.1_
+
+## 5 · Mirroring
+- [x] 5.1 (Unit) Add `image flip` — R2.10, R2.12
+  _Reason mirroring a direction rather than regenerating it asked for after delivery_
+- [x] 5.2 (Unit) Name a flipped frame after the mirrored direction — R2.11
+  _Depends 5.1_
+  _Reason mirroring a direction rather than regenerating it asked for after delivery_

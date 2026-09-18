@@ -151,6 +151,44 @@ def trim(image: Image.Image) -> Image.Image:
     return image if box is None else image.crop(box)
 
 
+# Mirroring a directional frame turns it into the frame facing the other way, so the
+# direction in its name has to travel with it. South and north mirror to themselves.
+MIRRORED_DIRECTIONS = {
+    "east": "west",
+    "west": "east",
+    "south-east": "south-west",
+    "south-west": "south-east",
+    "north-east": "north-west",
+    "north-west": "north-east",
+}
+
+
+def flip(image: Image.Image, *, vertical: bool = False) -> Image.Image:
+    """Mirror left to right, or top to bottom. The grid survives either way."""
+    return image.transpose(Image.FLIP_TOP_BOTTOM if vertical else Image.FLIP_LEFT_RIGHT)
+
+
+def mirrored_name(stem: str) -> str | None:
+    """The stem with its direction token mirrored, or None where it carries none.
+
+    Matched on hyphen-delimited tokens, and the two-word direction is tried at each
+    position before the one-word one: `walk-south-east-03` holds `east`, and rewriting
+    that `east` would make it `walk-south-west-03` by luck and `north-east` never.
+
+    `north` and `south` mirror to themselves and so are deliberately absent: a name
+    that changed nothing would collide with the frame it came from, and `-flipped` says
+    what happened without claiming a direction the frame does not have.
+    """
+    parts = stem.split("-")
+    for index in range(len(parts)):
+        for width in (2, 1):
+            token = "-".join(parts[index : index + width])
+            if token in MIRRORED_DIRECTIONS:
+                mirrored = MIRRORED_DIRECTIONS[token].split("-")
+                return "-".join(parts[:index] + mirrored + parts[index + width :])
+    return None
+
+
 def scale(image: Image.Image, factor: int) -> Image.Image:
     """Enlarge by a whole number with nearest neighbour, so the grid survives exactly."""
     if factor < 2:

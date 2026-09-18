@@ -58,6 +58,7 @@ Use it whenever the person has named a budget.
 | The whole thing, end to end | `pixellab-cli recipe run character "a knight" -a walking` |
 | Cleaning up art that exists | `pixellab-cli clean unzoom|background|colors|correct|resize` |
 | Cropping, resizing, padding or trimming a file you already have | `pixellab-cli image crop|resize|pad|trim` |
+| The west-facing half of a symmetrical animation, without paying for it | `pixellab-cli image flip walk-east-*.png` |
 | Enlarging pixel art without blurring the grid | `pixellab-cli image scale sprite.png --by 2` |
 | Seeing many frames at once, or watching an animation | `pixellab-cli image sheet frames/*.png --columns 4` · `pixellab-cli image gif frames/*.png` |
 | Cutting a spritesheet into frames | `pixellab-cli image split sheet.png --layout sheet.json` |

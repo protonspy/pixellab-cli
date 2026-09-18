@@ -111,6 +111,7 @@ pixellab-cli inpaint knight.png --mask mask.png -p "a horned helmet"
 pixellab-cli ui "wooden RPG panel with gold trim"
 pixellab-cli font "warm orange arcade font" --bold
 pixellab-cli art boxart "a knight at dawn over a burning keep"
+pixellab-cli image flip walk-east-*.png
 pixellab-cli clean unzoom downloaded-sprite.png
 ```
 
