@@ -29,6 +29,8 @@ fixed documents, not pages, and neither is ever an orphan.
 ### The tool
 
 - [[concept-to-sprite]] — the default recipe from a concept image to a rotated, animated sprite
+- [[character-consistency]] — a cast that looks like one artist drew it, and a character that stays itself
+- [[animation-frames]] — frame counts, the kept first frame, and which directions are paid for
 - [[generation-record]] — the ledger and the manifest, and what is never written to either
 - [[the-command-surface]] — the shape every command shares, and where each kind of decision lives
 - [[harness-instructions]] — where Claude Code, Codex and opencode each read their instructions, and what `pixellab-cli setup` writes

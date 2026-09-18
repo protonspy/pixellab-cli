@@ -34,6 +34,26 @@ image from a description ([[gpt-image-25]]). PixelLab makes assets a game engine
 Steps 1 and 2 are on fal, 3 onward on PixelLab, and the handoff is a PNG on disk: fal
 returns a CDN URL, PixelLab takes base64, and neither accepts the other's handle.
 
+## Where a human looks
+
+Error does not accumulate down this pipeline, it multiplies. A flaw in the anchor becomes
+eight rotations of a flawed character; a flaw in one rotation becomes every frame of every
+animation generated on that direction; a flaw in a frame that then gets mirrored is in two
+directions. Each step is also the step that charges for it.
+
+So the recipe has a manual pass between multiplications, and it is PixelLab's own advice
+as well as this tool's shape: look at the anchor before rotating, at the eight rotations
+before creating a state or an animation, and at each animated direction before mirroring
+it or generating the next state from it. The editor is the user's — Pixelorama, Aseprite,
+anything that opens a PNG.
+
+The cleanup routes in step 4 are not that pass. `remove-background`, `correct-pixelart`
+and `reduce-colors` are cheap and mechanical and fix what a rule can describe; a stray
+pixel on a cape that is wrong only because it was not there in the frame before is not
+one of those. What the tool owes here is to stop between paid multiplications and leave
+the frames on disk in a form an editor can open — see [[generation-record]] for what is
+written beside them.
+
 ## Where the recipe does not apply
 
 - **Tilesets and terrain.** Go straight to `POST /v2/create-tileset`. A concept image of
@@ -54,3 +74,6 @@ the same. A recipe that carries the size constraints forward is the difference b
 five calls and five calls plus three rejections — and a rejection after a paid step is
 money already spent. See [[generation-record]] for what is kept so a failed run can be
 resumed rather than repeated.
+
+A cast rather than one character, and the frame counts each animation call commits to,
+are [[character-consistency]] and [[animation-frames]].
