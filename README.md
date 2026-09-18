@@ -104,6 +104,7 @@ pixellab-cli character animate <character-id> -a walking -d south -d north
 pixellab-cli character state <character-id> -p "mid-stride walking pose"
 pixellab-cli character enrich -a "walking,loop,south" --pose <state-id>
 pixellab-cli character animate <character-id> -a walking --start-pose <state-id>
+pixellab-cli interpolate chest-shut.png chest-open.png -a "the chest opens"
 pixellab-cli tiles terrain --lower grass --upper stone
 pixellab-cli tiles platform --material "stone bricks"
 pixellab-cli edit knight.png -p "give him a blue cape"

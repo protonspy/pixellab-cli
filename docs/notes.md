@@ -63,5 +63,6 @@ over this file answers with the example above as well as with the notes. -->
 - n-0023 2026-09-17 #gotcha @src/pixellab_cli/commands/character.py — characters-animations returns frame_count+1 images — --frames 4 wrote walking-00..04 — and charges the requested count, so the estimate stays right
 - n-0024 2026-09-17 #gotcha @src/pixellab_cli/commands/character.py — animating a posed mid-walk state beat animating the neutral rotation on a real run, not just in PixelLab's advice
 - n-0025 2026-09-17 #ceiling @src/pixellab_cli/commands/character.py — a posed animation is one direction per call: characters/animations carries one custom_start_frame and the pose differs per direction
-- n-0026 2026-09-18 #cost @src/pixellab_cli/catalog.py — pixminimax pricing halved on 2026-09-18; the vendored schema's description is the only place the provider publishes it
-- n-0027 2026-09-18 #ceiling @src/pixellab_cli/catalog.py — animate-pixminimax is priced by generation time; the 2.0 estimate is a mid-range guess from published examples, not a tier
+- n-0026 2026-09-18 #gotcha @specs/characters-and-animation/tasks.md — a task line wrapping past ~90 columns loses the citations on its continuation line, so keep the requirement list on line one
+- n-0027 2026-09-18 #cost @src/pixellab_cli/catalog.py — pixminimax pricing halved on 2026-09-18; the vendored schema's description is the only place the provider publishes it
+- n-0028 2026-09-18 #ceiling @src/pixellab_cli/catalog.py — animate-pixminimax is priced by generation time; the 2.0 estimate is a mid-range guess from published examples, not a tier

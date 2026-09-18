@@ -10,7 +10,7 @@ ci: wait
 ```
 commands/character.py   pixellab-cli character new|state|animate|list|show|sheet
 commands/object.py      pixellab-cli object new
-commands/motion.py      pixellab-cli rotate, pixellab-cli animate
+commands/motion.py      pixellab-cli rotate, pixellab-cli animate, pixellab-cli interpolate
 ```
 
 Plus three additions to the provider core, because this is the first feature whose
@@ -205,6 +205,49 @@ A pose costs what a state costs: Pro Tools, twenty to forty generations (R1.6), 
 one generation per frame per direction for the animation itself. So the flow is never
 implicit. Nothing poses on its own, the pose is a separate command the caller pays for
 deliberately, and `--start-pose` only ever reads a character that already exists.
+
+## Interpolating between two poses
+
+`POST /interpolation-v2` — "Interpolate (Pro)" — takes a start pose, an end pose and a
+description of the motion, and returns the frames between them. It is the route behind
+the interpolation tool in PixelLab's own editor surfaces, and it is not the route
+`--end-pose` and `--last` already reach: those fill `last_frame` on
+`animate-with-text-v3` or `animate-pixminimax`, which animate *from* a first frame and
+treat the second as a target. Here both ends are required, the transition between them
+is the whole product, and neither end has to be a character.
+
+So it is a command of its own, `pixellab-cli interpolate <start> <end> -a "…"`, rather
+than a third entry in `choose_animation_route` (R2.26). The router there picks by frame
+count, and this route has no frame count to pick by: the schema carries `start_image`,
+`end_image`, `action` and `image_size` and nothing else but `no_background` and `seed`.
+It returns "typically 4-8 frames" and decides how many. A `--frames` that quietly did
+nothing would be worse than none, so the option exists only to refuse and explain
+(R2.30) — the count is the first thing anyone who has seen the editor will reach for.
+
+Three sizes, and only one of them is sent. `image_size` is the output size, required,
+and each end carries its own `size` beside its bytes. The command derives all of them
+from the start pose's own dimensions rather than asking for a size, because an output
+size that differs from the input is a resize nobody asked for. That makes a mismatched
+pair unanswerable — two sizes and one output — so it is refused with both named
+(R2.28), the way a reference sprite is at `character new` (R1.9). The route's own range
+is 16 to 128 per side, tighter than the 256 the animation routes take, and a 256 sprite
+that animates fine is exactly the image somebody will try here: the limit is the route's
+and the refusal names it (R2.29).
+
+The wire shape is the one new thing. A `KeyframeImage` is `{image: <Base64Image>, size:
+{width, height}}`, where every other image slot in the catalogue is a bare `Base64Image`
+— but `validate._dimensions` already reads that nested shape, so an `IMAGE` parameter
+given the wrapped object is still held to the route's size limit and still passed
+through untouched. No new `ParamKind`, no second encoder: the command wraps what
+`images.encode_file` returns and the catalogue entry is an ordinary one.
+
+It is Pro priced, twenty to forty generations for a handful of frames, which is the
+announce-before-calling class (R2.27) — and expensive enough per frame that the estimate
+is worth reading next to `animate`'s one generation per frame.
+
+PixelLab's editor offers frame counts and sizes up to 256 on this tool. REST v2 does
+not, and `adr:0002-call-pixellab-rest-v2-directly` is why that gap is left as a gap
+rather than closed against the web application's own endpoints.
 
 ## Enriching the action description
 

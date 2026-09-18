@@ -62,6 +62,13 @@ makes no such promise.
 loose image and stores nothing. The second animates a managed character, once per
 direction, and keeps the animation on the account.
 
+**`pixellab-cli animate` against `pixellab-cli interpolate`.** Animate knows the first
+frame and invents the rest for about one generation a frame, up to 256 per side, with
+the frame count in hand. Interpolate knows both ends and fills the middle, on a Pro
+route, at most 128 per side, and picks the count itself. If they described where the
+motion ends as concretely as where it starts — shut to open, car to robot — it is
+interpolate.
+
 ## Getting a motion worth keeping
 
 An animation described from the character's neutral rotation has to invent the motion.

@@ -1,9 +1,9 @@
 ---
 autonomy: auto
 ci: wait
-branch: feat/pose-first-animation
+branch: feat/interpolate-between-poses
 delivery: in-review
-pr: 34
+pr: 37
 ---
 
 # Characters and animation — requirements
@@ -56,6 +56,12 @@ different endpoint family and no skeleton.
 - **R2.22** (ADDED) If asked to enrich an action description with no pose, then the character commands shall refuse the call and say that the enhancer reads a frame, before spending anything.
 - **R2.24** (ADDED) The character commands shall keep the frame an animation starts on as its first frame, unless asked to store only the frames generated.
 - **R2.25** (ADDED) The character commands shall report, before the call, how many frames the animation will hold, counting the kept starting frame.
+
+- **R2.26** (ADDED) When asked to interpolate between two images, the character commands shall generate the transition between them from a description of the motion, and shall write the frames returned in playback order.
+- **R2.27** (ADDED) The character commands shall say that interpolating is priced as a Pro Tools route, and that the route decides how many frames it returns, before calling it.
+- **R2.28** (ADDED) If the two images given to interpolate differ in size, then the character commands shall refuse the call and name both sizes, before spending anything.
+- **R2.29** (ADDED) If an image given to interpolate is outside the size the interpolation route accepts, then the character commands shall refuse the call and name that route's limit, before spending anything.
+- **R2.30** (ADDED) If a frame count is given for an interpolation, then the character commands shall refuse the call and say that the interpolation route decides its own frame count, before spending anything.
 
 ## R3 · Rotating
 

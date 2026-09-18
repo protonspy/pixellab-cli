@@ -39,6 +39,24 @@ Four to sixteen frames and even stays on the cheap route. Above sixteen, up to f
 in multiples of four, it moves to `animate-pixminimax`: beta, tier 1 and above, priced
 by generation time. `--deflicker` belongs to that route alone.
 
+### `pixellab-cli interpolate`
+
+Generate the frames between two poses. Pro pricing, and the route decides how many
+frames come back — typically four to eight.
+
+```
+pixellab-cli interpolate <start> <end> --action/-a --name --transparent --seed
+```
+
+Both poses are required and both have to be the same size, because that size is also
+the size of the frames returned. Sixteen to 128 per side — half the reach of
+`pixellab-cli animate`, so a 256 sprite that animates fine is refused here.
+
+It is the route for a transition whose ends are both known: a chest shut and open, a
+car and the robot it folds into, a portal empty and lit. Where only the first frame is
+known and the motion is the point, `pixellab-cli animate` is the cheaper route and
+takes a frame count.
+
 ### `pixellab-cli edit`
 
 Change existing pixel art. One image and an instruction is the cheap route.
