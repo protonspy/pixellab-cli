@@ -368,6 +368,24 @@ Enlarge by a whole number with nearest neighbour, so the grid survives exactly.
 pixellab-cli image scale <file> --by 2 --out
 ```
 
+### `pixellab-cli image flip`
+
+Mirror images, naming each result after the direction it now faces. Free.
+
+```
+pixellab-cli image flip <files> --vertical --into
+```
+
+`walk-east-03.png` is written as `walk-west-03.png`, `south-east` as `south-west`,
+`north-east` as `north-west`. `north` and `south` mirror to themselves and take a
+`-flipped` suffix instead. Nothing is overwritten.
+
+This is how an eight-direction set stops costing eight paid animations: generate
+south-east, east and north-east, mirror those three for the west-facing half, and only
+south and north are left to pay for. **Wrong for a subject whose left and right
+differ** — a sword on one hip, a shoulder pad on one side, a scar on one cheek. The
+command says so every time it mirrors left to right.
+
 ### `pixellab-cli image sheet`
 
 One contact sheet, one cell size, in the order given.
