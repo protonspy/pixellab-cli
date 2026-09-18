@@ -473,3 +473,185 @@ class TestDescribingTheStyle:
 
         assert payload["route"] == "create-image-bitforge"
         assert "style_description" not in payload["arguments"]
+
+
+class TestSubjectReferences:
+    """Draw *this*, in *that* style — two inputs, and only one route separates them."""
+
+    def _file(self, tmp_path, name: str, width: int = 64, height: int = 64):
+        path = tmp_path / name
+        path.write_bytes(png_bytes(width, height))
+        return str(path)
+
+    def _sent(self, tmp_path, monkeypatch, *extra):
+        result = invoke(
+            ["--dry-run", "--json", "sprite", "a knight", *extra], tmp_path, monkeypatch
+        )
+        return json.loads(result.stdout)
+
+    def test_a_reference_reaches_the_route_that_takes_a_subject(self, tmp_path, monkeypatch):
+        payload = self._sent(tmp_path, monkeypatch, "--reference", self._file(tmp_path, "s.png"))
+
+        assert payload["route"] == "generate-image-v2"
+
+    def test_the_reference_carries_its_own_size(self, tmp_path, monkeypatch):
+        payload = self._sent(
+            tmp_path, monkeypatch, "--reference", self._file(tmp_path, "s.png", 96, 48)
+        )
+        sent = payload["arguments"]["reference_images"]
+
+        assert sent[0]["size"] == {"width": 96, "height": 48}
+
+    def test_a_note_says_what_the_reference_is_for(self, tmp_path, monkeypatch):
+        path = self._file(tmp_path, "cloak.png")
+        payload = self._sent(
+            tmp_path, monkeypatch, "--reference", f"{path}=use as the colour reference"
+        )
+
+        sent = payload["arguments"]["reference_images"][0]
+        assert sent["usage_description"] == "use as the colour reference"
+
+    def test_a_reference_without_a_note_carries_none(self, tmp_path, monkeypatch):
+        payload = self._sent(tmp_path, monkeypatch, "--reference", self._file(tmp_path, "s.png"))
+
+        assert "usage_description" not in payload["arguments"]["reference_images"][0]
+
+    def test_a_style_image_comes_along_as_the_style(self, tmp_path, monkeypatch):
+        payload = self._sent(
+            tmp_path,
+            monkeypatch,
+            "--reference",
+            self._file(tmp_path, "s.png"),
+            "--style",
+            self._file(tmp_path, "look.png"),
+        )
+
+        assert "style_image" in payload["arguments"]
+
+    def test_what_to_ignore_is_the_only_thing_turned_off(self, tmp_path, monkeypatch):
+        payload = self._sent(
+            tmp_path,
+            monkeypatch,
+            "--reference",
+            self._file(tmp_path, "s.png"),
+            "--style",
+            self._file(tmp_path, "look.png"),
+            "--style-ignore",
+            "outline",
+        )
+
+        assert payload["arguments"]["style_options"] == {
+            "color_palette": True,
+            "outline": False,
+            "shading": True,
+            "detail": True,
+        }
+
+    def test_an_aspect_that_does_not_exist_is_refused_by_name(self, tmp_path, monkeypatch):
+        result = invoke(
+            [
+                "--dry-run",
+                "sprite",
+                "a knight",
+                "--reference",
+                self._file(tmp_path, "s.png"),
+                "--style-ignore",
+                "vibes",
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code != 0
+        assert "vibes" in result.stderr
+
+    def test_five_references_are_refused_before_spending(self, tmp_path, monkeypatch):
+        arguments = ["--dry-run", "sprite", "a knight"]
+        for index in range(5):
+            arguments += ["--reference", self._file(tmp_path, f"{index}.png")]
+
+        result = invoke(arguments, tmp_path, monkeypatch)
+
+        assert result.exit_code != 0
+        assert "four" in result.stderr
+
+    def test_the_count_is_said_for_this_route_too(self, tmp_path, monkeypatch):
+        # R1.10 covers whichever route decides its count from the size, and here the
+        # size was given rather than deduced.
+        result = invoke(
+            [
+                "--dry-run",
+                "sprite",
+                "a knight",
+                "--size",
+                "64",
+                "--reference",
+                self._file(tmp_path, "s.png"),
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert "64x64 output returns 16 images" in result.stderr
+
+    def test_a_filename_containing_an_equals_is_taken_whole(self, tmp_path, monkeypatch):
+        # The separator is only a separator when the whole value is not a real file.
+        path = self._file(tmp_path, "notes=v2.png")
+        payload = self._sent(tmp_path, monkeypatch, "--reference", path)
+
+        assert "usage_description" not in payload["arguments"]["reference_images"][0]
+
+    def test_a_reference_with_no_path_is_refused(self, tmp_path, monkeypatch):
+        result = invoke(
+            ["--dry-run", "sprite", "a knight", "--reference", "=just a note"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code != 0
+        assert "no path before" in result.stderr
+
+    def test_a_reference_that_is_not_a_file_is_refused_cleanly(self, tmp_path, monkeypatch):
+        result = invoke(
+            ["--dry-run", "sprite", "a knight", "--reference", str(tmp_path / "absent.png")],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code != 0
+        assert "is not a file" in result.stderr
+        assert "Traceback" not in result.stderr
+
+    def test_the_pro_tier_is_announced_for_this_route(self, tmp_path, monkeypatch):
+        result = invoke(
+            [
+                "--dry-run",
+                "sprite",
+                "a knight",
+                "--size",
+                "64",
+                "--reference",
+                self._file(tmp_path, "s.png"),
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert "Pro Tools route" in result.stderr
+
+    def test_a_size_the_taller_axis_refuses_is_caught_before_spending(self, tmp_path, monkeypatch):
+        result = invoke(
+            [
+                "--dry-run",
+                "sprite",
+                "a knight",
+                "--size",
+                "700x700",
+                "--reference",
+                self._file(tmp_path, "s.png"),
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code != 0

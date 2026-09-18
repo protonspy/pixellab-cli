@@ -227,3 +227,80 @@ class TestWhatTheStyleReferenceRouteReturns:
 
     def test_the_smallest_band_advises_nothing(self):
         assert style_reference_yield([(16, 16)]).better is None
+
+
+class TestSubjectReferences:
+    """Style and subject are different inputs, and only one route separates them.
+
+    `create-image-bitforge` has a style slot and no subject slot; `generate-with-style-v2`
+    has up to four style images and no subject slot at all. So a subject reference is
+    what reaches `generate-image-v2`, and the combinations that name two routes at once
+    are refused rather than half-honoured.
+    """
+
+    def test_a_subject_reference_reaches_the_pro_image_route(self):
+        route = choose_image_route({"width": 64, "height": 64}, reference_images=1)
+
+        assert route.name == "generate-image-v2"
+
+    def test_it_is_priced_as_pro_tools(self):
+        route = choose_image_route({"width": 64, "height": 64}, reference_images=1)
+
+        assert route.estimated_generations >= 20
+
+    def test_one_style_image_may_come_with_it(self):
+        route = choose_image_route({"width": 64, "height": 64}, style_images=1, reference_images=2)
+
+        assert route.name == "generate-image-v2"
+
+    def test_four_subject_references_are_accepted(self):
+        route = choose_image_route({"width": 64, "height": 64}, reference_images=4)
+
+        assert route.name == "generate-image-v2"
+
+    def test_more_than_four_is_refused_by_name(self):
+        with pytest.raises(ValidationError) as raised:
+            choose_image_route({"width": 64, "height": 64}, reference_images=5)
+
+        assert "four" in str(raised.value)
+
+    def test_several_style_images_with_a_subject_reference_is_refused(self):
+        with pytest.raises(ValidationError) as raised:
+            choose_image_route({"width": 64, "height": 64}, style_images=2, reference_images=1)
+
+        assert "generate-with-style-v2" in str(raised.value)
+        assert "generate-image-v2" in str(raised.value)
+
+    def test_without_one_the_cheap_route_is_unchanged(self):
+        route = choose_image_route({"width": 64, "height": 64})
+
+        assert route.name == "create-image-pixflux"
+
+    def test_the_route_can_be_named_explicitly(self):
+        route = choose_image_route({"width": 64, "height": 64}, route_name="generate-image-v2")
+
+        assert route.name == "generate-image-v2"
+
+    def test_naming_it_still_applies_its_own_refusals(self):
+        with pytest.raises(ValidationError) as raised:
+            choose_image_route(
+                {"width": 64, "height": 64}, style_images=2, route_name="generate-image-v2"
+            )
+
+        assert "both routes at once" in str(raised.value)
+
+    def test_it_is_listed_among_the_image_routes_when_one_is_unknown(self):
+        with pytest.raises(ValidationError) as raised:
+            choose_image_route({"width": 64, "height": 64}, route_name="nonsense")
+
+        assert "generate-image-v2" in str(raised.value)
+
+    def test_the_axes_are_capped_separately(self):
+        from pixellab_cli import catalog
+        from pixellab_cli.routing import _fits
+
+        route = catalog.route("generate-image-v2")
+
+        assert _fits(route, {"width": 792, "height": 688})
+        assert not _fits(route, {"width": 700, "height": 700})
+        assert not _fits(route, {"width": 16, "height": 790})

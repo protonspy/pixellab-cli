@@ -203,6 +203,8 @@ def _check_bounds(
     failed = (
         (limit.min_side is not None and min(width, height) < limit.min_side)
         or (limit.max_side is not None and max(width, height) > limit.max_side)
+        or (limit.max_width is not None and width > limit.max_width)
+        or (limit.max_height is not None and height > limit.max_height)
         or (limit.min_area is not None and area < limit.min_area)
         or (limit.max_area is not None and area > limit.max_area)
         or (

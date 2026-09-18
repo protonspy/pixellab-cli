@@ -11,8 +11,8 @@ Read `pixellab-cli-assets` first for the spending rule and the credentials.
 
 ```
 pixellab-cli sprite <description> --size/-s --name --route --style --style-description
-                                  --from --palette --outline --shading --detail --view
-                                  --direction --transparent --seed
+                                  --reference --style-ignore --from --palette --outline
+                                  --shading --detail --view --direction --transparent --seed
 ```
 
 About one generation. `--size` defaults to 64. `--transparent` for anything that will sit
@@ -116,6 +116,39 @@ noun:
 The test is whether the description alone gets you there. If it does, PixelLab direct. If
 the picture has to be *designed* before it can be drawn, that design is what fal is for —
 and if the design is the deliverable, stop there and never pay for the conversion.
+
+## Draw this, in that style
+
+`--style` says what it should look like. `--reference` says **what to draw** — and they
+are different inputs, which only one route accepts separately:
+
+```bash
+pixellab-cli sprite "the same character, pixel art" --size 64 \
+  --reference sketch.png="the character design" \
+  --reference palette.png="use as the colour reference" \
+  --style established-sprite.png
+```
+
+Up to four references, any size and any medium — a sketch, a photograph, a costume
+design, a mood board. The `=note` after a path is optional and says what that reference
+is *for*, which is the difference between four pictures the model has to guess the roles
+of and four with jobs.
+
+**Pro pricing**, and it is the route for redesigning something into an established look,
+which nothing else here can be asked for: `--style` alone has no place to put the
+subject, and several `--style` images have no place for it either.
+
+`--style-ignore` narrows what the style image imposes — `palette`, `outline`, `shading`,
+`detail`, repeatable. All four are copied by default, so this is how a reference lends
+its colours without also imposing its outline style.
+
+Two combinations are refused before spending, because each names two routes at once:
+more than four references, and more than one `--style` alongside a `--reference`.
+
+The size here is **given, not deduced**, and it need not be square — up to 792 wide or
+688 tall at the extremes, against 512 square on the style route. The same band table
+decides how many images come back, so `--size 64` returns sixteen and `--size 256`
+returns one.
 
 ## Concept art, on fal
 

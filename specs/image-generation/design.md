@@ -66,6 +66,64 @@ The bands come from the vendored schema's own documentation of the route, which 
 carried in `routing.py` beside the route choice rather than in the command, so a drift
 report against `reference/` has one place to land.
 
+## Style and subject are different references
+
+`generate-image-v2` is the only route that separates them, and that separation is the
+reason to add it rather than a detail of it:
+
+- **`style_image`** — one image, and it sets the output's pixel size as well as its look.
+- **`reference_images`** — up to four, for the *subject*: a sketch, a photograph, a
+  costume design, a mood board. Any size and any medium.
+
+Nothing else on this surface can be told "draw this, in that style" as two separate
+inputs. `create-image-bitforge` has one style slot and no subject slot;
+`generate-with-style-v2` has up to four style images and no subject slot at all. So a
+caller who wants a character redesigned into an established look currently has to choose
+which half to give up.
+
+Each subject reference also carries a `usage_description` of up to 500 characters, which
+is what turns four pictures the model has to guess the roles of into four with jobs. On
+the command line that is one option rather than two parallel lists, because two lists
+paired by position is the kind of thing that silently pairs wrong:
+
+```
+--reference cloak.png="use as the colour reference"
+--reference pose.png
+```
+
+`style_options` narrows what the style image imposes — `color_palette`, `outline`,
+`shading` and `detail`, each defaulting to true. The useful control is turning one *off*,
+so the flag names what to ignore rather than what to copy (R1.15).
+
+## Where the route is chosen
+
+`routing.py` already picks by what it was given, and this extends the same rule: a
+subject reference means `generate-image-v2` (R1.12). The two refusals are the
+combinations that have no route (R1.14):
+
+| Given | Route |
+|---|---|
+| a subject reference, with or without one style image | `generate-image-v2`, Pro |
+| more than four subject references | refused |
+| more than one style image *and* a subject reference | refused — the multi-style route takes no subject |
+
+The last one is worth refusing rather than silently dropping half the request, because
+each half names a different route and the caller cannot have both.
+
+## The count is not this route's own
+
+`generate-image-v2` documents the same size-to-count bands as `generate-with-style-v2`,
+so the table belongs to the family rather than to either route
+(`docs/wiki/pages/character-consistency.md`). `style_reference_yield` already computes
+it; this route reuses it against the size the caller *gave* rather than one deduced from
+style images, which is why R1.10 is widened from "the style reference route" to "the
+chosen route" instead of gaining a second copy.
+
+The sizes differ though, and that is real: this route takes an explicit `image_size`
+that need not be square, reaching 792 wide or 688 tall at the extremes, where
+`generate-with-style-v2` squares everything at 512. A wide key-art canvas is this
+route's and not that one's.
+
 Chosen, then **named in the output** (R1.2). A tool that silently picks between
 routes with different prices and different ceilings has to say which one it picked,
 or the cost report is unreadable.
