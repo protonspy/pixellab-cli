@@ -9,6 +9,8 @@
 - [x] 1.4 (TDD) Deduce the output size and image count from the style images — R1.10,
       R1.11
   _Reason the style route's yield was never reported; added after delivery_
+- [x] 1.5 (TDD) Route a subject reference to the Pro image route — R1.12, R1.14
+  _Reason generate-image-v2 was absent from the catalog; see n-0032_
 
 ## 2 · The sprite command
 
@@ -26,6 +28,14 @@
 - [x] 2.6 (Unit) Print the size, the count, and the smaller-crop advice — R1.10, R1.11
   _Depends 1.4_
   _Reason the style route's yield was never reported; added after delivery_
+- [ ] 2.7 (Unit) Accept subject references, their notes, and what to ignore — R1.13
+      R1.15
+  _Depends 1.5_
+  _Status removed_
+  _Reason citation wrapped past the line limit, so R1.15 was unreachable_
+- [x] 2.8 (Unit) Accept subject references, notes, and what to ignore — R1.13, R1.15
+  _Depends 1.5_
+  _Reason generate-image-v2 was absent from the catalog; see n-0032_
 
 ## 3 · The clean commands
 

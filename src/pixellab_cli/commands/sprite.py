@@ -20,6 +20,7 @@ from pixellab_cli.routes import DETAIL, DIRECTION, OUTLINE, SHADING, VIEW
 from pixellab_cli.routing import (
     DEFAULT_SIZE,
     STYLE_REFERENCE_ROUTE,
+    SUBJECT_REFERENCE_ROUTE,
     choose_image_route,
     parse_size,
     style_reference_yield,
@@ -44,6 +45,16 @@ def sprite(
     style_description: str = typer.Option(
         None, "--style-description", help="The style in words, alongside the style images."
     ),
+    reference: list[str] = typer.Option(
+        None,
+        "--reference",
+        help="A subject reference, up to four. Optionally PATH=what it is for.",
+    ),
+    style_ignore: list[str] = typer.Option(
+        None,
+        "--style-ignore",
+        help="Do not copy this from the style image: palette, outline, shading or detail.",
+    ),
     init_image: Path = typer.Option(None, "--from", help="An image to start from."),
     palette_image: Path = typer.Option(None, "--palette", help="An image whose colours to force."),
     outline: str = typer.Option(None, "--outline", help=f"One of: {', '.join(OUTLINE)}"),
@@ -65,6 +76,8 @@ def sprite(
             route_name=route_name,
             style_image=style_image,
             style_description=style_description,
+            reference=reference,
+            style_ignore=style_ignore,
             init_image=init_image,
             palette_image=palette_image,
             outline=outline,
@@ -88,6 +101,8 @@ def _sprite(
     route_name: str | None,
     style_image: list[Path],
     style_description: str | None,
+    reference: list[str],
+    style_ignore: list[str],
     init_image: Path | None,
     palette_image: Path | None,
     outline: str | None,
@@ -99,8 +114,14 @@ def _sprite(
     seed: int | None,
 ) -> None:
     style_images = list(style_image or ())
+    references = list(reference or ())
     image_size = parse_size(size) if size is not None else None
-    route = choose_image_route(image_size, style_images=len(style_images), route_name=route_name)
+    route = choose_image_route(
+        image_size,
+        style_images=len(style_images),
+        reference_images=len(references),
+        route_name=route_name,
+    )
     # The option carries no default, so that a size nobody named stays distinguishable
     # from one that was: the style reference route refuses a named size and takes its
     # own from the style images, and it is the only route with an opinion about that.
@@ -120,7 +141,12 @@ def _sprite(
     }
     # Keyed off the route rather than off the count, so an explicitly named route gets
     # the payload it actually accepts.
-    if route.name == STYLE_REFERENCE_ROUTE:
+    if route.name == SUBJECT_REFERENCE_ROUTE:
+        arguments["reference_images"] = [_subject_reference(value) for value in references]
+        if style_images:
+            arguments["style_image"] = _reference_payload(style_images[0])
+        arguments["style_options"] = _style_options(style_ignore)
+    elif route.name == STYLE_REFERENCE_ROUTE:
         arguments["style_images"] = [_style_reference(path) for path in style_images]
         # Only this route takes it: the base routes have a style slot but no words to
         # go with it, and sending one there would be a silent no-op.
@@ -141,8 +167,13 @@ def _sprite(
         output.stderr(
             f"{route.name} is a Pro Tools route: about {estimate.generations:g} generations."
         )
+    # Both Pro image routes return a number of images decided by the size, and it is
+    # the same band table either way — deduced from the style images on one, given as
+    # `image_size` on the other (R1.10).
     if route.name == STYLE_REFERENCE_ROUTE:
-        _announce_yield(arguments["style_images"])
+        _announce_yield([(image["width"], image["height"]) for image in arguments["style_images"]])
+    elif route.name == SUBJECT_REFERENCE_ROUTE and image_size:
+        _announce_yield([(image_size["width"], image_size["height"])])
 
     if app_context.dry_run:
         output.emit(
@@ -182,6 +213,8 @@ def _style_reference(path: Path) -> dict[str, Any]:
     derives the output size from them and a size argument that has to agree with a
     file on disk is one that will one day disagree.
     """
+    if not path.is_file():
+        raise ValidationError(f"{path} is not a file", context={"path": str(path)})
     encoded = images.encode_file(path)
     if encoded.width is None or encoded.height is None:
         raise ValidationError(
@@ -196,20 +229,17 @@ def _style_reference(path: Path) -> dict[str, Any]:
     }
 
 
-def _announce_yield(style_images: list[dict[str, Any]]) -> None:
-    """Say how many images the deduced size buys, before the money is spent (R1.10).
+def _announce_yield(sides: list[tuple[int, int]]) -> None:
+    """Say how many images the size buys, before the money is spent (R1.10).
 
     The tier announcement above says what the call costs; this says what it costs per
     image, which is the number that actually moves between a tight crop and a padded
     one. Said on both the dry run and the real call, because the decision it informs
     is the same one.
     """
-    yielded = style_reference_yield([(image["width"], image["height"]) for image in style_images])
+    yielded = style_reference_yield(sides)
     images_word = "image" if yielded.count == 1 else "images"
-    output.stderr(
-        f"the style images deduce a {yielded.size}x{yielded.size} output, which returns "
-        f"{yielded.count} {images_word}."
-    )
+    output.stderr(f"a {yielded.size}x{yielded.size} output returns {yielded.count} {images_word}.")
     # Legal, and almost never what anyone wanted: the same flat price for a single
     # image because the reference carried padding nobody needed (R1.11).
     if yielded.better is not None:
@@ -217,3 +247,68 @@ def _announce_yield(style_images: list[dict[str, Any]]) -> None:
         output.stderr(
             f"style images at most {ceiling} per side would return {count} for the same price."
         )
+
+
+# What `style_options` can be told not to copy, in the caller's words and the wire's.
+STYLE_ASPECTS = {
+    "palette": "color_palette",
+    "outline": "outline",
+    "shading": "shading",
+    "detail": "detail",
+}
+
+
+def _style_options(ignored: list[str] | None) -> dict[str, bool] | None:
+    """Every aspect defaults to copied, so the flag names what to leave behind."""
+    if not ignored:
+        return None
+    unknown = [name for name in ignored if name not in STYLE_ASPECTS]
+    if unknown:
+        raise ValidationError(
+            f"--style-ignore takes {', '.join(STYLE_ASPECTS)}, not {', '.join(unknown)}.",
+            context={"unknown": unknown},
+        )
+    return {field: name not in ignored for name, field in STYLE_ASPECTS.items()}
+
+
+def _subject_reference(value: str) -> dict[str, Any]:
+    """`path.png`, or `path.png=what it is for`.
+
+    One option rather than two parallel lists: a list of paths and a list of notes
+    paired by position is the kind of thing that pairs wrongly and says nothing when
+    it does.
+
+    A filename may itself contain `=`, so a value that names a real file is taken
+    whole. Only when it does not is the first `=` read as the separator — which means
+    the ambiguous case resolves towards the file that exists rather than towards a
+    silently truncated path.
+    """
+    if Path(value).is_file():
+        return _reference_payload(Path(value))
+    path, _, usage = value.partition("=")
+    if not path.strip():
+        raise ValidationError(
+            f"--reference takes a path, optionally followed by =what it is for, and "
+            f"{value!r} has no path before the =.",
+            context={"reference": value},
+        )
+    payload = _reference_payload(Path(path))
+    if usage.strip():
+        payload["usage_description"] = usage.strip()
+    return payload
+
+
+def _reference_payload(path: Path) -> dict[str, Any]:
+    """An image in the shape this route takes: the size beside it, as `size`."""
+    if not path.is_file():
+        raise ValidationError(f"{path} is not a file", context={"path": str(path)})
+    encoded = images.encode_file(path)
+    if encoded.width is None or encoded.height is None:
+        raise ValidationError(
+            f"{path} is not a PNG or JPEG this tool can read the size of, and this route needs it.",
+            context={"path": str(path)},
+        )
+    return {
+        "image": encoded.as_payload(),
+        "size": {"width": encoded.width, "height": encoded.height},
+    }

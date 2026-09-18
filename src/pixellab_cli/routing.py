@@ -24,6 +24,10 @@ STYLE_ROUTE = "create-image-bitforge"
 # times the price, so it is reached by asking for it and never by falling into it.
 STYLE_REFERENCE_ROUTE = "generate-with-style-v2"
 STYLE_REFERENCE_MAX = 4
+# The only route that takes the subject and the style as separate inputs. Reached by
+# giving it a subject reference, because nothing else on this surface accepts one.
+SUBJECT_REFERENCE_ROUTE = "generate-image-v2"
+SUBJECT_REFERENCE_MAX = 4
 # What a caller who named no size gets. It lives here rather than on the option so
 # that "no size was named" survives as far as the style reference route, which is the
 # one route that refuses a size outright.
@@ -58,6 +62,7 @@ def choose_image_route(
     size: dict[str, int] | None = None,
     *,
     style_images: int = 0,
+    reference_images: int = 0,
     route_name: str | None = None,
 ) -> Route:
     """Pick the route that can make this image, or say why none can.
@@ -70,7 +75,9 @@ def choose_image_route(
     # rather than a hint, and a count of style images preempting it would silently
     # move a one-generation call onto a thirty-generation one.
     if route_name is not None:
-        return _named(route_name, size, style_images)
+        return _named(route_name, size, style_images, reference_images)
+    if reference_images:
+        return _subject_reference(size, style_images, reference_images)
     if style_images > 1:
         return _style_reference(size, style_images)
     if style_images == 1:
@@ -105,14 +112,53 @@ def _style_reference(size: dict[str, int] | None, style_images: int) -> Route:
     return catalog.route(STYLE_REFERENCE_ROUTE)
 
 
-def _named(route_name: str, size: dict[str, int] | None, style_images: int) -> Route:
+def _subject_reference(
+    size: dict[str, int] | None, style_images: int, reference_images: int
+) -> Route:
+    """The route that separates subject from style, and the two combinations it refuses.
+
+    Both refusals name a request that reads as one thing and is two: more references
+    than any route takes, or a style spread over several pictures asked for alongside a
+    subject, which is two different routes in one command.
+    """
+    if reference_images > SUBJECT_REFERENCE_MAX:
+        raise ValidationError(
+            f"{SUBJECT_REFERENCE_ROUTE} takes at most four subject references, and "
+            f"{reference_images} were given.",
+            context={"route": SUBJECT_REFERENCE_ROUTE, "reference_images": reference_images},
+        )
+    if style_images > 1:
+        raise ValidationError(
+            f"{STYLE_REFERENCE_ROUTE} spreads a style over several images and takes no "
+            f"subject reference; {SUBJECT_REFERENCE_ROUTE} takes a subject but only one "
+            f"style image. {style_images} style images were given with a subject "
+            f"reference, which is both routes at once.",
+            context={
+                "style_images": style_images,
+                "reference_images": reference_images,
+                "routes": [STYLE_REFERENCE_ROUTE, SUBJECT_REFERENCE_ROUTE],
+            },
+        )
+    return catalog.route(SUBJECT_REFERENCE_ROUTE)
+
+
+def _named(
+    route_name: str,
+    size: dict[str, int] | None,
+    style_images: int,
+    reference_images: int = 0,
+) -> Route:
     """The route the caller named, held to its own limits — never quietly replaced."""
     if route_name == STYLE_REFERENCE_ROUTE:
         return _style_reference(size, max(style_images, 1))
+    # Named explicitly, it is reached the same way it is reached by inference — the
+    # refusals are the route's own, so they apply however the caller got here.
+    if route_name == SUBJECT_REFERENCE_ROUTE:
+        return _subject_reference(_or_default(size), style_images, max(reference_images, 1))
     if route_name not in IMAGE_ROUTES:
         raise ValidationError(
             f"{route_name!r} is not an image route. The image routes are: "
-            f"{', '.join((*IMAGE_ROUTES, STYLE_REFERENCE_ROUTE))}.",
+            f"{', '.join((*IMAGE_ROUTES, STYLE_REFERENCE_ROUTE, SUBJECT_REFERENCE_ROUTE))}.",
             context={"route": route_name},
         )
     if style_images > 1:
@@ -163,6 +209,10 @@ def _fits(route: Route, size: dict[str, int]) -> bool:
     if limit.min_side is not None and min(width, height) < limit.min_side:
         return False
     if limit.max_side is not None and max(width, height) > limit.max_side:
+        return False
+    if limit.max_width is not None and width > limit.max_width:
+        return False
+    if limit.max_height is not None and height > limit.max_height:
         return False
     if limit.min_area is not None and area < limit.min_area:
         return False

@@ -2,8 +2,8 @@
 autonomy: auto
 ci: wait
 branch: feat/style-route-yield
-delivery: merged
-pr: 41
+delivery: in-review
+pr: 49
 ---
 
 # Image generation — requirements
@@ -26,8 +26,12 @@ settled — a description in, a file and a manifest out, a cost printed.
 - **R1.7** (ADDED) Where more than one style image is given, the image generation commands shall use the style reference route, which accepts up to four, and shall say that it is priced as a Pro Tools route.
 - **R1.8** (ADDED) If a size is given together with more than one style image, then the image generation commands shall say that the style reference route takes its output size from the style images, before spending anything.
 - **R1.9** (ADDED) If more than four style images are given, then the image generation commands shall say so before spending anything.
-- **R1.10** (ADDED) Where the style reference route is chosen, the image generation commands shall report the output size deduced from the style images and the number of images that size returns, before spending anything.
+- **R1.10** (MODIFIED) Where the chosen route returns a number of images decided by the output size, the image generation commands shall report that size and that number, before spending anything.
 - **R1.11** (ADDED) If the deduced output size returns a single image, then the image generation commands shall say what a smaller style image would return for the same price, before spending anything.
+- **R1.12** (ADDED) Where a subject reference is given, the image generation commands shall use the route that takes subject references separately from a style image, and shall say that it is priced as a Pro Tools route.
+- **R1.13** (ADDED) The image generation commands shall accept up to four subject references, each carrying an optional note saying what that reference is for.
+- **R1.14** (ADDED) If more than four subject references are given, or more than one style image is given alongside a subject reference, then the image generation commands shall say so before spending anything.
+- **R1.15** (ADDED) Where a style image is given to that route, the image generation commands shall let the caller narrow which of its palette, outline, shading and detail is copied.
 
 ## R2 · Cleaning up
 

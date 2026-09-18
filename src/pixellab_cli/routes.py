@@ -87,6 +87,11 @@ class SizeLimit:
 
     min_side: int | None = None
     max_side: int | None = None
+    # Two routes cap the axes differently rather than capping the longer side, so a
+    # single `max_side` would have to pick one of the two numbers and be wrong about
+    # the other in a way only the provider would report.
+    max_width: int | None = None
+    max_height: int | None = None
     min_area: int | None = None
     max_area: int | None = None
     divisible_by: int | None = None
@@ -97,6 +102,11 @@ class SizeLimit:
         parts: list[str] = []
         if self.min_side is not None:
             parts.append(f"each side at least {self.min_side}")
+        if self.max_width is not None or self.max_height is not None:
+            parts.append(
+                f"at most {self.max_width or self.max_side} wide "
+                f"and {self.max_height or self.max_side} tall"
+            )
         if self.max_side is not None:
             parts.append(f"each side at most {self.max_side}")
         if self.min_area is not None:

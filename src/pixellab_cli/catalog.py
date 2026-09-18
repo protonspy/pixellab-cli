@@ -186,6 +186,44 @@ IMAGE_TO_PIXELART_PRO = Route(
     ),
 )
 
+GENERATE_IMAGE_V2 = Route(
+    name="generate-image-v2",
+    method="POST",
+    path="/generate-image-v2",
+    kind=RouteKind.BACKGROUND_JOB,
+    summary="Images from a description, with a style image and up to four subject "
+    "references. Pro pricing, and the size decides how many come back.",
+    estimated_generations=30.0,
+    result_id_field="background_job_id",
+    poll_path=BACKGROUND_JOBS_PATH,
+    params=(
+        Param("description", ParamKind.STRING, required=True, help="What to draw."),
+        # Required here, unlike generate-with-style-v2, which reads it off its style
+        # images. The maximum is aspect-dependent: 512 square, 792 wide, 688 tall.
+        Param(
+            "image_size",
+            ParamKind.SIZE,
+            required=True,
+            # The axes differ: 792 wide, 688 tall, 512 for a square.
+            size=SizeLimit(min_side=16, max_width=792, max_height=688),
+        ),
+        Param(
+            "style_image",
+            ParamKind.OBJECT,
+            help="One image, already pixel art: it sets the output's pixel size.",
+        ),
+        Param("style_options", ParamKind.OBJECT, help="What to copy from the style image."),
+        Param(
+            "reference_images",
+            ParamKind.OBJECT_LIST,
+            max_items=4,
+            help="Up to four subject references, each with an optional usage note.",
+        ),
+        Param("no_background", ParamKind.BOOLEAN, default=True),
+        SEED,
+    ),
+)
+
 GENERATE_WITH_STYLE_V2 = Route(
     name="generate-with-style-v2",
     method="POST",
@@ -1100,6 +1138,7 @@ ROUTES: tuple[Route, ...] = (
     CREATE_IMAGE_PIXFLUX,
     CREATE_IMAGE_PIXEN,
     CREATE_IMAGE_BITFORGE,
+    GENERATE_IMAGE_V2,
     GENERATE_WITH_STYLE_V2,
     IMAGE_TO_PIXELART_PRO,
     CREATE_CHARACTER_V3,
