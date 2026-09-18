@@ -50,11 +50,12 @@ def _image(
     name: str,
     *,
     required: bool = False,
+    min_side: int | None = None,
     max_side: int | None = None,
     matches_size: str | None = None,
     help: str = "",
 ):
-    limit = SizeLimit(max_side=max_side) if max_side else None
+    limit = SizeLimit(min_side=min_side, max_side=max_side) if (min_side or max_side) else None
     return Param(
         name,
         ParamKind.IMAGE,
@@ -413,6 +414,46 @@ ANIMATE_PIXMINIMAX = Route(
         Param("enhance_prompt", ParamKind.BOOLEAN, default=False),
         Param("no_background", ParamKind.BOOLEAN, default=True),
         Param("seed", ParamKind.INTEGER, minimum=0, default=0),
+    ),
+)
+
+INTERPOLATION_V2 = Route(
+    name="interpolation-v2",
+    method="POST",
+    path="/interpolation-v2",
+    kind=RouteKind.BACKGROUND_JOB,
+    summary="The frames between a start pose and an end pose, described. Pro Tools "
+    "pricing, 16 to 128 per side, and the route decides how many frames come back.",
+    estimated_generations=30.0,
+    result_id_field="background_job_id",
+    poll_path=BACKGROUND_JOBS_PATH,
+    params=(
+        _image(
+            "start_image",
+            required=True,
+            min_side=16,
+            max_side=128,
+            matches_size="image_size",
+            help="The pose the transition starts on.",
+        ),
+        _image(
+            "end_image",
+            required=True,
+            min_side=16,
+            max_side=128,
+            matches_size="image_size",
+            help="The pose it ends on, the same size as the start.",
+        ),
+        Param("action", ParamKind.STRING, required=True, help="'transforming', 'opening'."),
+        Param(
+            "image_size",
+            ParamKind.SIZE,
+            required=True,
+            size=SizeLimit(min_side=16, max_side=128),
+            help="The size of the frames returned.",
+        ),
+        Param("no_background", ParamKind.BOOLEAN, default=True),
+        SEED,
     ),
 )
 
@@ -1068,6 +1109,7 @@ ROUTES: tuple[Route, ...] = (
     CREATE_CHARACTER_ANIMATION,
     ANIMATE_WITH_TEXT_V3,
     ANIMATE_PIXMINIMAX,
+    INTERPOLATION_V2,
     ENHANCE_ANIMATION_PROMPT,
     CREATE_1_DIRECTION_OBJECT,
     CREATE_8_DIRECTION_OBJECT,

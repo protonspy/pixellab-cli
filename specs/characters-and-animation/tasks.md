@@ -81,3 +81,17 @@
   _Reason the states walkthrough named the kept starting frame and its frame arithmetic_
 - [x] 5.10 (Unit) Report the frames the animation will hold — R2.25
   _Reason the states walkthrough named the kept starting frame and its frame arithmetic_
+
+## 6 · Interpolating
+- [x] 6.1 (Unit) Add the interpolation route to the catalogue — R2.26, R2.27
+  _Reason the interpolation tool was asked for after delivery_
+- [x] 6.2 (TDD) Add pixellab-cli interpolate, sized by its poses — R2.26, R2.28, R2.29
+  _Depends 6.1_
+  _Reason the interpolation tool was asked for after delivery_
+- [x] 6.3 (Unit) Announce Pro pricing and refuse a frame count — R2.27, R2.30
+  _Depends 6.2_
+  _Reason the interpolation tool was asked for after delivery_
+- [x] 6.4 (Unit) Teach interpolating in the skill, the wiki and the cost model — R2.26,
+      R2.27
+  _Depends 6.3_
+  _Reason the interpolation tool was asked for after delivery_

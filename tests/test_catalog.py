@@ -202,3 +202,31 @@ class TestTheFourDirectionCharacterRoute:
             route("create-character-with-4-directions").estimated_generations
             < route("create-character-state").estimated_generations
         )
+
+
+class TestTheInterpolationRoute:
+    """R2.26, R2.27: both ends required, no frame count, and Pro priced."""
+
+    def test_both_ends_are_required(self):
+        subject = route("interpolation-v2")
+
+        assert subject.param("start_image").required
+        assert subject.param("end_image").required
+
+    def test_it_has_no_frame_count_to_route_by(self):
+        assert route("interpolation-v2").param("frame_count") is None
+
+    def test_each_end_has_to_match_the_output_size(self):
+        subject = route("interpolation-v2")
+
+        assert subject.param("start_image").matches_size == "image_size"
+        assert subject.param("end_image").matches_size == "image_size"
+
+    def test_it_reaches_less_far_than_the_animation_routes(self):
+        assert route("interpolation-v2").param("start_image").size.max_side == 128
+        assert route("animate-with-text-v3").param("first_frame").size.max_side == 256
+
+    def test_it_is_priced_with_the_pro_routes(self):
+        assert route("interpolation-v2").estimated_generations == (
+            route("create-character-state").estimated_generations
+        )
