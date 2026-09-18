@@ -2,7 +2,7 @@
 autonomy: auto
 ci: wait
 branch: feat/image-flip
-delivery: in-review
+delivery: merged
 pr: 35
 ---
 

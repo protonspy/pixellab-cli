@@ -2,7 +2,7 @@
 autonomy: auto
 ci: wait
 branch: feat/interpolate-between-poses
-delivery: in-review
+delivery: merged
 pr: 37
 ---
 
