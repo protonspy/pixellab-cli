@@ -19,6 +19,8 @@ fixed documents, not pages, and neither is ever an orphan.
 - [[pixellab-asset-routing]] — which of the ninety-three endpoints answers which request
 - [[pixellab-terminology]] — what `Pro`, `v3`, `Pixen` and the rest of the labels actually scope to
 - [[pixellab-style-controls]] — the style enums shared across routes, and how hard each one binds
+- [[inpainting]] — the mask, the size window, and why one mask can cover eight rotations
+- [[connectable-tiles]] — the two tile models, the sets they return, and which shape belongs to which
 - [[pixellab-cost-model]] — generations, credits, and which number to believe
 
 ### fal
