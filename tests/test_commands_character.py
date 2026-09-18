@@ -1687,3 +1687,118 @@ class TestTheFramesAnAnimationHolds:
 
         assert result.exit_code != 0
         assert "--drop-first-frame" in result.output
+
+
+class TestInterpolate:
+    """R2.26, R2.28, R2.29: the frames between two poses, on a route of its own."""
+
+    @staticmethod
+    def poses(tmp_path, start=(64, 64), end=(64, 64)):
+        first, last = tmp_path / "shut.png", tmp_path / "open.png"
+        first.write_bytes(png_bytes(*start))
+        last.write_bytes(png_bytes(*end))
+        return first, last
+
+    @staticmethod
+    def mock_job(frames=6):
+        respx.post(f"{PIXELLAB_BASE_URL}/interpolation-v2").respond(
+            json={"background_job_id": "job-i", "status": "processing"}
+        )
+        respx.get(f"{PIXELLAB_BASE_URL}/background-jobs/job-i").respond(
+            json={"status": "completed", "last_response": {"images": [image_payload()] * frames}}
+        )
+
+    @respx.mock
+    def test_the_frames_between_the_poses_are_written_in_playback_order(
+        self, tmp_path, monkeypatch
+    ):
+        first, last = self.poses(tmp_path)
+        self.mock_job()
+
+        result = invoke(
+            ["interpolate", str(first), str(last), "-a", "the chest opens"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 0
+        names = sorted(path.name for path in (tmp_path / "out").glob("*/*.png"))
+        assert len(names) == 6
+        assert names[0].endswith("-00.png")
+        assert names == sorted(names)
+
+    @respx.mock
+    def test_the_output_size_is_taken_from_the_poses(self, tmp_path, monkeypatch):
+        first, last = self.poses(tmp_path, start=(32, 48), end=(32, 48))
+        self.mock_job()
+
+        invoke(["interpolate", str(first), str(last), "-a", "morphing"], tmp_path, monkeypatch)
+
+        sent = json.loads(respx.calls[0].request.content)
+        assert sent["image_size"] == {"width": 32, "height": 48}
+        assert sent["start_image"]["size"] == {"width": 32, "height": 48}
+        assert sent["end_image"]["image"]["base64"]
+
+    @respx.mock
+    def test_a_mismatched_pair_is_refused_with_both_sizes_and_nothing_is_sent(
+        self, tmp_path, monkeypatch
+    ):
+        first, last = self.poses(tmp_path, start=(64, 64), end=(32, 32))
+
+        result = invoke(
+            ["interpolate", str(first), str(last), "-a", "morphing"], tmp_path, monkeypatch
+        )
+
+        assert result.exit_code == 2
+        assert "64x64" in result.output
+        assert "32x32" in result.output
+        assert not respx.calls
+
+    @respx.mock
+    def test_a_pose_the_route_cannot_take_is_refused_with_its_limit(self, tmp_path, monkeypatch):
+        first, last = self.poses(tmp_path, start=(256, 256), end=(256, 256))
+
+        result = invoke(
+            ["interpolate", str(first), str(last), "-a", "morphing"], tmp_path, monkeypatch
+        )
+
+        assert result.exit_code == 2
+        assert "128" in result.output
+        assert not respx.calls
+
+    def test_a_pose_that_is_not_there_is_refused(self, tmp_path, monkeypatch):
+        first, _ = self.poses(tmp_path)
+
+        result = invoke(
+            ["interpolate", str(first), str(tmp_path / "gone.png"), "-a", "morphing"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 2
+
+    @respx.mock
+    def test_pro_pricing_is_said_before_the_call(self, tmp_path, monkeypatch):
+        first, last = self.poses(tmp_path)
+        self.mock_job()
+
+        result = invoke(
+            ["interpolate", str(first), str(last), "-a", "morphing"], tmp_path, monkeypatch
+        )
+
+        assert "Pro Tools" in result.output
+        assert "30 generations" in result.output
+
+    @respx.mock
+    def test_a_frame_count_is_refused_with_what_to_use_instead(self, tmp_path, monkeypatch):
+        first, last = self.poses(tmp_path)
+
+        result = invoke(
+            ["interpolate", str(first), str(last), "-a", "morphing", "--frames", "12"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 2
+        assert "pixellab-cli animate" in result.output
+        assert not respx.calls

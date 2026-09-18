@@ -41,6 +41,10 @@ ROTATION_ORDER = (
 ANIMATION_ROUTES = ("animate-with-text-v3", "animate-pixminimax")
 CHEAP_ANIMATION_ROUTE, LONG_ANIMATION_ROUTE = ANIMATION_ROUTES
 
+# Interpolation is not one of them: it needs both ends and has no frame count to
+# route by, so it is reached by its own command rather than chosen by a count.
+INTERPOLATION_ROUTE = "interpolation-v2"
+
 
 def choose_animation_route(frames: int | None, *, route_name: str | None = None) -> Route:
     """Pick the animation route the frame count can actually be sent to.
@@ -95,12 +99,33 @@ def _check_frames(route: Route, frames: int | None) -> None:
 def register(app: typer.Typer) -> None:
     app.command("rotate")(rotate)
     app.command("animate")(animate)
+    app.command("interpolate")(interpolate)
 
 
 def _load(path: Path):
     if not path.is_file():
         raise ValidationError(f"{path} is not a file", context={"path": str(path)})
     return images.encode_file(path)
+
+
+def _keyframe(path: Path) -> dict[str, Any]:
+    """Wrap an image as the `KeyframeImage` the interpolation route takes.
+
+    Every other image slot in the catalogue is a bare `Base64Image`; this one carries
+    the size beside the bytes. `validate._dimensions` reads the nested shape already,
+    so the size limit still binds and no new `ParamKind` is needed.
+    """
+    encoded = _load(path)
+    if encoded.width is None or encoded.height is None:
+        raise ValidationError(
+            f"{path} is not a PNG or JPEG whose size can be read, and interpolating "
+            f"needs the size of both poses to say what to return.",
+            context={"path": str(path)},
+        )
+    return {
+        "image": encoded.as_payload(),
+        "size": {"width": encoded.width, "height": encoded.height},
+    }
 
 
 def _execute(
@@ -250,4 +275,62 @@ def _animate(
         description=f"{file.stem} {action}",
         name=name or f"{file.stem}-{action}",
         arguments=arguments,
+    )
+
+
+def interpolate(
+    context: typer.Context,
+    start: Path = typer.Argument(..., help="The pose the transition starts on."),
+    end: Path = typer.Argument(..., help="The pose it ends on, the same size."),
+    action: str = typer.Option(..., "--action", "-a", help="'the chest opens', 'morphing'."),
+    frames: int = typer.Option(None, "--frames", help="Not settable here: the route decides."),
+    name: str = typer.Option(None, "--name", help="What to call the files."),
+    transparent: bool = typer.Option(False, "--transparent", help="Transparent background."),
+    seed: int = typer.Option(None, "--seed", help="Repeat a previous generation."),
+) -> None:
+    """Generate the frames between two poses. Frames land in playback order."""
+    try:
+        _interpolate(context, start, end, action, frames, name, transparent, seed)
+    except PixellabCliError as failure:
+        output.handle(failure)
+
+
+def _interpolate(context, start, end, action, frames, name, transparent, seed) -> None:
+    app_context: AppContext = context.obj
+    route = catalog.route(INTERPOLATION_ROUTE)
+
+    # The option exists only to refuse: PixelLab's own editor offers a frame count on
+    # this tool and REST v2 does not, so the first thing anyone reaches for is a knob
+    # that is not there. Refusing says so; omitting the option says nothing.
+    if frames is not None:
+        raise ValidationError(
+            f"{route.name} decides how many frames it returns, typically four to eight, "
+            f"and takes no frame count. For a run of a chosen length, animate from a "
+            f"first frame instead: pixellab-cli animate --frames {frames}.",
+            context={"route": route.name, "frames": frames},
+        )
+
+    first, last = _keyframe(start), _keyframe(end)
+    output.stderr(
+        f"{route.name} is a Pro Tools route: about {route.estimated_generations:g} "
+        f"generations, and it decides how many frames come back."
+    )
+
+    _execute(
+        app_context,
+        kind="animations",
+        route_name=INTERPOLATION_ROUTE,
+        description=f"{start.stem} to {end.stem}, {action}",
+        name=name or f"{start.stem}-{action}",
+        arguments={
+            "start_image": first,
+            "end_image": last,
+            "action": action,
+            # The output size is the poses' own: an output that differs from the input
+            # is a resize nobody asked for, and a pair that disagrees has no answer —
+            # the route's own `matches_size` rule is what refuses that, naming both.
+            "image_size": first["size"],
+            "no_background": True if transparent else None,
+            "seed": seed,
+        },
     )
