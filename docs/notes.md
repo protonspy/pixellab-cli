@@ -68,3 +68,4 @@ over this file answers with the example above as well as with the notes. -->
 - n-0028 2026-09-18 #ceiling @src/pixellab_cli/catalog.py — animate-pixminimax is priced by generation time; the 2.0 estimate is a mid-range guess from published examples, not a tier
 <!-- n-0029 removed -->
 - n-0030 2026-09-18 #gotcha @src/pixellab_cli/routing.py @reference/pixellab-openapi.json — STYLE_REFERENCE_BANDS comes from prose in the endpoint description, so drift shows only as a changed path and someone has to read the diff
+- n-0031 2026-09-18 #gotcha @src/pixellab_cli/commands/motion.py @src/pixellab_cli/catalog.py — animate-with-text-v3 caps width*height*frame_count at 524288, so 256x256 stops at 8 frames; nothing in the tool checks it and the provider refuses the call
