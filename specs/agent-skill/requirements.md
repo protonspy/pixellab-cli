@@ -2,8 +2,8 @@
 autonomy: auto
 ci: wait
 branch: feat/asset-consistency
-delivery: merged
-pr: 2
+delivery: in-review
+pr: 45
 ---
 
 # Agent skill — requirements
