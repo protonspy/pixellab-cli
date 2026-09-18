@@ -2,8 +2,8 @@
 autonomy: auto
 ci: wait
 branch: feat/interpolate-between-poses
-delivery: in-progress
-pr: 34
+delivery: in-review
+pr: 37
 ---
 
 # Characters and animation — requirements
