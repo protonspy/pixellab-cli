@@ -41,8 +41,11 @@ about at least three of them.
 The Pro image routes separate two things the word "reference" runs together, and passing
 one where the other belongs is a wasted Pro Tools call. On `generate-image-v2`:
 
-- **`style_image`** — one image, and it must already be pixel art, because it sets the
-  output's pixel size as well as its look.
+- **`style_image`** — one image, which sets the output's **pixel size** as well as its
+  look; the schema's own words are "for pixel size and style reference". PixelLab's
+  tutorials go further and say a style reference should already be pixel art at one of
+  the supported sizes. The schema does not require that, so treat it as guidance about
+  what works rather than as a constraint the API enforces.
 - **`reference_images`** — up to four, for the *subject*. Any size and any medium: a
   sketch, a photograph, a mood board, a costume design. Over 1024 a side is downscaled,
   and a non-square one is padded to square with transparency before processing.

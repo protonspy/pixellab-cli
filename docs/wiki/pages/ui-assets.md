@@ -8,8 +8,12 @@ for **one thing**.
 | A whole panel — frames, bars, buttons arranged together | `POST /v2/create-ui-asset` | 192–688 per axis |
 | One element — a button, a health bar, an inventory slot | `POST /v2/generate-ui-v2` | 16 to the aspect-ratio maximum |
 
-Both take a `color_palette` in words — `"brown and gold"` — rather than a palette image,
-which is unusual on this API and worth knowing before encoding a PNG nobody wanted.
+Both take a `color_palette` **in words** — `"brown and gold"` — where most of this API
+takes a palette as a `color_image`. Worth knowing before encoding a PNG nobody wanted.
+
+That is about the palette only; both routes do take an image for guidance.
+`create-ui-asset` has a `style_image`, which `pixellab-cli ui --style` already sends, and
+`generate-ui-v2` has a `concept_image` for steering a single element's design.
 
 ## The panel route describes a shape, not just a subject
 
