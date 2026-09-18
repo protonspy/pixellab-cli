@@ -971,7 +971,7 @@ CREATE_UI_ASSET = Route(
     params=(
         Param("description", ParamKind.STRING, required=True, help="'wooden RPG panel'."),
         Param("image_size", ParamKind.SIZE, size=SizeLimit(min_side=192, max_side=688)),
-        Param("pieces", ParamKind.STRING_LIST, help="Shape template, validated server side."),
+        Param("pieces", ParamKind.OBJECT_LIST, help="Shape template, validated server side."),
         Param("elements", ParamKind.STRING_LIST, help="Named elements, auto-positioned."),
         _image("style_image"),
         Param("color_palette", ParamKind.STRING, help="'brown and gold'."),

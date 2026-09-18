@@ -248,10 +248,16 @@ class TestAnExplicitPanelShape:
         )
         return json.loads(result.stdout)["arguments"]
 
-    def test_a_piece_is_sent(self, tmp_path, monkeypatch):
+    def test_a_piece_reaches_the_wire_as_an_object(self, tmp_path, monkeypatch):
+        # The route takes a list of objects. A list of JSON *text* is the one shape that
+        # looks right on the command line and is refused by the provider.
         shape = '{"id":"bar","kind":"rounded_rect","x":8,"y":8,"w":180,"h":24,"radius":6}'
 
-        assert self._sent(tmp_path, monkeypatch, "--piece", shape)["pieces"] == [shape]
+        sent = self._sent(tmp_path, monkeypatch, "--piece", shape)
+
+        assert sent["pieces"] == [
+            {"id": "bar", "kind": "rounded_rect", "x": 8, "y": 8, "w": 180, "h": 24, "radius": 6}
+        ]
 
     def test_several_pieces_keep_their_order(self, tmp_path, monkeypatch):
         first = '{"id":"a","kind":"circle","x":8,"y":8,"r":6}'
@@ -259,7 +265,27 @@ class TestAnExplicitPanelShape:
 
         sent = self._sent(tmp_path, monkeypatch, "--piece", first, "--piece", second)
 
-        assert sent["pieces"] == [first, second]
+        assert [piece["id"] for piece in sent["pieces"]] == ["a", "b"]
+
+    def test_a_piece_that_is_not_json_is_refused_by_name(self, tmp_path, monkeypatch):
+        result = invoke(
+            ["--dry-run", "ui", "wooden RPG panel", "--piece", "a rounded rectangle"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code != 0
+        assert "--piece takes one JSON object" in result.stderr
+
+    def test_a_piece_that_is_json_but_not_an_object_is_refused(self, tmp_path, monkeypatch):
+        result = invoke(
+            ["--dry-run", "ui", "wooden RPG panel", "--piece", "[1, 2, 3]"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code != 0
+        assert "a list of objects" in result.stderr
 
     def test_nothing_is_sent_unasked(self, tmp_path, monkeypatch):
         assert "pieces" not in self._sent(tmp_path, monkeypatch)

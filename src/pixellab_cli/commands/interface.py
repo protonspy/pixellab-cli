@@ -10,6 +10,7 @@ it calls.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -134,9 +135,11 @@ def _ui(context, description, size, element, piece, palette, style, name, seed) 
             "description": description,
             "image_size": parse_size(size) if size else None,
             "elements": list(element) if element else None,
-            # Passed through as given: the shapes are validated server side, and a
-            # coordinate system this tool re-derived would be a second thing to keep true.
-            "pieces": list(piece) if piece else None,
+            # Parsed here rather than passed through: the wire wants objects, and a
+            # list of JSON text is the one shape that looks right on the command line
+            # and is rejected by the provider. What each object *contains* is still
+            # validated server side, which is the part worth not re-deriving.
+            "pieces": _pieces(piece),
             "color_palette": palette,
             "style_image": _load(style) if style else None,
             "name": name,
@@ -286,3 +289,20 @@ def _portrait(context, file, to_portrait, to_character, size, view, name, seed) 
             "seed": seed,
         },
     )
+
+
+def _pieces(values: list[str] | None) -> list[Any] | None:
+    """Each `--piece` as the object the route takes, or a refusal naming the bad one."""
+    if not values:
+        return None
+    parsed: list[Any] = []
+    for value in values:
+        try:
+            parsed.append(json.loads(value))
+        except ValueError as failure:
+            raise ValidationError(
+                f"--piece takes one JSON object per shape, and {value!r} is not one: "
+                f"{failure}. A rounded_rect needs id, kind, x, y, w, h and radius.",
+                context={"piece": value},
+            ) from None
+    return parsed
