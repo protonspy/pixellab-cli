@@ -2,8 +2,8 @@
 autonomy: auto
 ci: wait
 branch: feat/pose-first-animation
-delivery: in-progress
-pr: 33
+delivery: in-review
+pr: 34
 ---
 
 # Characters and animation — requirements
