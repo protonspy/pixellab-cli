@@ -53,3 +53,27 @@
   _Depends 1.1_
 - [x] 4.3 (Unit) Download a character's spritesheet and its layout file into the workspace — R4.3
   _Depends 1.2_
+
+## 5 · Posing and enriching
+- [x] 5.1 (Unit) Add the prompt enhancer route to the catalogue — R2.18, R2.21
+  _Reason pose-first animation asked for after delivery_
+- [x] 5.2 (Unit) Add `character enrich` — R2.18, R2.19, R2.20, R2.22
+  _Depends 5.1_
+  _Reason pose-first animation asked for after delivery_
+- [x] 5.3 (TDD) Animate from a start pose, one frame per direction — R2.12, R2.13, R2.14
+  _Reason pose-first animation asked for after delivery_
+- [x] 5.4 (Unit) Expose enrichment on the animation call itself — R2.17
+  _Depends 5.3_
+  _Reason pose-first animation asked for after delivery_
+- [x] 5.5 (Unit) Teach the pose-first flow in the skill and the wiki — R2.12, R2.18
+  _Depends 5.2, 5.4_
+  _Reason pose-first animation asked for after delivery_
+- [x] 5.6 (Unit) Interpolate toward an end pose — R2.15
+  _Depends 5.3_
+  _Reason pose-first animation asked for after delivery_
+- [x] 5.7 (Unit) Refuse a pose given with a template — R2.16
+  _Depends 5.3_
+  _Reason pose-first animation asked for after delivery_
+- [x] 5.8 (Unit) Refuse a pose across two directions — R2.23
+  _Depends 5.3_
+  _Reason pose-first animation asked for after delivery_

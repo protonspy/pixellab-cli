@@ -402,6 +402,36 @@ def _state(context, character_id, edit, state_name, size, palette, seed) -> None
     )
 
 
+def pose_frame(app_context, pose: str, direction: str):
+    """The frame a posed animation starts on — a file on disk, or a character's rotation.
+
+    PixelLab's own advice is to pose the character first and animate from the pose: a
+    walk described from a standing frame has to invent the stride, where a walk
+    described from a mid-stride frame continues one. `pixellab-cli character state` is
+    what makes the pose, so the usual argument here is a state's identifier and the
+    frame taken is that state's rotation for the direction being animated.
+
+    A path is tried first because a pose can also be a file somebody drew, and a
+    PixelLab identifier never looks like a path that exists.
+    """
+    path = Path(pose)
+    if path.exists():
+        return images.encode_file(path)
+    client = app_context.pixellab()
+    detail = client.call("character", character_id=pose).raw
+    if not detail:
+        raise ValidationError(f"no pose character {pose!r} on this account")
+    urls = detail.get("rotation_urls") or {}
+    url = urls.get(direction)
+    if not url:
+        held = ", ".join(name for name, _ in ordered_rotations(urls)) or "none"
+        raise ValidationError(
+            f"the pose {pose!r} has no {direction} rotation. It has: {held}",
+            context={"pose": pose, "direction": direction},
+        )
+    return images.encode(client.download(url))
+
+
 @app.command("animate")
 def animate(
     context: typer.Context,
@@ -415,17 +445,48 @@ def animate(
     ),
     frames: int = typer.Option(None, "--frames", help="Four to sixteen, and even."),
     animation_name: str = typer.Option(None, "--name", help="What to call the animation."),
+    start_pose: str = typer.Option(
+        None, "--start-pose", help="A state's id, or a file. The frame the motion starts on."
+    ),
+    end_pose: str = typer.Option(
+        None, "--end-pose", help="A pose to interpolate toward, instead of following the action."
+    ),
+    enhance: bool = typer.Option(
+        False, "--enhance", help="Let the provider expand the action inside the call. ~0.05 extra."
+    ),
     seed: int = typer.Option(None, "--seed", help="Repeat a previous generation."),
 ) -> None:
     """Animate a character. Every direction is a separate job and a separate charge."""
     try:
-        _animate(context, character_id, action, template, directions, frames, animation_name, seed)
+        _animate(
+            context,
+            character_id,
+            action,
+            template,
+            directions,
+            frames,
+            animation_name,
+            start_pose,
+            end_pose,
+            enhance,
+            seed,
+        )
     except PixellabCliError as failure:
         output.handle(failure)
 
 
 def _animate(
-    context, character_id, action, template, directions, frames, animation_name, seed
+    context,
+    character_id,
+    action,
+    template,
+    directions,
+    frames,
+    animation_name,
+    start_pose,
+    end_pose,
+    enhance,
+    seed,
 ) -> None:
     app_context: AppContext = context.obj
     route = catalog.route("characters-animations")
@@ -440,7 +501,36 @@ def _animate(
             f"not a direction: {', '.join(unknown)}. The directions are: {', '.join(DIRECTION)}"
         )
 
+    # Both frame slots are `mode='v3'` only, and a template drives the skeleton with
+    # nowhere to put a frame. Refused rather than dropped: a pose silently ignored is
+    # a paid animation of the wrong thing.
+    if (start_pose or end_pose) and template:
+        raise ValidationError(
+            "a pose belongs to the described-action route: give --action rather than "
+            "--template, which animates from the character's skeleton",
+            context={"template": template},
+        )
+
+    # One call carries one starting frame, and the pose differs per direction. So a
+    # posed animation is one direction at a time rather than one frame stretched
+    # across several, which would animate seven directions from the wrong pose.
+    if (start_pose or end_pose) and len(wanted) > 1:
+        raise ValidationError(
+            "a posed animation carries one direction per call: run it once per "
+            f"direction rather than naming {len(wanted)} at once",
+            context={"directions": wanted},
+        )
+
     _require_character(app_context, character_id)
+
+    direction = wanted[0]
+    start_frame = pose_frame(app_context, start_pose, direction) if start_pose else None
+    end_frame = pose_frame(app_context, end_pose, direction) if end_pose else None
+    if end_frame is not None:
+        output.stderr(
+            "an end pose interpolates: the motion runs from the start pose toward it "
+            "rather than following the action description alone."
+        )
 
     # An action is animated from its description, never from the skeleton. Driving
     # the skeleton is cheaper and was preferred here until it was checked against
@@ -468,6 +558,9 @@ def _animate(
         "directions": wanted,
         "frame_count": frames,
         "animation_name": animation_name,
+        "custom_start_frame": start_frame,
+        "end_frame": end_frame,
+        "enhance_prompt": True if enhance else None,
         "seed": seed,
     }
     body = build_request(route, arguments)
@@ -533,6 +626,115 @@ def _with_catalogue(failure: ProviderError) -> ProviderError:
     for family, ids in sorted(families.items()):
         lines.append(f"  {family}: {', '.join(ids)}")
     return ProviderError("\n".join(lines), status=failure.status)
+
+
+@app.command("enrich")
+def enrich(
+    context: typer.Context,
+    action: str = typer.Option(..., "--action", "-a", help="'walking,loop,south'."),
+    pose: str = typer.Option(
+        None, "--pose", help="A state's id, or a file. The frame the motion is written from."
+    ),
+    direction: str = typer.Option(
+        "south", "--direction", "-d", help="Which rotation of a pose character to read."
+    ),
+    end_pose: str = typer.Option(None, "--end-pose", help="Describe the motion between two poses."),
+    frames: int = typer.Option(None, "--frames", help="How many frames the animation will have."),
+    engine: str = typer.Option(
+        None, "--engine", help="Which animation model the description is written for."
+    ),
+) -> None:
+    """Expand an action into a motion description, from the pose it starts on. No animation."""
+    try:
+        _enrich(context, action, pose, direction, end_pose, frames, engine)
+    except PixellabCliError as failure:
+        output.handle(failure)
+
+
+def _enrich(context, action, pose, direction, end_pose, frames, engine) -> None:
+    """Ask the provider to write the motion, and hand the text back rather than frames.
+
+    Worth a command of its own because the description outlives the call: it is
+    reviewable before anything is animated, editable where the provider overreached,
+    and reusable across directions and seeds — each of which would otherwise cost a
+    generation per frame to discover.
+    """
+    app_context: AppContext = context.obj
+    route = catalog.route("enhance-animation-v3-prompt")
+
+    # The enhancer writes the motion from what it can see in the frame, so there is no
+    # character id it could read instead and no useful call without one.
+    if not pose:
+        raise ValidationError(
+            "--pose is what the description is written from: the enhancer reads a "
+            "frame, not a character record"
+        )
+
+    if direction not in DIRECTION:
+        raise ValidationError(
+            f"not a direction: {direction}. The directions are: {', '.join(DIRECTION)}"
+        )
+
+    first_frame = pose_frame(app_context, pose, direction)
+    last_frame = pose_frame(app_context, end_pose, direction) if end_pose else None
+
+    arguments: dict[str, Any] = {
+        "first_frame": first_frame,
+        "action": action,
+        "last_frame": last_frame,
+        "engine": engine,
+        "direction": direction,
+        "frame_count": frames,
+    }
+    body = build_request(route, arguments)
+    estimate = Cost(generations=route.estimated_generations)
+
+    output.stderr(f"{route.name} is a prompt enhancer: about {estimate.generations:g} generations.")
+
+    if app_context.dry_run:
+        output.emit(
+            output.dry_run_payload("pixellab", route.name, body, estimate),
+            output.describe_dry_run("pixellab", route.name, estimate),
+            as_json=app_context.as_json,
+        )
+        return
+
+    client = app_context.pixellab()
+    written: list[str] = []
+
+    def call() -> Result:
+        result = client.call(route.name, **arguments)
+        enhanced = result.raw.get("enhanced_prompt")
+        if not enhanced:
+            raise ProviderError(
+                "PixelLab returned no enhanced prompt",
+                context={"response": result.raw},
+                secrets=app_context.credentials.secrets,
+            )
+        written.append(enhanced)
+        # The text is what this call produced, so it is written where every other
+        # run's output is written rather than printed and lost.
+        result.images = [enhanced.encode("utf-8")]
+        return result
+
+    outcome = app_context.runner.run(
+        subject=app_context.subject,
+        kind="prompts",
+        description=f"{action} from {pose}",
+        provider="pixellab",
+        route=route.name,
+        arguments=body,
+        call=call,
+        translate=from_pixellab,
+        estimate=estimate,
+        name=action,
+        suffix=".txt",
+    )
+    output.emit(
+        {**output.run_payload(outcome), "enhanced_prompt": written[0]},
+        [f"route: {route.name}", *output.describe_run(outcome), "", written[0]],
+        as_json=app_context.as_json,
+    )
 
 
 @app.command("templates")

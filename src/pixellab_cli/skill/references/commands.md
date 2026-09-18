@@ -209,17 +209,48 @@ A state is a second character with its own id, grouped with the one it came from
 Both ids go in the manifest. Use it for armour, a cloak, a wound — anything that has
 to stay the same character across eight directions.
 
+It is also how a good animation starts. A state whose edit is a **pose** — `-p
+"mid-stride walking pose, legs apart, arms swinging"` — gives the animation a frame
+that is already in motion, which is what `character animate --start-pose` then reads.
+
 ### `pixellab-cli character animate`
 
 Animate a character. Every direction is a separate job and a separate charge.
 
 ```
-pixellab-cli character animate <character_id> --action/-a --template --direction/-d --frames --name --seed
+pixellab-cli character animate <character_id> --action/-a --template --direction/-d --frames
+                                              --start-pose --end-pose --enhance --name --seed
 ```
 
 `-a` animates with text V3, one generation per frame per direction. `--template`
 animates from the character's skeleton at the route's tier per direction, and
 PixelLab is not currently returning correct frames for it.
+
+`--start-pose` is the frame the motion starts on, given as a state's id or a file.
+Without it the animation starts from the character's neutral rotation and has to
+invent the motion; with a posed state it continues one, which is what PixelLab
+recommends and what has been measured here to be markedly better. `--end-pose`
+interpolates toward a second pose instead of following the action alone. Both take
+one direction per call, and neither works with `--template`.
+
+`--enhance` lets the provider expand the action inside the paid call. Prefer
+`pixellab-cli character enrich`, which returns the text so it can be read, edited and
+reused across directions.
+
+### `pixellab-cli character enrich`
+
+Expand an action into a motion description, written from the pose it starts on.
+About 0.05 generations, and nothing is animated.
+
+```
+pixellab-cli character enrich --action/-a --pose --direction/-d --end-pose --frames --engine
+```
+
+`--pose` is a state's id or a file; the description is written from what is visible in
+that frame, so `walking,loop,south` comes back as a paragraph about this character's
+gait and `fighting stance, idle, ready for a fight` as one about how it holds its
+weapon. Tags are the input it is built for. The text lands in the run directory as a
+`.txt` and is then the `-a` of the animation call.
 
 ### `pixellab-cli character templates`
 

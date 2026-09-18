@@ -32,6 +32,8 @@ findings.
 - **reference image** — any image passed into a PixelLab route to steer it, in whichever slot that route names (`reference_image`, `style_image`, `init_image`, `color_image`).
 - **anchor** — the concept image made specifically as a PixelLab reference: one subject, facing the viewer, at rest, on a transparent background, because every rotation and animation route reads the image it is given as the south frame. Avoid: hero shot, base pose
 - **character state** — a second character generated from an existing one by an edit applied across all of its rotations, carrying its own `character_id` and grouped with the character it came from. Avoid: variant, skin, paperdoll
+- **start pose** — the frame an animation begins on: the character's rotation for that direction by default, or the image given as `custom_start_frame` when one is. Avoid: keyframe
+- **prompt enhancer** — a PixelLab route that rewrites a short description into a longer one for another route to generate from, priced at about 0.05 generations. Avoid: prompt expander, prompt rewriter
 - **style reference** — one to four images given to `generate-with-style-v2` so a new image matches their colours, shading and detail, as opposed to the single `style_image` slot on a base route. Avoid: style transfer
 - **outfit transfer** — applying the appearance carried by one reference image across two to sixteen frames of a single animation in one call. Avoid: reskin
 

@@ -11,6 +11,7 @@ PixelLab's public pricing, and the tool records what each call actually reported
 | Tier | Generations | Commands |
 |---|---|---|
 | Free | 0 | `balance`, `ledger`, `character list`, `character show`, `character sheet`, `character templates`, `object list`, `recipe list` |
+| Prompt enhancer | ~0.05 | `character enrich` |
 | Cleanup | ~0.1 | `clean unzoom`, `clean background`, `clean colors`, `clean correct`, `clean resize` |
 | Base | ~1 | `sprite`, `animate`, `character animate` (per direction), `edit` with one image, `tiles isometric`, `tiles prop` |
 | Character | ~3–4 | `character new`, `rotate` |
@@ -60,6 +61,28 @@ makes no such promise.
 **`pixellab-cli animate` against `pixellab-cli character animate`.** The first animates a
 loose image and stores nothing. The second animates a managed character, once per
 direction, and keeps the animation on the account.
+
+## Getting a motion worth keeping
+
+An animation described from the character's neutral rotation has to invent the motion.
+One described from a frame already in motion continues it, which is what PixelLab
+recommends and what this project has measured as markedly better. So for an animation
+that matters, three steps rather than one:
+
+1. `pixellab-cli character state <id> -p "mid-stride walking pose, legs apart"` — the
+   pose, across every rotation. Pro Tools, twenty to forty generations, so it is a
+   deliberate spend and never implicit. There is no enhancer for a state edit, so the
+   pose is written out here rather than given as tags.
+2. `pixellab-cli character enrich -a "walking,loop,south" --pose <state-id>` — about
+   0.05 generations, and it returns the paragraph rather than animating from it. The
+   input is tags rather than prose: `fighting stance, idle, ready for a fight` comes
+   back as a paragraph about this character's stance, read off the pose it was given.
+3. `pixellab-cli character animate <id> -a "<that paragraph>" --start-pose <state-id>`
+   — one direction per call, the animation kept on the original character.
+
+Skip step 1 when the motion is small or the budget is tight; step 2 is cheap enough
+that skipping it saves nothing worth having. `--end-pose` adds a target to interpolate
+toward, for a swing or a transition that has to land on a known frame.
 
 ## When to reach for a recipe
 
