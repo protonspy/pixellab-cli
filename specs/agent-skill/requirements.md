@@ -2,8 +2,8 @@
 autonomy: auto
 ci: wait
 branch: feat/asset-consistency
-delivery: merged
-pr: 2
+delivery: in-review
+pr: 45
 ---
 
 # Agent skill — requirements
@@ -20,6 +20,7 @@ the person did not agree to.
 - **R1.1** The agent skill shall map the kinds of asset a game needs to the command that makes each one.
 - **R1.2** The agent skill shall state that the tool chooses the provider route, so that an agent does not name one unless the person did.
 - **R1.3** The agent skill shall state which commands are cheap and which are Pro Tools priced.
+- **R1.4** (ADDED) The agent skill shall say when a concept image on fal earns its cost against generating on PixelLab directly, and shall state that the fal path adds a paid conversion.
 
 ## R2 · Spending
 
@@ -36,6 +37,15 @@ the person did not agree to.
 
 - **R4.1** The agent skill shall carry a description that says when to use it.
 - **R4.2** The agent skill shall keep the detail that is only needed sometimes in reference files rather than in the body.
+
+## R5 · One skill per category
+
+- **R5.1** (ADDED) The agent skill shall be a set of skills, each owning the commands of one asset category, plus one entry skill that routes to them.
+- **R5.2** (ADDED) The entry skill shall carry the spending rule, the credential rule and the workspace conventions, so that an agent that loaded only the entry skill is still safe to run.
+- **R5.3** (ADDED) The category skills shall between them name every command the tool exposes, and the agent skill shall give no command more than one owner.
+- **R5.4** (ADDED) The category skill shall carry the workflow its category needs, in the order the steps are taken.
+- **R5.5** (ADDED) When installing, the tool shall write every packaged skill, and shall replace the contents of each one it owns.
+- **R5.6** (ADDED) If a skill directory from a previous installation is no longer packaged, then the tool shall say so rather than leaving it to be read as current instructions.
 
 ## Out of scope
 

@@ -38,12 +38,16 @@ class TestInstalling:
         result = invoke(["setup", "--claude", "--non-interactive"], tmp_path, monkeypatch)
 
         assert result.exit_code == 0
-        assert (tmp_path / "game" / ".claude" / "skills" / "pixellab-assets" / "SKILL.md").is_file()
+        assert (
+            tmp_path / "game" / ".claude" / "skills" / "pixellab-cli-assets" / "SKILL.md"
+        ).is_file()
 
     def test_global_installs_into_the_home_directory(self, tmp_path, monkeypatch):
         invoke(["setup", "--claude", "--global", "--non-interactive"], tmp_path, monkeypatch)
 
-        assert (tmp_path / "home" / ".claude" / "skills" / "pixellab-assets" / "SKILL.md").is_file()
+        assert (
+            tmp_path / "home" / ".claude" / "skills" / "pixellab-cli-assets" / "SKILL.md"
+        ).is_file()
 
     def test_codex_gets_a_block_in_the_projects_agents_file(self, tmp_path, monkeypatch):
         invoke(["setup", "--codex", "--non-interactive"], tmp_path, monkeypatch)
@@ -112,7 +116,9 @@ class TestCredentials:
         result = invoke(["setup", "--claude"], tmp_path, monkeypatch, input="\n\n")
 
         assert result.exit_code == 0
-        assert (tmp_path / "game" / ".claude" / "skills" / "pixellab-assets" / "SKILL.md").is_file()
+        assert (
+            tmp_path / "game" / ".claude" / "skills" / "pixellab-cli-assets" / "SKILL.md"
+        ).is_file()
         assert not (tmp_path / "home" / CONFIG_NAME).exists()
 
     def test_the_report_names_what_is_still_missing(self, tmp_path, monkeypatch):
@@ -146,7 +152,7 @@ class TestOffering:
         result = invoke(["setup"], tmp_path, monkeypatch, input="y\n\n\n")
 
         assert "found: claude" in result.output
-        assert (project / ".claude" / "skills" / "pixellab-assets" / "SKILL.md").is_file()
+        assert (project / ".claude" / "skills" / "pixellab-cli-assets" / "SKILL.md").is_file()
 
     def test_declining_the_offer_installs_nothing(self, tmp_path, monkeypatch):
         project = tmp_path / "game"
@@ -189,7 +195,7 @@ class TestItReportsWhatReachedTheDisk:
 
         assert "skipped" in result.stdout
         assert "written before it stopped" in result.stdout
-        assert (project / ".pixellab" / "skill" / "SKILL.md").is_file()
+        assert (project / ".pixellab" / "skill" / "pixellab-cli-assets" / "SKILL.md").is_file()
 
     def test_json_carries_the_paths_of_a_partial_install(self, tmp_path, monkeypatch):
         project = tmp_path / "game"
@@ -219,7 +225,9 @@ class TestItReportsWhatReachedTheDisk:
         )
 
         assert "claude: written" in result.stdout
-        assert (tmp_path / "game" / ".claude" / "skills" / "pixellab-assets" / "SKILL.md").is_file()
+        assert (
+            tmp_path / "game" / ".claude" / "skills" / "pixellab-cli-assets" / "SKILL.md"
+        ).is_file()
         assert result.exit_code == 2
 
 
@@ -238,3 +246,34 @@ class TestItSaysWhatIsAlreadySetBeforeAsking:
         # itself would be comparing two streams, which nothing guarantees the order of.
         emitted = result.output
         assert emitted.index("pixellab_secret: already set") < emitted.index("fal_key: not set")
+
+
+class TestASkillThisToolNoLongerShips:
+    """R5.6: the person is told, and decides. Nothing under `.claude/skills/` is deleted."""
+
+    def _plant(self, tmp_path):
+        stale = tmp_path / "game" / ".claude" / "skills" / "pixellab-assets"
+        stale.mkdir(parents=True)
+        (stale / "SKILL.md").write_text("instructions from an older version", encoding="utf-8")
+        return stale
+
+    def test_the_report_names_the_directory(self, tmp_path, monkeypatch):
+        stale = self._plant(tmp_path)
+
+        result = invoke(["setup", "--claude", "--non-interactive"], tmp_path, monkeypatch)
+
+        assert result.exit_code == 0
+        assert "pixellab-assets" in result.stdout
+        assert stale.is_dir()
+
+    def test_the_report_says_it_is_no_longer_shipped(self, tmp_path, monkeypatch):
+        self._plant(tmp_path)
+
+        result = invoke(["setup", "--claude", "--non-interactive"], tmp_path, monkeypatch)
+
+        assert "no longer" in result.stdout.lower()
+
+    def test_a_clean_install_says_nothing_about_it(self, tmp_path, monkeypatch):
+        result = invoke(["setup", "--claude", "--non-interactive"], tmp_path, monkeypatch)
+
+        assert "no longer" not in result.stdout.lower()
