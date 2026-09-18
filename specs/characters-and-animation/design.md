@@ -116,7 +116,7 @@ and a count neither route accepts is refused with that route's own allowed count
 PixMiniMax is in beta and needs a tier 1 subscription, which is an account fact this tool
 cannot read. It is said before the call rather than discovered as a rejection, and the
 estimate is labelled weaker than usual because the route's price moves with generation
-time (R2.7): three generations is a mid-range guess, and the reported `usage` is what the
+time (R2.7): two generations is a mid-range guess, and the reported `usage` is what the
 ledger keeps either way (`docs/wiki/pages/pixellab-cost-model.md`).
 
 Its `drift_threshold` is exposed as `--deflicker`: the route's own de-flicker pass, where
