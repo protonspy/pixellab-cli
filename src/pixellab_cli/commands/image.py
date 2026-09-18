@@ -152,15 +152,16 @@ def flip(
                 "a mirrored frame is the wrong character where its left and right "
                 "differ: a weapon, a shoulder pad or a scar on one side only."
             )
-        directory = into or None
+        # Every file is read before any is written, the way `sheet` and `gif` do it:
+        # a batch is usually one animation, and half a mirrored walk on disk after a
+        # reported failure is worse than none of it (R1.3).
+        loaded = [(file, pixels.load(file)) for file in files]
         written = []
-        for file in files:
-            image = pixels.load(file)
+        for file, image in loaded:
             result = pixels.flip(image, vertical=vertical)
             mirrored = None if vertical else pixels.mirrored_name(file.stem)
             name = f"{mirrored}{file.suffix}" if mirrored else f"{file.stem}-flipped{file.suffix}"
-            target = (directory or file.parent) / name
-            written.append(pixels.write(result, target))
+            written.append(pixels.write(result, (into or file.parent) / name))
         output.emit(
             {"files": [str(path) for path in written]},
             [f"{len(written)} mirrored", *(f"  {path}" for path in written)],

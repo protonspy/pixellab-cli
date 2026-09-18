@@ -384,7 +384,8 @@ This is how an eight-direction set stops costing eight paid animations: generate
 south-east, east and north-east, mirror those three for the west-facing half, and only
 south and north are left to pay for. **Wrong for a subject whose left and right
 differ** — a sword on one hip, a shoulder pad on one side, a scar on one cheek. The
-command says so every time it mirrors left to right.
+command says so on every left-to-right call. Every file is read before any is written,
+so a batch that names an unreadable file writes none of it.
 
 ### `pixellab-cli image sheet`
 

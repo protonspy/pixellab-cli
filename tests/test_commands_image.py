@@ -716,3 +716,19 @@ class TestFlip:
 
         assert result.exit_code != 0
         assert "broken.png" in result.output
+
+    def test_an_unreadable_file_in_a_batch_leaves_nothing_written(self, tmp_path):
+        write_image(tmp_path / "walk-east-00.png")
+        (tmp_path / "walk-east-01.png").write_bytes(b"not an image")
+
+        result = invoke(
+            [
+                "image",
+                "flip",
+                str(tmp_path / "walk-east-00.png"),
+                str(tmp_path / "walk-east-01.png"),
+            ]
+        )
+
+        assert result.exit_code != 0
+        assert not list(tmp_path.glob("walk-west-*.png"))
