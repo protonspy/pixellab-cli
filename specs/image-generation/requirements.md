@@ -2,7 +2,7 @@
 autonomy: auto
 ci: wait
 branch: feat/style-route-yield
-delivery: in-review
+delivery: merged
 pr: 49
 ---
 
