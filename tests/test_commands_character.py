@@ -1527,3 +1527,91 @@ class TestEnrichingAnAction:
 
         assert result.exit_code != 0
         assert "--pose" in result.output
+
+
+POSE_UUID = "9f1c2d3e-4b5a-6c7d-8e9f-0a1b2c3d4e5f"
+
+
+class TestWhichPoseWasRead:
+    @respx.mock
+    def test_an_identifier_is_looked_up_even_when_a_file_sits_under_that_name(
+        self, tmp_path, monkeypatch
+    ):
+        route = mock_posed_animation()
+        mock_pose(character_id=POSE_UUID)
+        planted = tmp_path / POSE_UUID
+        planted.write_bytes(b"not an image, and not the pose either")
+        monkeypatch.chdir(tmp_path)
+
+        result = invoke(
+            ["character", "animate", "char-9", "-a", "walking", "--start-pose", POSE_UUID],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 0
+        sent = json.loads(route.calls.last.request.content)
+        assert sent["custom_start_frame"]["base64"] == images.encode(png_bytes()).base64
+
+    @respx.mock
+    def test_the_branch_that_was_taken_is_said_before_the_call(self, tmp_path, monkeypatch):
+        mock_posed_animation()
+        mock_pose()
+
+        result = invoke(
+            ["character", "animate", "char-9", "-a", "walking", "--start-pose", "pose-1"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert "rotation of character pose-1" in result.output
+
+    @respx.mock
+    def test_a_pose_file_says_it_was_read_from_disk(self, tmp_path, monkeypatch):
+        mock_posed_animation()
+        pose = tmp_path / "mid-walk.png"
+        pose.write_bytes(png_bytes())
+
+        result = invoke(
+            ["character", "animate", "char-9", "-a", "walking", "--start-pose", str(pose)],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert "from the file" in result.output
+
+    @respx.mock
+    def test_a_pose_that_is_neither_a_file_nor_an_identifier_is_refused(
+        self, tmp_path, monkeypatch
+    ):
+        mock_posed_animation()
+
+        result = invoke(
+            [
+                "character",
+                "animate",
+                "char-9",
+                "-a",
+                "walking",
+                "--start-pose",
+                "../../etc/passwd",
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code != 0
+        assert "neither a file that exists nor an identifier" in result.output
+
+    def test_an_end_pose_without_a_start_pose_is_refused(self, tmp_path, monkeypatch):
+        end = tmp_path / "end.png"
+        end.write_bytes(png_bytes())
+
+        result = invoke(
+            ["character", "animate", "char-9", "-a", "walking", "--end-pose", str(end)],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code != 0
+        assert "--start-pose" in result.output

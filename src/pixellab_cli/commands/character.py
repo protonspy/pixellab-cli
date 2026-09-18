@@ -10,6 +10,7 @@ manifest is per run rather than per asset.
 from __future__ import annotations
 
 import json
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -402,6 +403,15 @@ def _state(context, character_id, edit, state_name, size, palette, seed) -> None
     )
 
 
+def _is_identifier(value: str) -> bool:
+    """Whether this is an identifier PixelLab issued, which is a UUID and never a path."""
+    try:
+        uuid.UUID(value)
+    except ValueError:
+        return False
+    return True
+
+
 def pose_frame(app_context, pose: str, direction: str):
     """The frame a posed animation starts on — a file on disk, or a character's rotation.
 
@@ -411,12 +421,30 @@ def pose_frame(app_context, pose: str, direction: str):
     what makes the pose, so the usual argument here is a state's identifier and the
     frame taken is that state's rotation for the direction being animated.
 
-    A path is tried first because a pose can also be a file somebody drew, and a
-    PixelLab identifier never looks like a path that exists.
+    A pose can also be a file somebody drew, so one argument carries two meanings —
+    and which one is taken must not be decided by whatever the working directory
+    happens to hold. An identifier PixelLab issued is a UUID, so that is settled
+    first: a file planted under a known identifier would otherwise be read and its
+    bytes posted to the provider in place of the lookup, silently. Whichever branch
+    is taken is said out loud, before the paid call, because a pose read from the
+    wrong place produces an animation that is charged for and wrong.
     """
     path = Path(pose)
-    if path.exists():
+    if not _is_identifier(pose) and path.exists():
+        output.stderr(f"pose: reading the frame from the file {path}")
         return images.encode_file(path)
+
+    # The identifier is interpolated into `/characters/{character_id}`, and the
+    # request that carries it carries the bearer token. A dot segment or a separator
+    # in it would be a URL of somebody else's choosing.
+    if any(part in pose for part in ("/", "\\", "..")):
+        raise ValidationError(
+            f"{pose!r} is neither a file that exists nor an identifier: a pose is a "
+            "path on disk or a character id",
+            context={"pose": pose},
+        )
+
+    output.stderr(f"pose: reading the {direction} rotation of character {pose}")
     client = app_context.pixellab()
     detail = client.call("character", character_id=pose).raw
     if not detail:
@@ -504,6 +532,15 @@ def _animate(
     # Both frame slots are `mode='v3'` only, and a template drives the skeleton with
     # nowhere to put a frame. Refused rather than dropped: a pose silently ignored is
     # a paid animation of the wrong thing.
+    # An end pose with nothing to start from is interpolation toward a target with no
+    # source: the route would fall back to the neutral rotation, which is the frame
+    # the pose flow exists to replace. Refused rather than guessed at.
+    if end_pose and not start_pose:
+        raise ValidationError(
+            "--end-pose interpolates from a start pose: give --start-pose as well, or "
+            "drop it and animate from the action alone"
+        )
+
     if (start_pose or end_pose) and template:
         raise ValidationError(
             "a pose belongs to the described-action route: give --action rather than "
