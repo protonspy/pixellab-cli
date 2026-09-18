@@ -172,3 +172,76 @@ which `adr:0002-call-pixellab-rest-v2-directly` puts out of scope.
 Its cost is not published. The eight-direction endpoint of the same family states one
 generation for its `standard` mode, and the estimate here is that number carried
 across; the ledger records what the call actually reported.
+
+## A pose is a start frame, not a new route
+
+PixelLab's own advice for a motion worth keeping is to pose the character first and
+animate from the pose, rather than animating from the character's neutral rotation: a
+walk described from a standing frame has to invent the stride, where a walk described
+from a mid-stride frame continues one. The API says the same thing in its field
+documentation — `custom_start_frame` on `POST /characters/animations` is "a custom
+starting pose for the animation", and when it is omitted "the character's rotation
+image for the chosen direction" is what the animation starts from. So the pose-first
+flow needs no new route and no new asset kind. It needs the two frame slots the
+catalogue already declares and the command never sent.
+
+`pixellab-cli character state <id> -p "mid-stride walking pose, legs apart"` is how the
+pose gets made — a state is a character, and its rotations are poses of the source
+across every direction (R1.5). `--start-pose` then takes that state's rotation for each
+direction asked for and sends it as `custom_start_frame`, so **the animation still lands
+on the character being animated** rather than on the state. Animating the state
+directly would also work and is a step cheaper, but it stores the walk on a second
+`character_id`: the library then holds a knight with no animations and four pose states
+with one animation each, and a spritesheet export of the knight is empty. The pose is
+an input, not the subject.
+
+`--end-pose` fills `end_frame`, which the provider documents as switching the call into
+interpolation: the model animates from the start pose toward the target pose instead of
+following the action description alone. Both slots are `mode='v3'` only, which is why a
+pose given with `--template` is refused (R2.16) rather than dropped — a template drives
+the skeleton and has nowhere to put a frame.
+
+A pose costs what a state costs: Pro Tools, twenty to forty generations (R1.6), against
+one generation per frame per direction for the animation itself. So the flow is never
+implicit. Nothing poses on its own, the pose is a separate command the caller pays for
+deliberately, and `--start-pose` only ever reads a character that already exists.
+
+## Enriching the action description
+
+`walking,loop,south` animates worse than a paragraph describing how this particular
+character walks, and the provider will write that paragraph: `POST
+/enhance-animation-v3-prompt` takes `first_frame` and `action` and returns
+`enhanced_prompt`, a motion description written against the subject actually visible in
+the frame — which is why it reads the pose rather than the character record. With
+`last_frame` it describes the interpolated motion between two poses instead. It is a
+prompt enhancer, priced with the others at about 0.05 generations, and it is the
+cheapest quality lever on this surface.
+
+Two ways to reach it, and the CLI exposes both because they answer different questions.
+`pixellab-cli character enrich` calls the enhancer and **prints the description without
+animating** (R2.18): the text is then reviewable, editable, and reusable across the
+eight directions and across seeds, which matters when the animation it feeds costs a
+generation per frame per direction. `--enhance` on `character animate` sets the route's
+own `enhance_prompt`, which expands the action inside the paid call (R2.17) — one
+command, but the text is never shown and cannot be reused.
+
+The frame is the required part. The enhancer has no character id and cannot read one,
+so `character enrich` takes either an image file or a character and a direction to pull
+the rotation from (R2.19), and refuses with neither (R2.22). Its input is a tag list
+rather than prose — `walking,loop,south`, `fighting stance, idle, ready for a fight` —
+which is what the action field of the animation route is bad at and this route is for.
+
+The pose itself gets no such help: `create-character-state` carries no `enhance_prompt`
+and there is no enhancer for an edit description, so the pose is written out in words at
+the state command. `enhance-character-v3-prompt` enhances a *character* description for
+`create-character-v3` and is a different route for a different field.
+
+The web application reaches these features over its own surface —
+`api.pixellab.ai/animate-with-text-v3/character/background`,
+`api.pixellab.ai/enhance-animation-prompt`, authenticated with the browser session's
+JWT and carrying its own field names (`image_base64`, `prompt`, `custom_frames`,
+`engine`). That is not this tool's surface and is not being adopted:
+`adr:0002-call-pixellab-rest-v2-directly` fixes REST v2 as the only PixelLab API this
+project calls, and every capability above exists there under the documented names. An
+undocumented endpoint behind a session token would break on any deploy and could not be
+held to the vendored schema `reference/` exists to diff against.

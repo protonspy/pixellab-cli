@@ -34,3 +34,5 @@ ref/
 
 # Generated assets and their records — output, never source
 pixellab-out/
+# rtk local history
+rtk/

@@ -416,6 +416,25 @@ ANIMATE_PIXMINIMAX = Route(
     ),
 )
 
+ENHANCE_ANIMATION_PROMPT = Route(
+    name="enhance-animation-v3-prompt",
+    method="POST",
+    path="/enhance-animation-v3-prompt",
+    kind=RouteKind.SYNCHRONOUS,
+    summary="A richer motion description, written from the frame the animation starts on. "
+    "The cheapest quality lever here: about 0.05 generations.",
+    estimated_generations=0.05,
+    params=(
+        _image("first_frame", required=True, max_side=256, help="The pose the motion starts on."),
+        Param("action", ParamKind.STRING, required=True, help="'walking', 'sword swing'."),
+        _image("last_frame", max_side=256, help="An end pose. Describes the motion between."),
+        Param("engine", ParamKind.STRING, choices=("v3", "pixminimax"), default="v3"),
+        Param("direction", ParamKind.STRING, choices=DIRECTION),
+        Param("frame_count", ParamKind.INTEGER, minimum=1, maximum=40),
+    ),
+)
+
+
 # -------------------------------------------------------------------------- objects
 
 CREATE_1_DIRECTION_OBJECT = Route(
@@ -1049,6 +1068,7 @@ ROUTES: tuple[Route, ...] = (
     CREATE_CHARACTER_ANIMATION,
     ANIMATE_WITH_TEXT_V3,
     ANIMATE_PIXMINIMAX,
+    ENHANCE_ANIMATION_PROMPT,
     CREATE_1_DIRECTION_OBJECT,
     CREATE_8_DIRECTION_OBJECT,
     CREATE_MAP_OBJECT,

@@ -33,6 +33,8 @@ Use it whenever the person has named a budget.
 | A character with eight rotations | `pixellab-cli character new "a knight" --name knight` |
 | The same character, changed — armour, a cloak, wounded | `pixellab-cli character state <character-id> -p "wearing a red cloak"` |
 | An animation for that character | `pixellab-cli character animate <character-id> -a walking` |
+| The best animation that character can give | `pixellab-cli character state <character-id> -p "mid-stride walking pose"`, then `pixellab-cli character animate <character-id> -a walking --start-pose <state-id>` |
+| A richer motion description before paying for frames | `pixellab-cli character enrich -a "walking,loop,south" --pose <state-id>` |
 | Eight views of a loose image | `pixellab-cli rotate sprite.png` |
 | An animation from a loose image | `pixellab-cli animate sprite.png -a walking` |
 | An animation longer than sixteen frames | `pixellab-cli animate sprite.png -a walking --frames 24` |

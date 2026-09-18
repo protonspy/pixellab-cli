@@ -1,9 +1,9 @@
 ---
 autonomy: auto
 ci: wait
-branch: fix/animate-defaults-to-v3
+branch: feat/pose-first-animation
 delivery: in-review
-pr: 33
+pr: 34
 ---
 
 # Characters and animation — requirements
@@ -41,6 +41,19 @@ different endpoint family and no skeleton.
 - **R2.9** (MODIFIED) Where a named template is given, the character commands shall say that a template animates from the character's skeleton and that the provider does not currently return correct frames for it.
 - **R2.10** (MODIFIED) While a dry run is asked for, the character commands shall report the estimate the real call would be charged.
 - **R2.11** (MODIFIED) If the character named cannot be read, then the character commands shall say so before spending anything.
+
+- **R2.12** (ADDED) Where a start pose is given, the character commands shall animate from that pose instead of from the character's rotation for the direction.
+- **R2.13** (ADDED) Where a start pose names a character, the character commands shall take the pose from that character's rotation for the direction being animated.
+- **R2.14** (ADDED) If a start pose names a character that has no rotation for a direction asked for, then the character commands shall refuse the call and name the directions that character does have, before spending anything.
+- **R2.23** (ADDED) If a pose is given for more than one direction at once, then the character commands shall refuse the call and say that a posed animation carries one direction per call, before spending anything.
+- **R2.15** (ADDED) Where an end pose is given as well, the character commands shall animate between the two poses and shall say that the animation interpolates rather than following the action alone.
+- **R2.16** (ADDED) If a pose is given together with a named template, then the character commands shall refuse the call and say that a pose belongs to the described-action route, before spending anything.
+- **R2.17** (ADDED) Where enrichment is asked for on an animation, the character commands shall have the provider expand the action description as part of that call.
+- **R2.18** (ADDED) When asked to enrich an action description, the character commands shall send the pose and the action to the prompt enhancer and shall report the enriched description without animating anything.
+- **R2.19** (ADDED) Where a pose to enrich from names a character, the character commands shall take the frame from that character's rotation for the direction asked for.
+- **R2.20** (ADDED) Where an end pose is given to enrich from, the character commands shall ask the enhancer for the motion between the two poses.
+- **R2.21** (ADDED) The character commands shall report what the prompt enhancer costs before calling it.
+- **R2.22** (ADDED) If asked to enrich an action description with no pose, then the character commands shall refuse the call and say that the enhancer reads a frame, before spending anything.
 
 ## R3 · Rotating
 

@@ -1251,3 +1251,367 @@ class TestASubjectGathersTheCommandsOutput:
         version = tmp_path / "out" / "warrior-tibiame" / "animations" / "v1"
         assert version.is_dir()
         assert list(version.glob("*.manifest.json")), "the manifest goes beside the asset"
+
+
+def mock_pose(character_id="pose-1", directions=("south", "east")):
+    """A pose character: the rotations a state produced, ready to start an animation on."""
+    respx.get(f"{PIXELLAB_BASE_URL}/characters/{character_id}").respond(
+        json={"id": character_id, "rotation_urls": rotation_urls(directions)}
+    )
+    for name in directions:
+        respx.get(f"https://assets.pixellab.ai/{name}.png").respond(content=png_bytes())
+
+
+def mock_posed_animation(character_id="char-9"):
+    respx.get(f"{PIXELLAB_BASE_URL}/characters/{character_id}").respond(
+        json={"id": character_id, "template_id": "mannequin", "skeletons": {"south": {}}}
+    )
+    route = respx.post(f"{PIXELLAB_BASE_URL}/characters/animations").respond(
+        json={"background_job_ids": ["job-2"], "status": "processing"}
+    )
+    respx.get(f"{PIXELLAB_BASE_URL}/background-jobs/job-2").respond(
+        json={"status": "completed", "last_response": {"images": [image_payload()]}}
+    )
+    return route
+
+
+class TestAnimatingFromAPose:
+    @respx.mock
+    def test_a_pose_character_supplies_the_frame_the_animation_starts_on(
+        self, tmp_path, monkeypatch
+    ):
+        route = mock_posed_animation()
+        mock_pose()
+
+        result = invoke(
+            ["character", "animate", "char-9", "-a", "walking", "--start-pose", "pose-1"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 0
+        sent = json.loads(route.calls.last.request.content)
+        assert sent["custom_start_frame"]["base64"] == images.encode(png_bytes()).base64
+
+    @respx.mock
+    def test_the_pose_is_read_for_the_direction_being_animated(self, tmp_path, monkeypatch):
+        route = mock_posed_animation()
+        respx.get(f"{PIXELLAB_BASE_URL}/characters/pose-1").respond(
+            json={"id": "pose-1", "rotation_urls": {"south": "https://assets.pixellab.ai/s.png"}}
+        )
+        respx.get("https://assets.pixellab.ai/s.png").respond(content=png_bytes(48, 48))
+
+        invoke(
+            ["character", "animate", "char-9", "-a", "walking", "--start-pose", "pose-1"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        sent = json.loads(route.calls.last.request.content)
+        assert sent["custom_start_frame"]["base64"] == images.encode(png_bytes(48, 48)).base64
+
+    @respx.mock
+    def test_a_pose_file_is_sent_as_the_starting_frame(self, tmp_path, monkeypatch):
+        route = mock_posed_animation()
+        pose = tmp_path / "mid-walk.png"
+        pose.write_bytes(png_bytes(32, 32))
+
+        result = invoke(
+            ["character", "animate", "char-9", "-a", "walking", "--start-pose", str(pose)],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 0
+        sent = json.loads(route.calls.last.request.content)
+        assert sent["custom_start_frame"]["base64"] == images.encode(png_bytes(32, 32)).base64
+
+    @respx.mock
+    def test_a_pose_without_the_direction_being_animated_is_refused(self, tmp_path, monkeypatch):
+        mock_posed_animation()
+        mock_pose(directions=("east",))
+
+        result = invoke(
+            ["character", "animate", "char-9", "-a", "walking", "--start-pose", "pose-1"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code != 0
+        assert "east" in result.output
+
+    @respx.mock
+    def test_an_end_pose_is_sent_and_the_interpolation_is_announced(self, tmp_path, monkeypatch):
+        route = mock_posed_animation()
+        mock_pose()
+        end = tmp_path / "end.png"
+        end.write_bytes(png_bytes(24, 24))
+
+        result = invoke(
+            [
+                "character",
+                "animate",
+                "char-9",
+                "-a",
+                "walking",
+                "--start-pose",
+                "pose-1",
+                "--end-pose",
+                str(end),
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 0
+        sent = json.loads(route.calls.last.request.content)
+        assert sent["end_frame"]["base64"] == images.encode(png_bytes(24, 24)).base64
+        assert "interpolat" in result.output
+
+    def test_a_pose_given_with_a_template_is_refused_before_anything_is_sent(
+        self, tmp_path, monkeypatch
+    ):
+        result = invoke(
+            [
+                "character",
+                "animate",
+                "char-9",
+                "--template",
+                "walking",
+                "--start-pose",
+                "pose-1",
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code != 0
+        assert "template" in result.output
+
+    def test_a_pose_across_two_directions_is_refused_before_anything_is_sent(
+        self, tmp_path, monkeypatch
+    ):
+        result = invoke(
+            [
+                "character",
+                "animate",
+                "char-9",
+                "-a",
+                "walking",
+                "--start-pose",
+                "pose-1",
+                "-d",
+                "south",
+                "-d",
+                "east",
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code != 0
+        assert "one direction" in result.output
+
+    @respx.mock
+    def test_enrichment_is_asked_of_the_animation_call_itself(self, tmp_path, monkeypatch):
+        route = mock_posed_animation()
+
+        invoke(
+            ["character", "animate", "char-9", "-a", "walking", "--enhance"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert json.loads(route.calls.last.request.content)["enhance_prompt"] is True
+
+
+ENHANCED = (
+    "The knight walks forward with a steady, rhythmic stride, alternating their legs "
+    "as they advance toward the viewer."
+)
+
+
+def mock_enhancer(enhanced=ENHANCED):
+    return respx.post(f"{PIXELLAB_BASE_URL}/enhance-animation-v3-prompt").respond(
+        json={"enhanced_prompt": enhanced, "usage": {"generations": 0.05, "usd": 0.002}}
+    )
+
+
+class TestEnrichingAnAction:
+    @respx.mock
+    def test_the_description_is_reported_and_nothing_is_animated(self, tmp_path, monkeypatch):
+        mock_enhancer()
+        mock_pose()
+        animate = respx.post(f"{PIXELLAB_BASE_URL}/characters/animations")
+
+        result = invoke(
+            ["character", "enrich", "-a", "walking,loop,south", "--pose", "pose-1"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 0
+        assert "rhythmic stride" in result.output
+        assert not animate.called
+
+    @respx.mock
+    def test_the_frame_comes_from_the_pose_rotation_for_the_direction(self, tmp_path, monkeypatch):
+        route = mock_enhancer()
+        mock_pose()
+
+        invoke(
+            ["character", "enrich", "-a", "walking", "--pose", "pose-1", "-d", "east"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        sent = json.loads(route.calls.last.request.content)
+        assert sent["first_frame"]["base64"] == images.encode(png_bytes()).base64
+        assert sent["direction"] == "east"
+
+    @respx.mock
+    def test_an_end_pose_asks_for_the_motion_between_the_two(self, tmp_path, monkeypatch):
+        route = mock_enhancer()
+        mock_pose()
+        end = tmp_path / "end.png"
+        end.write_bytes(png_bytes(24, 24))
+
+        invoke(
+            [
+                "character",
+                "enrich",
+                "-a",
+                "sword swing",
+                "--pose",
+                "pose-1",
+                "--end-pose",
+                str(end),
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        sent = json.loads(route.calls.last.request.content)
+        assert sent["last_frame"]["base64"] == images.encode(png_bytes(24, 24)).base64
+
+    @respx.mock
+    def test_the_description_is_written_where_the_run_landed(self, tmp_path, monkeypatch):
+        mock_enhancer()
+        mock_pose()
+
+        invoke(
+            ["character", "enrich", "-a", "walking", "--pose", "pose-1"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        written = next((tmp_path / "out").glob("*/*.txt"))
+        assert "rhythmic stride" in written.read_text(encoding="utf-8")
+
+    def test_the_enhancer_cost_is_announced_before_anything_is_sent(self, tmp_path, monkeypatch):
+        pose = tmp_path / "mid-walk.png"
+        pose.write_bytes(png_bytes())
+
+        result = invoke(
+            ["--dry-run", "character", "enrich", "-a", "walking", "--pose", str(pose)],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 0
+        assert "enhancer" in result.output
+        assert "0.05" in result.output
+
+    def test_no_pose_is_refused_before_anything_is_sent(self, tmp_path, monkeypatch):
+        result = invoke(["character", "enrich", "-a", "walking"], tmp_path, monkeypatch)
+
+        assert result.exit_code != 0
+        assert "--pose" in result.output
+
+
+POSE_UUID = "9f1c2d3e-4b5a-6c7d-8e9f-0a1b2c3d4e5f"
+
+
+class TestWhichPoseWasRead:
+    @respx.mock
+    def test_an_identifier_is_looked_up_even_when_a_file_sits_under_that_name(
+        self, tmp_path, monkeypatch
+    ):
+        route = mock_posed_animation()
+        mock_pose(character_id=POSE_UUID)
+        planted = tmp_path / POSE_UUID
+        planted.write_bytes(b"not an image, and not the pose either")
+        monkeypatch.chdir(tmp_path)
+
+        result = invoke(
+            ["character", "animate", "char-9", "-a", "walking", "--start-pose", POSE_UUID],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 0
+        sent = json.loads(route.calls.last.request.content)
+        assert sent["custom_start_frame"]["base64"] == images.encode(png_bytes()).base64
+
+    @respx.mock
+    def test_the_branch_that_was_taken_is_said_before_the_call(self, tmp_path, monkeypatch):
+        mock_posed_animation()
+        mock_pose()
+
+        result = invoke(
+            ["character", "animate", "char-9", "-a", "walking", "--start-pose", "pose-1"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert "rotation of character pose-1" in result.output
+
+    @respx.mock
+    def test_a_pose_file_says_it_was_read_from_disk(self, tmp_path, monkeypatch):
+        mock_posed_animation()
+        pose = tmp_path / "mid-walk.png"
+        pose.write_bytes(png_bytes())
+
+        result = invoke(
+            ["character", "animate", "char-9", "-a", "walking", "--start-pose", str(pose)],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert "from the file" in result.output
+
+    @respx.mock
+    def test_a_pose_that_is_neither_a_file_nor_an_identifier_is_refused(
+        self, tmp_path, monkeypatch
+    ):
+        mock_posed_animation()
+
+        result = invoke(
+            [
+                "character",
+                "animate",
+                "char-9",
+                "-a",
+                "walking",
+                "--start-pose",
+                "../../etc/passwd",
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code != 0
+        assert "neither a file that exists nor an identifier" in result.output
+
+    def test_an_end_pose_without_a_start_pose_is_refused(self, tmp_path, monkeypatch):
+        end = tmp_path / "end.png"
+        end.write_bytes(png_bytes())
+
+        result = invoke(
+            ["character", "animate", "char-9", "-a", "walking", "--end-pose", str(end)],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code != 0
+        assert "--start-pose" in result.output
