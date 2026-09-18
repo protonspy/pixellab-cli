@@ -132,6 +132,44 @@ def scale(
         output.handle(failure)
 
 
+@app.command("flip")
+def flip(
+    context: typer.Context,
+    files: list[Path] = typer.Argument(..., help="The images to mirror. A whole animation."),
+    vertical: bool = typer.Option(False, "--vertical", help="Top to bottom instead."),
+    into: Path = typer.Option(None, "--into", help="Where to write them. Default: beside."),
+) -> None:
+    """Mirror images, naming each result after the direction it now faces.
+
+    The reason this exists: PixelLab charges per direction, so a walk animated for
+    south-east, east and north-east mirrors into the three west-facing directions for
+    nothing, leaving only south and north to pay for. Wrong for a subject whose left
+    and right differ — a sword on one hip, a shoulder pad on one side.
+    """
+    try:
+        if not vertical:
+            output.stderr(
+                "a mirrored frame is the wrong character where its left and right "
+                "differ: a weapon, a shoulder pad or a scar on one side only."
+            )
+        directory = into or None
+        written = []
+        for file in files:
+            image = pixels.load(file)
+            result = pixels.flip(image, vertical=vertical)
+            mirrored = None if vertical else pixels.mirrored_name(file.stem)
+            name = f"{mirrored}{file.suffix}" if mirrored else f"{file.stem}-flipped{file.suffix}"
+            target = (directory or file.parent) / name
+            written.append(pixels.write(result, target))
+        output.emit(
+            {"files": [str(path) for path in written]},
+            [f"{len(written)} mirrored", *(f"  {path}" for path in written)],
+            as_json=False,
+        )
+    except PixellabCliError as failure:
+        output.handle(failure)
+
+
 @app.command("sheet")
 def sheet(
     context: typer.Context,

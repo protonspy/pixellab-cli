@@ -38,3 +38,27 @@ one anybody wants — but the first is still needed, because the provider routes
 their inputs at sizes a factor rarely lands on exactly. Collapsing them into one
 command with a flag hides which of the two happened, and the difference is visible
 only after the art comes back wrong.
+
+## Mirroring is a rename as much as a transform
+
+PixelLab charges per direction, and an eight-direction animation is eight paid jobs for
+a subject whose left and right are the same. The video walkthrough of the states flow
+names the shortcut: generate south-east, east and north-east, mirror those three for
+the west-facing half, and only south and north remain. That is three paid animations
+saved per set, done locally and for nothing.
+
+`ImageOps.mirror` is the whole transform, and it is not the part worth designing. The
+part worth designing is the name: a frame written as `walk-east-03.png` and mirrored
+into `walk-east-03-flipped.png` is a file that faces west and says east, which is a
+wrong sprite in an atlas rather than a missing one. So a flip left to right rewrites
+the direction token in the name — `east` to `west`, `south-east` to `south-west`,
+`north-east` to `north-west` — and falls back to a `-flipped` suffix when there is no
+direction to rewrite. `north` and `south` mirror to themselves, so they take the suffix rather than a
+direction they did not change — a name that changed nothing would collide with the
+frame it came from.
+
+The trap is the subject, not the code: a sword on one hip, a shoulder pad on one side,
+a scar on one cheek all mirror into the wrong character, and the result looks right
+until two directions are seen side by side. The command says so on every left-to-right
+flip (R2.12) rather than in help alone, because the person reaching for it is copying a
+workflow rather than reading a manual.

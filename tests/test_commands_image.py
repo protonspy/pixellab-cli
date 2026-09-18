@@ -627,3 +627,92 @@ class TestAPhotoIsReadTheWayItIsSeen:
 
         assert result.exit_code == 0
         assert "50x100" in result.output
+
+
+class TestFlip:
+    def test_the_image_is_mirrored_left_to_right(self, tmp_path):
+        source = write_image(tmp_path / "sprite.png", box=(0, 0, 16, 64))
+
+        result = invoke(["image", "flip", str(source)])
+
+        assert result.exit_code == 0
+        mirrored = opened(tmp_path / "sprite-flipped.png")
+        assert mirrored.getpixel((63, 32))[3] == 255
+        assert mirrored.getpixel((0, 32))[3] == 0
+
+    def test_vertical_mirrors_top_to_bottom_instead(self, tmp_path):
+        source = write_image(tmp_path / "sprite.png", box=(0, 0, 64, 16))
+
+        invoke(["image", "flip", str(source), "--vertical"])
+
+        mirrored = opened(tmp_path / "sprite-flipped.png")
+        assert mirrored.getpixel((32, 63))[3] == 255
+        assert mirrored.getpixel((32, 0))[3] == 0
+
+    @pytest.mark.parametrize(
+        ("stem", "expected"),
+        [
+            ("walk-east-03", "walk-west-03.png"),
+            ("walk-south-east-03", "walk-south-west-03.png"),
+            ("walk-north-west", "walk-north-east.png"),
+            ("knight-west", "knight-east.png"),
+        ],
+    )
+    def test_the_result_is_named_after_the_direction_it_now_faces(self, tmp_path, stem, expected):
+        source = write_image(tmp_path / f"{stem}.png")
+
+        invoke(["image", "flip", str(source)])
+
+        assert (tmp_path / expected).exists()
+
+    def test_a_direction_that_mirrors_to_itself_keeps_the_suffix(self, tmp_path):
+        source = write_image(tmp_path / "walk-south-01.png")
+
+        invoke(["image", "flip", str(source)])
+
+        assert (tmp_path / "walk-south-01-flipped.png").exists()
+
+    def test_a_whole_animation_is_mirrored_in_one_call(self, tmp_path):
+        frames = [write_image(tmp_path / f"walk-east-{index:02d}.png") for index in range(3)]
+
+        result = invoke(["image", "flip", *[str(frame) for frame in frames]])
+
+        assert result.exit_code == 0
+        assert sorted(path.name for path in tmp_path.glob("walk-west-*.png")) == [
+            "walk-west-00.png",
+            "walk-west-01.png",
+            "walk-west-02.png",
+        ]
+
+    def test_the_frames_can_go_somewhere_else(self, tmp_path):
+        source = write_image(tmp_path / "walk-east-00.png")
+        into = tmp_path / "west"
+        into.mkdir()
+
+        invoke(["image", "flip", str(source), "--into", str(into)])
+
+        assert (into / "walk-west-00.png").exists()
+
+    def test_the_asymmetry_trap_is_named_on_a_horizontal_flip(self, tmp_path):
+        source = write_image(tmp_path / "sprite.png")
+
+        result = invoke(["image", "flip", str(source)])
+
+        assert "left and right differ" in result.output
+
+    def test_nothing_is_overwritten(self, tmp_path):
+        source = write_image(tmp_path / "walk-east-00.png")
+        write_image(tmp_path / "walk-west-00.png")
+
+        invoke(["image", "flip", str(source)])
+
+        assert (tmp_path / "walk-west-00-2.png").exists()
+
+    def test_a_file_it_cannot_read_is_named(self, tmp_path):
+        broken = tmp_path / "broken.png"
+        broken.write_bytes(b"not an image")
+
+        result = invoke(["image", "flip", str(broken)])
+
+        assert result.exit_code != 0
+        assert "broken.png" in result.output

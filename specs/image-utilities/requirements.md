@@ -36,6 +36,9 @@ and reading an alpha histogram to settle whether a background was transparent.
 - **R2.7** When asked for an animated GIF, the image utilities shall write the frames given in order, at the frame duration asked for, looping.
 - **R2.8** When asked to split a spritesheet, the image utilities shall write one file per cell, named after the cell its layout file gives it where one is given, and after its grid position otherwise.
 - **R2.9** When asked to inspect, the image utilities shall report the size, the mode, and how the alpha channel is distributed between fully transparent, partial and fully opaque.
+- **R2.10** (ADDED) When asked to flip, the image utilities shall mirror each image given left to right, or top to bottom where that is asked for.
+- **R2.11** (ADDED) Where the name of an image being flipped left to right carries a direction, the image utilities shall name the result after the mirrored direction.
+- **R2.12** (ADDED) When asked to flip left to right, the image utilities shall report that the result is wrong for a subject whose left and right differ.
 
 ## 3 · Alpha, because it is what the paid routes read
 
