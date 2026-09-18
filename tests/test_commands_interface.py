@@ -77,8 +77,19 @@ class TestUiPanel:
 
         assert "generations" in result.output
 
-    def test_a_size_outside_the_route_is_refused(self, tmp_path, monkeypatch):
-        result = invoke(["ui", "a panel", "--size", "64"], tmp_path, monkeypatch)
+    def test_a_size_below_the_panel_floor_is_no_longer_refused(self, tmp_path, monkeypatch):
+        # It used to be: create-ui-asset starts at 192 and nothing else made UI, so a
+        # 64-pixel element could not be generated at all. It now reaches generate-ui-v2,
+        # which is the point of adding that route.
+        result = invoke(
+            ["--dry-run", "--json", "ui", "a button", "--size", "64"], tmp_path, monkeypatch
+        )
+
+        assert result.exit_code == 0
+        assert json.loads(result.stdout)["route"] == "generate-ui-v2"
+
+    def test_a_size_outside_both_routes_is_still_refused(self, tmp_path, monkeypatch):
+        result = invoke(["ui", "a panel", "--size", "900"], tmp_path, monkeypatch)
 
         assert result.exit_code == 2
 
@@ -289,3 +300,147 @@ class TestAnExplicitPanelShape:
 
     def test_nothing_is_sent_unasked(self, tmp_path, monkeypatch):
         assert "pieces" not in self._sent(tmp_path, monkeypatch)
+
+
+class TestOneElementRatherThanAPanel:
+    """The panel route floors at 192, so below it nothing could be made at all.
+
+    Both routes are Pro priced, so this is reach rather than saving: a 32-pixel
+    inventory slot or a 48-pixel icon button is outside `create-ui-asset` entirely.
+    """
+
+    def _concept(self, tmp_path, name="concept.png"):
+        path = tmp_path / name
+        path.write_bytes(png_bytes(64, 64))
+        return str(path)
+
+    def _route(self, tmp_path, monkeypatch, *extra):
+        result = invoke(
+            ["--dry-run", "--json", "ui", "a medieval stone button", *extra],
+            tmp_path,
+            monkeypatch,
+        )
+        return json.loads(result.stdout)["route"]
+
+    def test_a_panel_is_still_the_default(self, tmp_path, monkeypatch):
+        assert self._route(tmp_path, monkeypatch) == "create-ui-asset"
+
+    def test_a_named_element_still_builds_a_panel(self, tmp_path, monkeypatch):
+        assert self._route(tmp_path, monkeypatch, "--element", "button") == "create-ui-asset"
+
+    def test_a_size_below_the_panel_floor_makes_one_element(self, tmp_path, monkeypatch):
+        assert self._route(tmp_path, monkeypatch, "--size", "48") == "generate-ui-v2"
+
+    def test_the_panel_floor_itself_is_still_a_panel(self, tmp_path, monkeypatch):
+        assert self._route(tmp_path, monkeypatch, "--size", "192") == "create-ui-asset"
+
+    def test_a_concept_image_makes_one_element(self, tmp_path, monkeypatch):
+        concept = self._concept(tmp_path)
+
+        assert self._route(tmp_path, monkeypatch, "--concept", concept) == "generate-ui-v2"
+
+    def test_a_layout_below_the_floor_is_refused(self, tmp_path, monkeypatch):
+        result = invoke(
+            ["--dry-run", "ui", "a panel", "--size", "48", "--element", "button"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code != 0
+        assert "192" in result.stderr
+
+    def test_the_route_can_be_named_explicitly(self, tmp_path, monkeypatch):
+        assert self._route(tmp_path, monkeypatch, "--route", "generate-ui-v2") == "generate-ui-v2"
+
+    def test_naming_the_element_route_with_a_layout_is_refused(self, tmp_path, monkeypatch):
+        # Dropping --element silently is how a surprising image gets billed.
+        result = invoke(
+            ["--dry-run", "ui", "a button", "--route", "generate-ui-v2", "--element", "button"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code != 0
+        assert "nowhere to put --element" in result.stderr
+
+    def test_an_unknown_route_is_refused_by_name(self, tmp_path, monkeypatch):
+        result = invoke(
+            ["--dry-run", "ui", "a button", "--route", "nonsense"], tmp_path, monkeypatch
+        )
+
+        assert result.exit_code != 0
+        assert "is not a UI route" in result.stderr
+
+    def test_a_concept_with_a_layout_is_refused(self, tmp_path, monkeypatch):
+        # Each route has a slot the other lacks; dropping either half silently is how a
+        # caller pays for an image that ignored something they wrote.
+        result = invoke(
+            [
+                "--dry-run",
+                "ui",
+                "a panel",
+                "--concept",
+                self._concept(tmp_path),
+                "--element",
+                "button",
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code != 0
+        assert "different routes" in result.stderr
+
+    def test_a_style_image_on_the_element_route_is_refused(self, tmp_path, monkeypatch):
+        result = invoke(
+            ["--dry-run", "ui", "a button", "--size", "48", "--style", self._concept(tmp_path)],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code != 0
+        assert "no --style slot" in result.stderr
+
+    def test_the_concept_image_is_sent_with_its_size(self, tmp_path, monkeypatch):
+        result = invoke(
+            ["--dry-run", "--json", "ui", "a button", "--concept", self._concept(tmp_path)],
+            tmp_path,
+            monkeypatch,
+        )
+        sent = json.loads(result.stdout)["arguments"]["concept_image"]
+
+        assert sent["size"] == {"width": 64, "height": 64}
+        assert "image" in sent
+
+    def test_a_wide_element_the_schema_allows_is_accepted(self, tmp_path, monkeypatch):
+        # The element route reaches 792 wide but only 688 tall. A single max_side of 688
+        # would have refused this locally on a size the route accepts.
+        result = invoke(
+            [
+                "--dry-run",
+                "--json",
+                "ui",
+                "a wide banner",
+                "--route",
+                "generate-ui-v2",
+                "--size",
+                "750x300",
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 0
+        assert json.loads(result.stdout)["arguments"]["image_size"] == {
+            "width": 750,
+            "height": 300,
+        }
+
+    def test_taller_than_the_element_route_allows_is_refused(self, tmp_path, monkeypatch):
+        result = invoke(
+            ["--dry-run", "ui", "a tall banner", "--route", "generate-ui-v2", "--size", "300x750"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code != 0

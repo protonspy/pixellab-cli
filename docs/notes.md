@@ -71,4 +71,4 @@ over this file answers with the example above as well as with the notes. -->
 <!-- n-0031 removed -->
 <!-- n-0032 removed -->
 <!-- n-0033 removed -->
-- n-0034 2026-09-18 #gotcha @src/pixellab_cli/catalog.py — generate-ui-v2 is still absent from the catalog: one UI element per call, with a concept image, unreachable
+<!-- n-0034 removed -->

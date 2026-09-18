@@ -10,7 +10,8 @@ Read `pixellab-cli-assets` first for the spending rule and the credentials.
 ## A panel
 
 ```
-pixellab-cli ui <description> --size --element --piece --palette --style --name --seed
+pixellab-cli ui <description> --size --element --piece --concept --route
+                              --palette --style --name --seed
 ```
 
 **Pro pricing**, twenty to forty generations. `--size` is 192 to 688 per axis, and the
@@ -44,6 +45,36 @@ pixellab-cli ui "wooden RPG panel with gold trim" \
 adjective in the description.
 
 With neither `--element` nor `--piece` the result is one full-canvas rounded panel.
+
+## A panel, or one element
+
+`ui` makes a **panel** by default, and moves to the single-element route
+(`generate-ui-v2`) on either of the two signals that mean a panel was never possible or
+never intended:
+
+| Given | What you get |
+|---|---|
+| `--element` or `--piece` | a panel — a layout was asked for |
+| `--size` below 192 | **one element** — the panel route starts at 192 and cannot go lower |
+| `--concept <image>` | **one element** — the panel route has no concept slot |
+| nothing in particular | a panel, unchanged |
+
+Both are Pro priced, so this is not a saving. It is **reach**: a 32-pixel inventory slot,
+a 48-pixel icon button, a 64-pixel HUD frame were previously impossible at any price,
+because nothing else on this surface made UI.
+
+```bash
+pixellab-cli ui "a rusted iron inventory slot" --size 48
+pixellab-cli ui "a health bar in this style" --concept mockup.png
+```
+
+`--concept` steers *what the thing is*; `--style` steers *what it looks like*, and it
+belongs to the panel route alone.
+
+Three combinations are refused rather than resolved, because each names both routes and
+either answer would drop half the request in silence: a layout below 192, `--concept`
+with `--element` or `--piece`, and `--style` on a request that a small size or a concept
+has already sent to the element route.
 
 ## What comes back is one image
 

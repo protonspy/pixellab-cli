@@ -19,6 +19,8 @@ a feature of its own.
 
 - **R1.1** When asked for a UI panel, the interface commands shall generate one from a style description, and shall accept named elements to scaffold it from.
 - **R1.2** The interface commands shall say that a panel is priced as a Pro Tools route before calling it.
+- **R1.3** (ADDED) Where a concept image is given, or a size smaller than the panel route accepts, the interface commands shall generate one interface element rather than a panel, and shall say that it is priced as a Pro Tools route.
+- **R1.4** (ADDED) The interface commands shall accept a concept image to steer the design of one element.
 
 ## R2 · Fonts
 

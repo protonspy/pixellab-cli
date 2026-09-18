@@ -25,6 +25,12 @@ from pixellab_cli.routing import parse_size
 from pixellab_cli.run import from_pixellab
 from pixellab_cli.validate import build_request
 
+PANEL_ROUTE = "create-ui-asset"
+ELEMENT_ROUTE = "generate-ui-v2"
+# The panel route's own floor. Below it a layout cannot be generated at all, which is
+# the whole reason the single-element route is reachable rather than a preference.
+PANEL_MIN_SIDE = 192
+
 PORTRAIT_SIZES = (16, 32, 48, 64, 128, 160)
 GLYPH_SIZES = (8, 16, 32, 64)
 
@@ -98,9 +104,17 @@ def _execute(
 def ui(
     context: typer.Context,
     description: str = typer.Argument(..., help="'wooden RPG panel with gold trim'."),
-    size: str = typer.Option(None, "--size", help="192 to 688 per axis."),
+    size: str = typer.Option(
+        None, "--size", help="192 up for a panel; below that makes one element, from 16."
+    ),
     element: list[str] = typer.Option(
         None, "--element", help="Repeatable: button, icon_button, toolbar, tab, panel…"
+    ),
+    concept: Path = typer.Option(
+        None, "--concept", help="An image of what the element is. One element, not a panel."
+    ),
+    route_name: str = typer.Option(
+        None, "--route", help=f"Force {PANEL_ROUTE} or {ELEMENT_ROUTE} instead of choosing."
     ),
     piece: list[str] = typer.Option(
         None,
@@ -118,22 +132,56 @@ def ui(
 ) -> None:
     """Generate a pixel-art UI panel. Pro pricing."""
     try:
-        _ui(context, description, size, element, piece, palette, style, name, seed)
+        _ui(
+            context,
+            description,
+            size,
+            element,
+            piece,
+            concept,
+            route_name,
+            palette,
+            style,
+            name,
+            seed,
+        )
     except PixellabCliError as failure:
         output.handle(failure)
 
 
-def _ui(context, description, size, element, piece, palette, style, name, seed) -> None:
+def _ui(
+    context, description, size, element, piece, concept, route_name, palette, style, name, seed
+) -> None:
     app_context: AppContext = context.obj
+    image_size = parse_size(size) if size else None
+    route_name = _choose_ui_route(image_size, element, piece, concept, style, route_name)
+
+    if route_name == ELEMENT_ROUTE:
+        _execute(
+            app_context,
+            kind="interface",
+            route_name=ELEMENT_ROUTE,
+            description=description,
+            name=name or "ui-element",
+            arguments={
+                "description": description,
+                "image_size": image_size,
+                "concept_image": _sized(concept) if concept else None,
+                "color_palette": palette,
+                "seed": seed,
+            },
+        )
+        return
+
     _execute(
         app_context,
         kind="interface",
-        route_name="create-ui-asset",
+        route_name=PANEL_ROUTE,
         description=description,
         name=name or "ui-panel",
         arguments={
             "description": description,
-            "image_size": parse_size(size) if size else None,
+            "image_size": image_size,
             "elements": list(element) if element else None,
             # Parsed here rather than passed through: the wire wants objects, and a
             # list of JSON text is the one shape that looks right on the command line
@@ -306,3 +354,84 @@ def _pieces(values: list[str] | None) -> list[Any] | None:
                 context={"piece": value},
             ) from None
     return parsed
+
+
+def _choose_ui_route(
+    image_size: dict[str, int] | None,
+    element: list[str] | None,
+    piece: list[str] | None,
+    concept: Path | None,
+    style: Path | None,
+    named: str | None,
+) -> str:
+    """A panel unless a panel was never possible or never intended (R1.3).
+
+    The default is unchanged, because a panel is what `ui` has always made. The two
+    signals that move it are the ones a panel route cannot answer: a size beneath its
+    floor, and a concept image it has no slot for.
+    """
+    layout = bool(element or piece)
+    if named is not None:
+        if named not in (PANEL_ROUTE, ELEMENT_ROUTE):
+            raise ValidationError(
+                f"{named!r} is not a UI route. They are: {PANEL_ROUTE}, {ELEMENT_ROUTE}.",
+                context={"route": named},
+            )
+        # Naming the element route with a layout would drop the layout, and silently
+        # dropping an argument the caller wrote is how a surprising image gets billed.
+        if named == ELEMENT_ROUTE and layout:
+            raise ValidationError(
+                f"{ELEMENT_ROUTE} makes one element and has nowhere to put --element or "
+                f"--piece, which describe a layout. Drop them, or name {PANEL_ROUTE}.",
+                context={"route": named},
+            )
+        return named
+
+    below_floor = image_size is not None and min(image_size.values()) < PANEL_MIN_SIDE
+
+    # The one combination naming two routes at once: a layout at a size no layout route
+    # accepts. Refused rather than resolved, because either answer drops half the ask.
+    if layout and below_floor:
+        raise ValidationError(
+            f"{PANEL_ROUTE} builds the layout that --element and --piece describe and "
+            f"starts at {PANEL_MIN_SIDE} per side, so a smaller size cannot hold one. "
+            f"Drop the layout for a single element, or ask for {PANEL_MIN_SIDE} or more.",
+            context={"route": PANEL_ROUTE, "minimum": PANEL_MIN_SIDE},
+        )
+    # Each route has a slot the other lacks, so a request naming both is refused rather
+    # than resolved. Dropping whichever half loses is how a caller pays for an image
+    # that ignored something they wrote.
+    if layout and concept is not None:
+        raise ValidationError(
+            f"--concept steers one element and --element/--piece describe a layout, "
+            f"which are different routes: {ELEMENT_ROUTE} has no layout and "
+            f"{PANEL_ROUTE} has no concept slot. Ask for one or the other.",
+            context={"routes": [ELEMENT_ROUTE, PANEL_ROUTE]},
+        )
+    if layout:
+        return PANEL_ROUTE
+    if below_floor or concept is not None:
+        if style is not None:
+            raise ValidationError(
+                f"{ELEMENT_ROUTE} makes one element and has no --style slot, and a "
+                f"size under {PANEL_MIN_SIDE} or a --concept is what reaches it. Use "
+                f"--concept instead, or ask for {PANEL_MIN_SIDE} or more.",
+                context={"route": ELEMENT_ROUTE},
+            )
+        return ELEMENT_ROUTE
+    return PANEL_ROUTE
+
+
+def _sized(path: Path) -> dict[str, Any]:
+    """An image in the shape this route takes: `{image, size}`, both required."""
+    encoded = _load(path)
+    if encoded.width is None or encoded.height is None:
+        raise ValidationError(
+            f"{path} is not a PNG or JPEG this tool can read the size of, and the "
+            f"concept image is sent with its size.",
+            context={"path": str(path)},
+        )
+    return {
+        "image": encoded.as_payload(),
+        "size": {"width": encoded.width, "height": encoded.height},
+    }
