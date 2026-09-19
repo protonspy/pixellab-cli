@@ -996,6 +996,38 @@ RESIZE = Route(
 
 # ------------------------------------------------------------- interface and people
 
+GENERATE_UI_V2 = Route(
+    name="generate-ui-v2",
+    method="POST",
+    path="/generate-ui-v2",
+    kind=RouteKind.BACKGROUND_JOB,
+    summary="One pixel-art UI element: a button, a health bar, an inventory slot. "
+    "Pro pricing, and the only UI route that reaches below 192.",
+    estimated_generations=30.0,
+    result_id_field="background_job_id",
+    poll_path=BACKGROUND_JOBS_PATH,
+    params=(
+        Param(
+            "description",
+            ParamKind.STRING,
+            required=True,
+            help="'medieval stone button', 'sci-fi health bar'.",
+        ),
+        # The axes differ here as they do on generate-image-v2: 792 wide, 688 tall.
+        Param(
+            "image_size",
+            ParamKind.SIZE,
+            size=SizeLimit(min_side=16, max_width=792, max_height=688),
+        ),
+        # `{image, size}`, not a bare image — the schema marks it additionalProperties
+        # false and requires both, so `_image` would build a body the route rejects.
+        Param("concept_image", ParamKind.OBJECT, help="An image of what the element is."),
+        Param("color_palette", ParamKind.STRING, help="'brown and gold'."),
+        Param("no_background", ParamKind.BOOLEAN, default=True),
+        SEED,
+    ),
+)
+
 CREATE_UI_ASSET = Route(
     name="create-ui-asset",
     method="POST",
@@ -1167,6 +1199,7 @@ ROUTES: tuple[Route, ...] = (
     REDUCE_COLORS,
     RESIZE,
     CREATE_UI_ASSET,
+    GENERATE_UI_V2,
     GENERATE_FONT_PRO,
     PORTRAIT_CHARACTER_PRO,
     GET_BALANCE,

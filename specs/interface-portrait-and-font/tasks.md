@@ -3,6 +3,10 @@
 ## 1 · Interface
 
 - [x] 1.1 (Unit) Generate a UI panel from a style description with optional named elements, announcing the Pro Tools price — R1.1, R1.2
+- [x] 1.2 (TDD) Choose between a panel and one element — R1.3
+  _Reason generate-ui-v2 was absent from the catalog; see n-0034_
+- [x] 1.3 (Unit) Take a concept image for one element — R1.4
+  _Reason generate-ui-v2 was absent from the catalog; see n-0034_
 
 ## 2 · Fonts
 
