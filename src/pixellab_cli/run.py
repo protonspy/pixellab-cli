@@ -158,6 +158,35 @@ class Runner:
                 secrets=self.secrets,
             )
             raise
+        except Exception as failure:
+            # Anything this tool did not raise on purpose: a client raising its own
+            # type, a bug in `translate`. R3.3 applies to it exactly as it does to a
+            # refusal — the type a failure was raised as is not the provider's
+            # business, and a call with no outcome line is a charge nobody can account
+            # for.
+            #
+            # The estimate is recorded because this cannot tell whether the request
+            # reached the provider. Some of what lands here never did — `call()` can
+            # raise before it builds a request at all — and for those the estimate is
+            # a charge that did not happen. Billing the estimate is the safer of two
+            # wrong answers: over-reporting spend is visible against the reported cost
+            # in `pixellab-cli ledger`, where under-reporting it is not. See the
+            # `#ceiling` note on this file.
+            #
+            # Re-raised rather than absorbed. A bug here has to stay loud; what this
+            # adds is the line saying money may have moved, not a recovery.
+            #
+            # `BaseException` is deliberately not caught. An interrupt leaves the
+            # intent line already written, which is what `ledger` reports as charged
+            # and never collected — the state that case actually is.
+            self.ledger.outcome(
+                run_id,
+                "failed",
+                cost=estimate,
+                error=str(failure),
+                secrets=self.secrets,
+            )
+            raise
 
         files = self._write_images(directory, produced, name or _base(description), roles, suffix)
         manifest = self._write_manifest(

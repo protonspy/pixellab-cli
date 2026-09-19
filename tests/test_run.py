@@ -626,3 +626,123 @@ class TestATimeoutIsNotAFailure:
             run(runner, call=refuse)
 
         assert ledger_lines(runner)[-1]["status"] == "failed"
+
+
+class TestAFailureIsRecordedWhateverItWas:
+    """R3.3 — a failed generation is charged, and the type it was raised as is not the
+    provider's business.
+
+    `PixellabCliError` is what this tool raises on purpose. A bug in `translate`, or a
+    provider client raising its own type, is still a call that left the process and may
+    still have been billed — so it has to leave an outcome line, not just an intent.
+    """
+
+    def _runner(self, tmp_path, secrets=()):
+        workspace = Workspace(root=tmp_path / "out", clock=lambda: MOMENT)
+        return Runner(
+            workspace=workspace,
+            ledger=Ledger(path=workspace.ledger_path, clock=lambda: MOMENT),
+            secrets=secrets,
+        )
+
+    def _entries(self, tmp_path):
+        path = tmp_path / "out" / "ledger.jsonl"
+        return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+
+    def _run(self, tmp_path, failure):
+        def call():
+            raise failure
+
+        with pytest.raises(type(failure)):
+            self._runner(tmp_path).run(
+                description="a knight",
+                provider="pixellab",
+                route="create-image-pixflux",
+                arguments={"description": "a knight"},
+                call=call,
+                translate=lambda result: result,
+                estimate=Cost(generations=1.0),
+            )
+
+    def test_an_unexpected_type_still_leaves_an_outcome(self, tmp_path):
+        self._run(tmp_path, RuntimeError("the client blew up"))
+        statuses = [entry.get("status") for entry in self._entries(tmp_path)]
+
+        assert "failed" in statuses
+
+    def test_the_intent_and_the_outcome_pair_up(self, tmp_path):
+        self._run(tmp_path, RuntimeError("the client blew up"))
+        entries = self._entries(tmp_path)
+
+        assert len({entry["run"] for entry in entries}) == 1
+        assert len(entries) == 2
+
+    def test_the_error_is_kept(self, tmp_path):
+        self._run(tmp_path, RuntimeError("the client blew up"))
+        outcome = self._entries(tmp_path)[-1]
+
+        assert "blew up" in outcome["error"]
+
+    def test_a_credential_in_an_unexpected_failure_is_redacted(self, tmp_path):
+        runner = self._runner(tmp_path, secrets=("pl-secret-value",))
+
+        def call():
+            raise RuntimeError("401 for pl-secret-value")
+
+        with pytest.raises(RuntimeError):
+            runner.run(
+                description="a knight",
+                provider="pixellab",
+                route="create-image-pixflux",
+                arguments={"description": "a knight"},
+                call=call,
+                translate=lambda result: result,
+            )
+
+        outcome = self._entries(tmp_path)[-1]
+        assert "pl-secret-value" not in outcome["error"]
+
+    def test_the_estimate_is_what_is_recorded(self, tmp_path):
+        # The value this fix is about. R3.3's premise is that a failed generation is
+        # charged, so the cost is the part that has to be right, not only the status.
+        self._run(tmp_path, RuntimeError("the client blew up"))
+        outcome = self._entries(tmp_path)[-1]
+
+        assert outcome["cost"] == Cost(generations=1.0).as_json()
+
+    def test_the_very_exception_reaches_the_caller(self, tmp_path):
+        # Recorded, not swallowed, and not wrapped: `raise` re-raises the same object,
+        # so a caller matching on it still can.
+        failure = RuntimeError("the client blew up")
+
+        def call():
+            raise failure
+
+        with pytest.raises(RuntimeError) as raised:
+            self._runner(tmp_path).run(
+                description="a knight",
+                provider="pixellab",
+                route="create-image-pixflux",
+                arguments={"description": "a knight"},
+                call=call,
+                translate=lambda result: result,
+            )
+
+        assert raised.value is failure
+
+    def test_a_failure_with_no_estimate_records_no_cost(self, tmp_path):
+        # Nothing is invented: an estimate nobody gave is not one to record.
+        def call():
+            raise RuntimeError("the client blew up")
+
+        with pytest.raises(RuntimeError):
+            self._runner(tmp_path).run(
+                description="a knight",
+                provider="pixellab",
+                route="create-image-pixflux",
+                arguments={"description": "a knight"},
+                call=call,
+                translate=lambda result: result,
+            )
+
+        assert "cost" not in self._entries(tmp_path)[-1]
