@@ -70,14 +70,20 @@ def run(
 def _run(context, name, description, actions, max_generations) -> None:
     app_context: AppContext = context.obj
     try:
-        recipe = recipes.build(name, description, actions)
+        recipe = recipes.build(
+            name, description, actions, fal_available=bool(app_context.credentials.fal_key)
+        )
     except KeyError as failure:
         raise ValidationError(str(failure).strip("\"'")) from None
 
     estimate = recipe.estimate()
+    # Only say "plus one fal image" when there is one. Without a fal credential the
+    # recipe has no fal step at all, and a line naming a charge that will not happen is
+    # the wrong kind of wrong on the one message that exists to set expectations.
+    on_fal = any(step.provider == "fal" for step in recipe.steps)
     output.stderr(
-        f"{recipe.name}: {len(recipe.steps)} steps, about {estimate:g} generations "
-        f"plus one fal image."
+        f"{recipe.name}: {len(recipe.steps)} steps, about {estimate:g} generations"
+        + (" plus one fal image." if on_fal else ", all on PixelLab.")
     )
 
     # Before the first call, not between steps. A budget checked midway is a budget
@@ -139,7 +145,12 @@ def _resume(context, manifest_path, actions) -> None:
     finished = {name: state for name, state in states.items() if state.state == DONE}
 
     description = manifest.get("description") or directory.name
-    recipe = recipes.build(manifest.get("recipe", "sprite"), description, actions)
+    recipe = recipes.build(
+        manifest.get("recipe", "sprite"),
+        description,
+        actions,
+        fal_available=bool(app_context.credentials.fal_key),
+    )
 
     for state in states.values():
         for path in state.files:

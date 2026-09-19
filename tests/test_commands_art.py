@@ -5,6 +5,7 @@ exercise the command, the validation and the recording without a request leaving
 the process.
 """
 
+import base64
 import json
 import struct
 
@@ -14,7 +15,7 @@ from typer.testing import CliRunner
 
 from pixellab_cli import fal
 from pixellab_cli.cli import app
-from pixellab_cli.config import FAL_KEY_VAR
+from pixellab_cli.config import FAL_KEY_VAR, PIXELLAB_BASE_URL
 
 runner = CliRunner()
 
@@ -137,12 +138,19 @@ class TestConcept:
 
         assert len(list((tmp_path / "out").glob("*/*.png"))) == 3
 
-    def test_a_missing_key_is_a_message_rather_than_a_traceback(self, tmp_path, monkeypatch, calls):
-        result = invoke(["art", "concept", "a castle"], tmp_path, monkeypatch, key=None)
+    def test_a_missing_key_falls_back_rather_than_stopping(self, tmp_path, monkeypatch, calls):
+        # It used to exit 1 naming FAL_KEY. Since adr:0010 the tool degrades instead, so
+        # what a missing key produces is an announcement and a PixelLab call. Here there
+        # is no PixelLab credential either, which is why it still ends in an error - and
+        # that error names the credential that is actually missing now.
+        monkeypatch.setenv("PIXELLAB_SECRET", "pl-test-token")
+        result = invoke(
+            ["--dry-run", "--json", "art", "concept", "a castle"], tmp_path, monkeypatch, key=None
+        )
 
-        assert result.exit_code == 1
-        assert "Traceback" not in result.output
-        assert FAL_KEY_VAR in result.output
+        assert result.exit_code == 0
+        assert FAL_KEY_VAR in result.stderr
+        assert json.loads(result.stdout)["provider"] == "pixellab"
 
 
 class TestBoxArt:
@@ -631,3 +639,241 @@ class TestTheQualityCeiling:
         result = invoke(["art", "concept", "a knight", "--quality", "max"], tmp_path, monkeypatch)
 
         assert "auto, low, medium, high" in result.output
+
+
+class TestWithoutFal:
+    """adr:0010 — a missing fal credential degrades the tool rather than stopping it.
+
+    The gap is not uniform, so neither is the fallback: an anchor exists only to become
+    pixel art, and PixelLab makes pixel art directly. A concept image has no PixelLab
+    equivalent at all, so that fallback changes what the caller gets and says so.
+    """
+
+    def _invoke(self, tmp_path, monkeypatch, *arguments, pixellab="pl-test-token"):
+        monkeypatch.delenv(FAL_KEY_VAR, raising=False)
+        if pixellab:
+            monkeypatch.setenv("PIXELLAB_SECRET", pixellab)
+        else:
+            monkeypatch.delenv("PIXELLAB_SECRET", raising=False)
+        return runner.invoke(
+            app, ["--workspace", str(tmp_path / "out"), "--dry-run", "--json", *arguments]
+        )
+
+    def test_an_anchor_generates_on_pixellab(self, tmp_path, monkeypatch):
+        result = self._invoke(tmp_path, monkeypatch, "art", "anchor", "a knight")
+
+        assert result.exit_code == 0
+        assert json.loads(result.stdout)["provider"] == "pixellab"
+
+    def test_the_anchor_does_not_pay_for_a_conversion(self, tmp_path, monkeypatch):
+        # The fal anchor existed only to be fed to image-to-pixelart-pro, twenty
+        # generations. Generating the sprite directly is the same destination.
+        result = self._invoke(tmp_path, monkeypatch, "art", "anchor", "a knight")
+
+        assert "image-to-pixelart-pro" not in result.stdout
+
+    def test_the_anchor_says_nothing_about_a_changed_kind(self, tmp_path, monkeypatch):
+        # Same artifact, arrived at more cheaply — there is nothing to warn about.
+        result = self._invoke(tmp_path, monkeypatch, "art", "anchor", "a knight")
+
+        assert "pixel art instead" not in result.stderr
+
+    def test_a_concept_warns_that_the_kind_changed(self, tmp_path, monkeypatch):
+        result = self._invoke(tmp_path, monkeypatch, "art", "concept", "a castle at dawn")
+
+        assert result.exit_code == 0
+        assert FAL_KEY_VAR in result.stderr
+        assert "pixel art instead" in result.stderr
+
+    def test_box_art_warns_too(self, tmp_path, monkeypatch):
+        result = self._invoke(tmp_path, monkeypatch, "art", "boxart", "a knight at dawn")
+
+        assert "pixel art instead" in result.stderr
+
+    def test_without_pixellab_either_there_is_nothing_to_fall_back_to(self, tmp_path, monkeypatch):
+        # A dry run needs no credential at all, so this has to be the real path.
+        monkeypatch.delenv(FAL_KEY_VAR, raising=False)
+        monkeypatch.delenv("PIXELLAB_SECRET", raising=False)
+
+        result = runner.invoke(
+            app, ["--workspace", str(tmp_path / "out"), "art", "concept", "a castle"]
+        )
+
+        assert result.exit_code != 0
+        assert "PIXELLAB_SECRET" in result.output
+        assert "Traceback" not in result.output
+
+
+class TestWhenFalFails:
+    """adr:0010 — a failure falls back too, and both calls are recorded.
+
+    fal reports no usage, so a failed call may already have been billed on an account
+    this tool cannot read. Recording the attempt beside the fallback is what makes that
+    visible; one line would either hide a charge or lie about which provider made the
+    file.
+    """
+
+    def _ledger(self, tmp_path):
+        path = tmp_path / "out" / "ledger.jsonl"
+        if not path.is_file():
+            return []
+        return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+
+    @respx.mock
+    def test_it_falls_back_to_pixellab(self, tmp_path, monkeypatch):
+        def failing(application, *, arguments):
+            raise RuntimeError("fal is having a bad day")
+
+        monkeypatch.setattr(fal, "_subscribing_with", lambda key: failing)
+        monkeypatch.setenv("PIXELLAB_SECRET", "pl-test-token")
+        respx.post(f"{PIXELLAB_BASE_URL}/create-image-pixflux").respond(
+            json={
+                "image": {
+                    "type": "base64",
+                    "base64": base64.b64encode(png_bytes()).decode(),
+                    "format": "png",
+                },
+                "usage": {"generations": 1.0, "usd": 0.008},
+            }
+        )
+
+        result = invoke(["art", "concept", "a castle"], tmp_path, monkeypatch)
+
+        assert result.exit_code == 0
+        assert list((tmp_path / "out").glob("*/*.png"))
+
+    @respx.mock
+    def test_both_the_attempt_and_the_fallback_are_recorded(self, tmp_path, monkeypatch):
+        def failing(application, *, arguments):
+            raise RuntimeError("fal is having a bad day")
+
+        monkeypatch.setattr(fal, "_subscribing_with", lambda key: failing)
+        monkeypatch.setenv("PIXELLAB_SECRET", "pl-test-token")
+        respx.post(f"{PIXELLAB_BASE_URL}/create-image-pixflux").respond(
+            json={
+                "image": {
+                    "type": "base64",
+                    "base64": base64.b64encode(png_bytes()).decode(),
+                    "format": "png",
+                },
+                "usage": {"generations": 1.0, "usd": 0.008},
+            }
+        )
+
+        invoke(["art", "concept", "a castle"], tmp_path, monkeypatch)
+        providers = [entry.get("provider") for entry in self._ledger(tmp_path)]
+
+        assert "fal" in providers
+        assert "pixellab" in providers
+
+    @respx.mock
+    def test_the_failure_is_named_rather_than_swallowed(self, tmp_path, monkeypatch):
+        def failing(application, *, arguments):
+            raise RuntimeError("fal is having a bad day")
+
+        monkeypatch.setattr(fal, "_subscribing_with", lambda key: failing)
+        monkeypatch.setenv("PIXELLAB_SECRET", "pl-test-token")
+        respx.post(f"{PIXELLAB_BASE_URL}/create-image-pixflux").respond(
+            json={
+                "image": {
+                    "type": "base64",
+                    "base64": base64.b64encode(png_bytes()).decode(),
+                    "format": "png",
+                },
+                "usage": {"generations": 1.0, "usd": 0.008},
+            }
+        )
+
+        result = invoke(["art", "concept", "a castle"], tmp_path, monkeypatch)
+
+        assert "bad day" in result.stderr
+
+    @respx.mock
+    def test_a_credential_in_the_failure_does_not_reach_stderr(self, tmp_path, monkeypatch):
+        # The announcement quotes the provider's own wording, so it inherits whatever
+        # that wording carries. The ledger substitutes secrets out; this must match.
+        def failing(application, *, arguments):
+            raise RuntimeError("401 for key fal-test-key")
+
+        monkeypatch.setattr(fal, "_subscribing_with", lambda key: failing)
+        monkeypatch.setenv("PIXELLAB_SECRET", "pl-test-token")
+        respx.post(f"{PIXELLAB_BASE_URL}/create-image-pixflux").respond(
+            json={
+                "image": {
+                    "type": "base64",
+                    "base64": base64.b64encode(png_bytes()).decode(),
+                    "format": "png",
+                },
+                "usage": {"generations": 1.0, "usd": 0.008},
+            }
+        )
+
+        result = invoke(["art", "concept", "a castle"], tmp_path, monkeypatch)
+
+        assert "fal-test-key" not in result.stderr
+        assert "<redacted>" in result.stderr
+
+
+class TestEditingWithoutFal:
+    """R6.1 covers `art edit` too, and its fallback carries a stronger warning.
+
+    `edit-image-pixen` preserves a pixel grid, which is right for a sprite and wrong for
+    a photograph — the result comes back pixel-shaped rather than edited.
+    """
+
+    def _image(self, tmp_path, name="concept.png"):
+        path = tmp_path / name
+        path.write_bytes(png_bytes())
+        return str(path)
+
+    def _invoke(self, tmp_path, monkeypatch, *arguments):
+        monkeypatch.delenv(FAL_KEY_VAR, raising=False)
+        monkeypatch.setenv("PIXELLAB_SECRET", "pl-test-token")
+        return runner.invoke(
+            app, ["--workspace", str(tmp_path / "out"), "--dry-run", "--json", *arguments]
+        )
+
+    def test_it_no_longer_refuses(self, tmp_path, monkeypatch):
+        result = self._invoke(
+            tmp_path, monkeypatch, "art", "edit", self._image(tmp_path), "-p", "make it night"
+        )
+
+        assert result.exit_code == 0
+        assert json.loads(result.stdout)["route"] == "edit-image-pixen"
+
+    def test_it_warns_that_the_grid_is_preserved(self, tmp_path, monkeypatch):
+        result = self._invoke(
+            tmp_path, monkeypatch, "art", "edit", self._image(tmp_path), "-p", "make it night"
+        )
+
+        assert "preserves a pixel grid" in result.stderr
+
+    def test_a_mask_reaches_the_masked_route(self, tmp_path, monkeypatch):
+        result = self._invoke(
+            tmp_path,
+            monkeypatch,
+            "art",
+            "edit",
+            self._image(tmp_path),
+            "-p",
+            "a helmet",
+            "--mask",
+            self._image(tmp_path, "mask.png"),
+        )
+
+        assert json.loads(result.stdout)["route"] == "inpaint-v3"
+
+    def test_several_files_are_refused_rather_than_half_edited(self, tmp_path, monkeypatch):
+        result = self._invoke(
+            tmp_path,
+            monkeypatch,
+            "art",
+            "edit",
+            self._image(tmp_path, "a.png"),
+            self._image(tmp_path, "b.png"),
+            "-p",
+            "make it night",
+        )
+
+        assert result.exit_code != 0
+        assert "one image at a time" in result.stderr

@@ -19,6 +19,7 @@ from pixellab_cli import fal, images
 from pixellab_cli.errors import ProviderError
 from pixellab_cli.prompts import anchor_prompt
 from pixellab_cli.recipe import Recipe, Step
+from pixellab_cli.routing import DEFAULT_SIZE
 
 CONCEPT_MODEL = "concept"
 
@@ -89,6 +90,29 @@ ROTATION_ORDER = (
 )
 
 
+def direct_sprite_steps(description: str, *, transparent: bool = True) -> tuple[Step, ...]:
+    """The sprite without fal: PixelLab draws it, and there is nothing to convert.
+
+    The fal concept in `sprite_steps` exists only to be fed to `image-to-pixelart-pro`,
+    a Pro Tools step at twenty generations. Reaching the same place directly costs about
+    one, so when fal is unavailable this is not a lesser recipe — see
+    `adr:0010-fal-is-optional-and-pixellab-is-the-fallback`.
+    """
+    return (
+        Step(
+            name="pixelart",
+            provider="pixellab",
+            route="create-image-pixflux",
+            arguments=lambda carried: {
+                "description": anchor_prompt(description),
+                "image_size": dict(DEFAULT_SIZE),
+                "no_background": True if transparent else None,
+            },
+            filename="pixelart",
+        ),
+    )
+
+
 def sprite_steps(description: str, *, transparent: bool = True) -> tuple[Step, ...]:
     """Concept on fal, convert to pixel art, remove the background."""
     return (
@@ -116,7 +140,15 @@ def sprite_steps(description: str, *, transparent: bool = True) -> tuple[Step, .
     )
 
 
-def sprite_recipe(description: str, *, transparent: bool = True) -> Recipe:
+def sprite_recipe(
+    description: str, *, transparent: bool = True, fal_available: bool = True
+) -> Recipe:
+    if not fal_available:
+        return Recipe(
+            name="sprite",
+            summary="Pixel art drawn directly on PixelLab, with no concept step.",
+            steps=direct_sprite_steps(description, transparent=transparent),
+        )
     return Recipe(
         name="sprite",
         summary="A concept image on fal, converted to pixel art and cleaned up.",
@@ -124,14 +156,18 @@ def sprite_recipe(description: str, *, transparent: bool = True) -> Recipe:
     )
 
 
-def character_recipe(description: str, actions: tuple[str, ...] = ()) -> Recipe:
+def character_recipe(
+    description: str, actions: tuple[str, ...] = (), *, fal_available: bool = True
+) -> Recipe:
     """The sprite recipe, then eight rotations, then one animation per action.
 
     This is the one the tool exists for. It is also the one where a caller can spend
     a hundred generations by adding one more `--action`, which is why the command
     that runs it prints the estimated total before the first call.
     """
-    steps: list[Step] = list(sprite_steps(description))
+    steps: list[Step] = list(
+        sprite_steps(description) if fal_available else direct_sprite_steps(description)
+    )
     steps.append(
         Step(
             name="rotations",
@@ -160,8 +196,12 @@ def character_recipe(description: str, actions: tuple[str, ...] = ()) -> Recipe:
 
 
 BUILDERS = {
-    "sprite": lambda description, actions: sprite_recipe(description),
-    "character": character_recipe,
+    "sprite": lambda description, actions, fal_available: sprite_recipe(
+        description, fal_available=fal_available
+    ),
+    "character": lambda description, actions, fal_available: character_recipe(
+        description, actions, fal_available=fal_available
+    ),
 }
 
 SUMMARIES = {
@@ -170,9 +210,21 @@ SUMMARIES = {
 }
 
 
-def build(name: str, description: str, actions: tuple[str, ...] = ()) -> Recipe:
+def build(
+    name: str,
+    description: str,
+    actions: tuple[str, ...] = (),
+    *,
+    fal_available: bool = True,
+) -> Recipe:
+    """Assemble a recipe, dropping the fal step where there is no fal to call.
+
+    `fal_available` is the caller's, not read here: whether a credential resolves is a
+    question for the context, and a recipe that answered it itself could not be built
+    for a dry run of the other shape.
+    """
     builder = BUILDERS.get(name)
     if builder is None:
         known = ", ".join(sorted(BUILDERS))
         raise KeyError(f"no recipe named {name!r}. The recipes are: {known}")
-    return builder(description, actions)
+    return builder(description, actions, fal_available)

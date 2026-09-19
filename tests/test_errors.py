@@ -123,3 +123,36 @@ class TestHierarchy:
 
         assert error.resume_command == "pixellab job show job-7"
         assert "pixellab job show job-7" in str(error)
+
+
+class TestTheMessageLosesItsSecrets:
+    """The ledger already substitutes secrets out of a recorded error; stderr should match.
+
+    A provider's own wording reaches PixellabCliError verbatim, and an error quoting the
+    request that failed can quote a credential with it.
+    """
+
+    def test_a_credential_in_the_message_is_substituted(self):
+        failure = PixellabCliError(
+            "fal refused: key pl-secret-value is invalid", secrets=("pl-secret-value",)
+        )
+
+        assert "pl-secret-value" not in str(failure)
+        assert "<redacted>" in str(failure)
+
+    def test_a_long_message_keeps_its_length(self):
+        # redact() elides long strings, which is right for a recorded argument and wrong
+        # for a sentence somebody has to read.
+        sentence = "no route can make 900x900. " + " ".join(
+            f"route-{n} tops out at 512" for n in range(20)
+        )
+
+        failure = PixellabCliError(sentence)
+
+        assert str(failure) == sentence
+        assert "elided" not in str(failure)
+
+    def test_a_message_with_no_secret_is_untouched(self):
+        failure = PixellabCliError("plain trouble", secrets=("pl-secret-value",))
+
+        assert str(failure) == "plain trouble"

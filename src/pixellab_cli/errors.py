@@ -20,6 +20,19 @@ from pixellab_cli.images import EncodedImage
 MAX_INLINE_LENGTH = 256
 
 
+def without_secrets(value: str, secrets: tuple[str, ...] = ()) -> str:
+    """Substitute credentials out of a message, and leave everything else alone.
+
+    `redact` also elides anything long, which is right for a recorded argument and
+    wrong for a sentence somebody has to read: an error naming every route and its
+    ceiling is exactly the kind of long string worth keeping whole.
+    """
+    for secret in secrets:
+        if secret and secret in value:
+            value = value.replace(secret, "<redacted>")
+    return value
+
+
 def redact(value: Any, secrets: tuple[str, ...] = ()) -> Any:
     """Return `value` with credentials removed and long payloads elided.
 
@@ -52,6 +65,12 @@ class PixellabCliError(Exception):
 
     Carries an optional `context` dictionary — the arguments, the route, the job id —
     which is redacted on the way in and rendered after the message.
+
+    Credentials are substituted out of the message too. A provider's own wording
+    reaches this class verbatim, and an error quoting the request that failed can quote
+    a credential with it; the ledger already does this to the recorded error, so what is
+    rendered for a person should match rather than be the looser copy. The message keeps
+    its length — only `context` is elided, because only `context` is a payload.
     """
 
     def __init__(
@@ -61,6 +80,7 @@ class PixellabCliError(Exception):
         context: dict[str, Any] | None = None,
         secrets: tuple[str, ...] = (),
     ) -> None:
+        message = without_secrets(message, secrets)
         super().__init__(message)
         self.message = message
         self.context: dict[str, Any] = redact(context or {}, secrets)

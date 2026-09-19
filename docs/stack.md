@@ -15,7 +15,7 @@ So adding a dependency is a two-step act: add it, and say here why.
 - **httpx** — the HTTP client for PixelLab REST v2, chosen over `requests` for its timeout model and its async client, which the batch paths need.
 - **pydantic** — the shape of documents this tool reads and did not write: the credentials file, and the recipe manifest a resume is handed. Its validation errors name the field and the file, which is what `pixellab-cli config show` and a failed resume have to be able to say. The route table is deliberately not pydantic — it is data checked against the vendored schema by the suite, see `adr:0002-call-pixellab-rest-v2-directly`.
 - **pillow** — decoding, composing spritesheets, checking palettes and sizes, and every pixel operation the tool does itself rather than paying for.
-- **fal-client** — fal's own client. It owns the queue protocol, the CDN upload and the polling; reimplementing that would be reimplementing the part fal actually maintains.
+- **fal-client** — fal's own client. It owns the queue protocol, the CDN upload and the polling; reimplementing that would be reimplementing the part fal actually maintains. The dependency is always installed, but the *provider* is optional: without a key the tool generates on PixelLab instead, per `adr:0010-fal-is-optional-and-pixellab-is-the-fallback`.
 
 ## Development
 
