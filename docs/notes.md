@@ -72,4 +72,5 @@ over this file answers with the example above as well as with the notes. -->
 <!-- n-0032 removed -->
 <!-- n-0033 removed -->
 <!-- n-0034 removed -->
-- n-0035 2026-09-19 #gotcha @src/pixellab_cli/run.py @src/pixellab_cli/errors.py — PixellabCliError substitutes secrets out of the message but Runner.run records a failed outcome only for PixellabCliError, so another exception type is a paid call with no ledger line
+<!-- n-0035 removed -->
+- n-0036 2026-09-19 #ceiling @src/pixellab_cli/run.py — a failure raised before the request is built still records the estimate, so a purely local bug can put a charge that never happened into the ledger totals
