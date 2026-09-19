@@ -2,8 +2,8 @@
 autonomy: auto
 ci: wait
 branch: feat/foundation
-delivery: merged
-pr: 1
+delivery: in-review
+pr: 52
 ---
 
 # Interface, portrait and font — requirements
