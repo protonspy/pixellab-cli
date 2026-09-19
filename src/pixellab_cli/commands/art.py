@@ -14,12 +14,14 @@ from typing import Any
 
 import typer
 
-from pixellab_cli import fal, output
+from pixellab_cli import catalog, fal, images, output
+from pixellab_cli.config import FAL_KEY_VAR
 from pixellab_cli.context import AppContext
 from pixellab_cli.errors import PixellabCliError, ValidationError
 from pixellab_cli.ledger import UNKNOWN, Cost
 from pixellab_cli.prompts import anchor_prompt
-from pixellab_cli.run import from_fal
+from pixellab_cli.routing import DEFAULT_SIZE
+from pixellab_cli.run import from_fal, from_pixellab
 from pixellab_cli.validate import build_request
 
 app = typer.Typer(name="art", help="Concept images, edits and box art, on fal.")
@@ -102,6 +104,36 @@ def _references(
     return model_name, [client.upload(path) for path in references]
 
 
+# fal's preset names, as the pixel sizes that carry the same shape. Without these the
+# fallback squares a cover, which is the shape being asked for in the one case a preset
+# is the default.
+PRESET_SIZES = {
+    "square": {"width": 64, "height": 64},
+    "square_hd": {"width": 64, "height": 64},
+    "portrait_4_3": {"width": 48, "height": 64},
+    "portrait_16_9": {"width": 36, "height": 64},
+    "landscape_4_3": {"width": 64, "height": 48},
+    "landscape_16_9": {"width": 64, "height": 36},
+}
+
+
+def _fallback_size(arguments: dict[str, Any]) -> dict[str, int] | None:
+    """The fal size as a PixelLab one.
+
+    Numbers pass through. A preset name becomes the pixel size with the same shape,
+    because the shape is the part worth keeping — `art boxart` defaults to a preset, so
+    without this its fallback would square the cover it was asked for. `auto`, and any
+    preset this does not know, leave the route's own default standing rather than a
+    guess at what was meant.
+    """
+    size = arguments.get("image_size")
+    if isinstance(size, dict) and "width" in size and "height" in size:
+        return {"width": int(size["width"]), "height": int(size["height"])}
+    if isinstance(size, str):
+        return PRESET_SIZES.get(size)
+    return None
+
+
 def _size_argument(size: str | None) -> Any:
     """`auto`, a preset name, or `WxH`."""
     if size is None:
@@ -113,6 +145,82 @@ def _size_argument(size: str | None) -> Any:
     return size
 
 
+# What each form becomes when fal is not there, and whether that is the same kind of
+# image. The anchor is the one that is not a degradation: its fal image existed only to
+# be converted, and PixelLab makes pixel art directly — see
+# `adr:0010-fal-is-optional-and-pixellab-is-the-fallback`.
+FALLBACK_ROUTE = "create-image-pixflux"
+
+
+def _fal_available(app_context: AppContext) -> bool:
+    return bool(app_context.credentials.fal_key)
+
+
+def _fallback(
+    app_context: AppContext,
+    *,
+    kind: str,
+    description: str,
+    size: dict[str, int] | None,
+    transparent: bool,
+    name: str | None,
+    reason: str,
+    same_kind: bool,
+) -> None:
+    """Generate on PixelLab what fal would have generated (R6.1).
+
+    The announcement is the whole of R6.2: where the artifact changes kind, the caller
+    is told before the call rather than left to find out by opening the file.
+    """
+    if same_kind:
+        # Nothing changes kind here: the fal image existed only to be converted, and
+        # this is the same destination without the conversion.
+        output.stderr(f"{reason}: generating the pixel art directly on PixelLab.")
+    else:
+        output.stderr(
+            f"{reason}: PixelLab has no route that makes a composed image, so this is "
+            f"pixel art instead of the image fal would have produced."
+        )
+
+    route = catalog.route(FALLBACK_ROUTE)
+    arguments: dict[str, Any] = {
+        "description": description,
+        "image_size": size or dict(DEFAULT_SIZE),
+        "no_background": True if transparent else None,
+    }
+    body = build_request(route, arguments)
+    estimate = Cost(generations=route.estimated_generations)
+
+    if app_context.dry_run:
+        output.emit(
+            output.dry_run_payload("pixellab", route.name, body, estimate),
+            output.describe_dry_run("pixellab", route.name, estimate),
+            as_json=app_context.as_json,
+        )
+        return
+
+    client = app_context.pixellab()
+    outcome = app_context.runner.run(
+        subject=app_context.subject,
+        kind=kind,
+        description=description,
+        provider="pixellab",
+        route=route.name,
+        arguments=body,
+        call=lambda: client.call(route.name, **arguments),
+        translate=from_pixellab,
+        estimate=estimate,
+        name=name,
+    )
+    payload = output.run_payload(outcome)
+    payload["route"] = route.name
+    output.emit(
+        payload,
+        [f"route: {route.name}", *output.describe_run(outcome)],
+        as_json=app_context.as_json,
+    )
+
+
 def _execute(
     app_context: AppContext,
     *,
@@ -121,7 +229,21 @@ def _execute(
     description: str,
     arguments: dict[str, Any],
     name: str | None,
+    same_kind: bool = False,
 ) -> None:
+    if not _fal_available(app_context):
+        _fallback(
+            app_context,
+            kind=kind,
+            description=description,
+            size=_fallback_size(arguments),
+            transparent=bool(arguments.get("background") == "transparent"),
+            name=name,
+            reason=f"{FAL_KEY_VAR} is not set",
+            same_kind=same_kind,
+        )
+        return
+
     route = fal.model(model_name)
     body = build_request(route, arguments)
 
@@ -134,18 +256,41 @@ def _execute(
         return
 
     client = app_context.fal()
-    outcome = app_context.runner.run(
-        subject=app_context.subject,
-        kind=kind,
-        description=description,
-        provider="fal",
-        route=route.path,
-        arguments=body,
-        call=lambda: client.generate(model_name, **arguments),
-        translate=from_fal,
-        estimate=UNKNOWN_COST,
-        name=name,
-    )
+    try:
+        outcome = app_context.runner.run(
+            subject=app_context.subject,
+            kind=kind,
+            description=description,
+            provider="fal",
+            route=route.path,
+            arguments=body,
+            call=lambda: client.generate(model_name, **arguments),
+            translate=from_fal,
+            estimate=UNKNOWN_COST,
+            name=name,
+        )
+    except PixellabCliError as failure:
+        # `PixellabCliError` and no wider: the runner writes a failed outcome only for
+        # that type, so anything else would be a paid call with no ledger line, and
+        # falling back from it would bill PixelLab on top of a charge nobody recorded.
+        # A bug in this tool's own argument building should stay loud, not read as a
+        # provider having a bad day.
+        #
+        # For the errors that do reach here the runner has already recorded the attempt
+        # with its cost unknown, which is the point: fal publishes no price, so it may
+        # have been billed on an account this tool cannot read. The fallback is a
+        # second line rather than a replacement for that one.
+        _fallback(
+            app_context,
+            kind=kind,
+            description=description,
+            size=_fallback_size(arguments),
+            transparent=bool(arguments.get("background") == "transparent"),
+            name=name,
+            reason=f"fal failed ({failure})",
+            same_kind=same_kind,
+        )
+        return
     payload = output.run_payload(outcome)
     payload["model"] = route.path
     output.emit(
@@ -263,6 +408,9 @@ def _anchor(context, prompt, variant, quality, size, count, reference, name) -> 
         model_name=model_name,
         description=f"anchor: {prompt}",
         name=name or "anchor",
+        # The one form whose fallback is not a substitution: an anchor is made to be
+        # turned into pixel art, so making pixel art is the same answer.
+        same_kind=True,
         arguments={
             # The framing is the anchor's whole job and does not move when
             # references are given: they say what the subject looks like, not
@@ -303,6 +451,20 @@ def _edit(context, files, prompt, mask, variant, quality, size, transparent, nam
 
     _checked([*files, *([mask] if mask else [])], _variant_model(variant, edit=True))
 
+    # Checked before the upload rather than inside `_execute`, because uploading is what
+    # needs the credential: `client.upload` would raise before the fallback was reached.
+    if not _fal_available(app_context):
+        _edit_fallback(
+            app_context,
+            files=files,
+            prompt=prompt,
+            mask=mask,
+            transparent=transparent,
+            name=name,
+            reason=f"{FAL_KEY_VAR} is not set",
+        )
+        return
+
     if app_context.dry_run:
         _execute(
             app_context,
@@ -334,4 +496,85 @@ def _edit(context, files, prompt, mask, variant, quality, size, transparent, nam
             "image_size": _size_argument(size),
             "background": "transparent" if transparent else None,
         },
+    )
+
+
+def _edit_fallback(
+    app_context: AppContext,
+    *,
+    files: Sequence[Path],
+    prompt: str,
+    mask: Path | None,
+    transparent: bool,
+    name: str | None,
+    reason: str,
+) -> None:
+    """Edit on PixelLab what fal would have edited (R6.1).
+
+    The warning is stronger here than for the generating forms, and deliberately so.
+    `edit-image-pixen` preserves a pixel grid, which is what makes it the right tool for
+    a sprite and the wrong one for a photograph: given a concept image it returns
+    something pixel-shaped rather than the edited picture that was asked for. That is a
+    real limitation rather than a smaller version of the same result, so it is said in
+    those words before anything is spent.
+    """
+    if len(files) > 1:
+        raise ValidationError(
+            f"{reason}, and PixelLab edits one image at a time where fal takes several. "
+            f"Edit them one at a time, or set {FAL_KEY_VAR}.",
+            context={"files": [str(path) for path in files]},
+        )
+
+    route_name = "inpaint-v3" if mask else "edit-image-pixen"
+    output.stderr(
+        f"{reason}: editing on PixelLab with {route_name}, which preserves a pixel grid. "
+        f"That is the right tool for pixel art and the wrong one for a photographic "
+        f"concept image, which comes back pixel-shaped rather than edited."
+    )
+
+    route = catalog.route(route_name)
+    encoded = images.encode_file(files[0])
+    arguments: dict[str, Any] = {
+        "description": prompt,
+        "no_background": True if transparent else None,
+    }
+    if mask:
+        arguments["inpainting_image"] = encoded.as_payload()
+        arguments["mask_image"] = images.encode_file(mask).as_payload()
+    else:
+        arguments["image"] = encoded.as_payload()
+        # The route is told the canvas it is editing rather than guessing it.
+        arguments["width"] = encoded.width
+        arguments["height"] = encoded.height
+
+    body = build_request(route, arguments)
+    estimate = Cost(generations=route.estimated_generations)
+
+    if app_context.dry_run:
+        output.emit(
+            output.dry_run_payload("pixellab", route.name, body, estimate),
+            output.describe_dry_run("pixellab", route.name, estimate),
+            as_json=app_context.as_json,
+        )
+        return
+
+    client = app_context.pixellab()
+    outcome = app_context.runner.run(
+        subject=app_context.subject,
+        kind="concept",
+        description=prompt,
+        provider="pixellab",
+        route=route.name,
+        arguments=body,
+        call=lambda: client.call(route.name, **arguments),
+        translate=from_pixellab,
+        estimate=estimate,
+        name=name,
+    )
+    payload = output.run_payload(outcome)
+    payload["route"] = route.name
+    output.emit(
+        payload,
+        [f"route: {route.name}", *output.describe_run(outcome)],
+        as_json=app_context.as_json,
     )

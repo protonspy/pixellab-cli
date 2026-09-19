@@ -434,3 +434,40 @@ class TestARecipeGeneratesAtTheSameTier:
 
         assert build({})["quality"] == fal.DEFAULT_QUALITY
         assert build({})["quality"] != "high"
+
+
+class TestWithoutFal:
+    """adr:0010 — the sprite recipe's fal step exists only to be converted."""
+
+    def test_the_sprite_recipe_drops_both_fal_and_the_conversion(self):
+        recipe = recipes.build("sprite", "a knight", fal_available=False)
+        routes = [step.route for step in recipe.steps]
+
+        assert not any(step.provider == "fal" for step in recipe.steps)
+        assert "image-to-pixelart-pro" not in routes
+
+    def test_it_still_produces_a_pixel_art_step(self):
+        recipe = recipes.build("sprite", "a knight", fal_available=False)
+
+        assert [step.name for step in recipe.steps] == ["pixelart"]
+
+    def test_the_character_recipe_keeps_everything_after_the_sprite(self):
+        with_fal = recipes.build("character", "a knight", ("walking",))
+        without = recipes.build("character", "a knight", ("walking",), fal_available=False)
+
+        def after_sprite(recipe):
+            return [
+                s.name for s in recipe.steps if s.name not in ("concept", "pixelart", "cleanup")
+            ]
+
+        assert after_sprite(without) == after_sprite(with_fal)
+
+    def test_with_fal_the_recipe_is_unchanged(self):
+        recipe = recipes.build("sprite", "a knight", fal_available=True)
+
+        assert any(step.provider == "fal" for step in recipe.steps)
+
+    def test_the_estimate_does_not_promise_a_fal_image_there_is_none_of(self):
+        recipe = recipes.build("sprite", "a knight", fal_available=False)
+
+        assert not any(step.provider == "fal" for step in recipe.steps)

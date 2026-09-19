@@ -17,6 +17,10 @@
 - [x] 1.7 (Unit) Send the middle tier by default and refuse one above the ceiling, naming what would have worked — R1.7, R1.8, R1.9, R3.1
   _Depends 1.1_
   _Reason box art defaulted to the top tier and every other form omitted the tier, so the provider applied its own, which is high_
+- [x] 1.8 (TDD) Generate on PixelLab when fal has no credential — R6.1, R6.4
+  _Reason adr:0010 makes fal optional_
+- [x] 1.9 (Unit) Say when the fallback changes the kind of image — R6.2
+  _Reason adr:0010 makes fal optional_
 
 ## 2 · Editing
 
@@ -34,3 +38,5 @@
 - [x] 3.3 (Unit) Read the finished job's timing and record it as measured, leaving the cost unknown where the provider will not say — R4.3, R4.4
   _Depends 3.1_
   _Reason a fal call recorded nothing at all, so the one thing about it that can be known was not being asked for_
+- [x] 3.4 (TDD) Fall back from a failure, recording both calls — R6.3
+  _Reason adr:0010 makes fal optional_

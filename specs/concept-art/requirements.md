@@ -50,6 +50,13 @@ going to be pixel art at all — a box cover, a store banner, a title screen.
 - **R5.2** (ADDED) The concept art commands shall state, wherever the anchor form is described, that the rotation and animation routes read the image they are given as the south-facing frame, which is what the anchor exists to satisfy.
 - **R5.3** (ADDED) Where the anchor form is given reference images, the concept art commands shall keep the anchor's framing — one subject, seen from the front, in a rest pose, on a transparent background — and take the subject's appearance from the references.
 
+## R6 · When fal is not there
+
+- **R6.1** (ADDED) Where no fal credential is configured, the concept art commands shall generate on PixelLab rather than refuse, and shall name the route they used.
+- **R6.2** (ADDED) Where the PixelLab fallback produces a different kind of image than the command asked for, the concept art commands shall say so before calling.
+- **R6.3** (ADDED) If a fal call fails, then the concept art commands shall fall back to PixelLab and shall record both the failed attempt and the fallback.
+- **R6.4** (ADDED) Where a fal image would only have been converted to pixel art, the concept art commands shall generate the pixel art directly rather than convert.
+
 ## Out of scope
 
 - Any fal model other than the four GPT Image 2.5 endpoints, video included.

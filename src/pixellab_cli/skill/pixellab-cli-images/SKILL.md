@@ -150,6 +150,32 @@ The size here is **given, not deduced**, and it need not be square — up to 792
 decides how many images come back, so `--size 64` returns sixteen and `--size 256`
 returns one.
 
+## When there is no fal key
+
+fal is optional. Without `FAL_KEY` nothing stops: every `art` form generates on PixelLab
+instead, and says so before it calls.
+
+What that means depends on the form, and the difference is worth relaying to the person:
+
+- **`art anchor` and `recipe run sprite`** lose nothing. Their fal image existed only to
+  be converted, and PixelLab draws pixel art directly — so the conversion disappears and
+  with it about twenty generations.
+- **`art concept` and `art boxart`** change what you get. PixelLab has no route that makes
+  a composed, non-pixel image, so the result is pixel art. The command says exactly that
+  on stderr; **relay it**, because someone who asked for a painted cover would otherwise
+  find out by opening the file.
+
+- **`art edit`** is the weakest of them, and says so: PixelLab edits by preserving a
+  pixel grid, so a photographic concept image comes back pixel-shaped rather than
+  edited. It also takes one file where fal takes several, and refuses more rather than
+  editing some.
+
+A fal call that *fails* falls back the same way, and both the failed attempt and the
+PixelLab call land in the ledger. fal publishes no price, so the attempt may have been
+billed on an account this tool cannot read — two lines is what makes that visible.
+
+`PIXELLAB_SECRET` has no fallback. There is nothing to fall back to.
+
 ## Concept art, on fal
 
 ```
