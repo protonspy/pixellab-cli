@@ -23,6 +23,8 @@
 
 - [x] 3.1 (TDD) Drive one run: allocate the id, write the intent, make the call, write the outcome and the manifest, and record the failure when there is one — R2.1, R3.1, R3.2, R3.3
   _Depends 2.1, 2.3_
+- [x] 3.2 (TDD) Record a failure whatever type it was raised as — R3.3
+  _Reason only PixellabCliError was recorded; see n-0035_
 
 ## 4 · Reading it back
 
