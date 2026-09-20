@@ -2270,7 +2270,7 @@ class TestAReferenceIsReadBeforeItIsPaidFor:
         )
 
         assert result.exit_code == 2
-        assert "image trim" in result.output
+        assert "image inset" in result.output
 
     @respx.mock
     def test_every_flaw_is_named_in_one_refusal(self, tmp_path, monkeypatch):
@@ -2285,7 +2285,7 @@ class TestAReferenceIsReadBeforeItIsPaidFor:
         )
 
         assert "halo" in result.output
-        assert "image trim" in result.output
+        assert "image inset" in result.output
 
     @respx.mock
     def test_as_is_sends_it_the_way_it_stands(self, tmp_path, monkeypatch):
@@ -2338,7 +2338,7 @@ class TestACharacterIsNotDrawnFromNothingByAccident:
 
         assert result.exit_code == 2
         assert "art anchor" in result.output
-        assert "image trim" in result.output
+        assert "image inset" in result.output
         assert not create.calls
 
     @respx.mock

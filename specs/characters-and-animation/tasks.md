@@ -35,6 +35,8 @@
   _Reason character new was called with no reference at all and drew from nothing_
 - [x] 2.11 (Unit) Refuse a reference that is not the size read best — R1.13
   _Reason a character rotated from a small anchor comes back softer, measured_
+- [x] 2.12 (Unit) Refuse a subject with no room to move into — R1.14
+  _Reason a sword was cropped by the frame in every animated frame_
 
 ## 3 · Animating and rotating
 

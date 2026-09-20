@@ -34,6 +34,8 @@ different endpoint family and no skeleton.
 
 - **R1.13** (ADDED) If a reference given for eight rotations is not the size that route reads best, then the character commands shall refuse the call and name the free command that resizes it, before spending anything, unless the caller asks for it to be sent as it stands.
 
+- **R1.14** (ADDED) If the subject of an image given to a route that animates it reaches the edge of the frame, then the character commands shall refuse the call and say that a motion has no room to reach into, before spending anything, unless the caller asks for it to be sent as it stands.
+
 ## R2 · Animating
 
 - **R2.1** (MODIFIED) When asked to animate a character, the character commands shall animate it by action description, or by named template where one is given, over the directions asked for.

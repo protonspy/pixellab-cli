@@ -359,7 +359,7 @@ def require_a_reference(reference: Path | None, from_description: bool) -> None:
         "character new has no --reference, so it would draw the character from the "
         "description alone and every rotation and animation would be built on whatever "
         'came back. Make the reference first — `pixellab-cli art anchor "..."`, then '
-        "`pixellab-cli image inspect` and `pixellab-cli image trim` — or pass "
+        "`pixellab-cli image inspect` and `pixellab-cli image inset` — or pass "
         "--from-description to draw from nothing on purpose.",
         context={"reference": None},
     )

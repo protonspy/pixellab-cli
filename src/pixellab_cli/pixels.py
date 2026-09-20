@@ -356,6 +356,44 @@ def inspect(image: Image.Image, mode: str) -> Report:
     )
 
 
+def inset(image: Image.Image, size: tuple[int, int], margin: float) -> Image.Image:
+    """The subject, re-centred inside `size` with `margin` of the frame left around it.
+
+    Two operations that are already here — trim to the subject, then place it in a
+    frame larger than itself — done as one because they are one intention and the
+    order and the arithmetic between them are where it goes wrong by hand. It is the
+    answer to both ends of the margin band: a subject against the edge gets room, and
+    a subject adrift gets filled out.
+
+    Nothing is cropped and nothing is stretched: the subject keeps its aspect and is
+    scaled to whatever the room allows, which is what makes this safe to run on art
+    that is already finished.
+    """
+    width, height = size
+    if width < 1 or height < 1:
+        raise ValidationError(
+            f"{width}x{height} is not a size", context={"size": f"{width}x{height}"}
+        )
+    if not 0.0 <= margin < 0.5:
+        raise ValidationError(
+            f"a margin of {margin:.0%} leaves no frame; it is a share of each side and "
+            f"has to be under 50%",
+            context={"margin": margin},
+        )
+    # `trim` leaves an image with no content alone rather than returning an empty one,
+    # so the emptiness has to be asked about here rather than measured afterwards.
+    if image.getchannel("A").getbbox() is None:
+        raise ValidationError("the image is empty; there is no subject to place")
+    subject = trim(image)
+    room = (round(width * (1 - 2 * margin)), round(height * (1 - 2 * margin)))
+    scale_by = min(room[0] / subject.width, room[1] / subject.height)
+    resized = subject.resize(
+        (max(1, round(subject.width * scale_by)), max(1, round(subject.height * scale_by))),
+        Image.LANCZOS if scale_by < 1 else Image.NEAREST,
+    )
+    return pad(resized, size)
+
+
 def write_gif(frames: list[Image.Image], path: Path, duration: int) -> Path:
     """The frames in order, looping, at `duration` milliseconds each."""
     if len(frames) < 2:
@@ -393,7 +431,22 @@ def write(image: Image.Image, path: Path) -> Path:
 # multiplies it again. None of that is reported: the art simply comes back wrong and
 # paid for. Every one of these is readable here, on this machine, for nothing.
 MAX_SOFT_SHARE = 0.01
-MAX_MARGIN_SHARE = 0.15
+
+# How much of the frame the transparent margin may be, at each end. A band rather than
+# a ceiling, because the two ends are different mistakes.
+#
+# Too little and the subject is against the edge, which is fine for a still image and
+# wrong for one about to be animated: a sword raised overhead, an arm thrown forward, a
+# short jump all need somewhere to go, and what they get instead is a crop. Too much and
+# the subject is adrift in a canvas, and the character comes back that much smaller
+# because the route reads the frame it was given.
+#
+# The target between them is about 15% a side — in a 256 frame, a subject around 180
+# across with some 38 to spare — which is room for a weapon without spending half the
+# pixels on air.
+MIN_MARGIN_SHARE = 0.08
+MAX_MARGIN_SHARE = 0.40
+TARGET_MARGIN_SHARE = 0.15
 
 
 def frame_flaws(path: Path) -> list[str]:
@@ -430,7 +483,11 @@ def frame_flaws(path: Path) -> list[str]:
         )
     else:
         left, upper, right, lower = box
-        margin = max(
+        # The tightest side decides both ends of the band. A subject is rarely square,
+        # so one axis always has more margin than the other — measuring the roomier one
+        # would call a correctly placed tall subject adrift, and measuring it against a
+        # motion needs the side with the least room to give.
+        margin = min(
             (image.width - (right - left)) / image.width,
             (image.height - (lower - upper)) / image.height,
         )
@@ -438,7 +495,14 @@ def frame_flaws(path: Path) -> list[str]:
             flaws.append(
                 f"the subject fills {1 - margin:.0%} of the frame and the rest is a "
                 f"transparent margin, so the character comes back that much smaller — "
-                f"`pixellab-cli image trim` drops it"
+                f"`pixellab-cli image inset` re-centres it with the room it needs"
+            )
+        elif margin < MIN_MARGIN_SHARE:
+            flaws.append(
+                f"the subject fills {1 - margin:.0%} of the frame, leaving no room for a "
+                f"motion to reach past it — a raised sword or a thrown arm is cropped "
+                f"rather than drawn, in every frame of every direction. "
+                f"`pixellab-cli image inset` gives it the room"
             )
     return flaws
 

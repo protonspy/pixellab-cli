@@ -14,7 +14,7 @@ Read `pixellab-cli-assets` first for the spending rule and the credentials.
 ```
 1  art anchor            the front-facing reference             ~unpriced (fal)
 2  image inspect         read its alpha before paying for it    free
-3  image trim / clean    make it a sprite                       free, or ~0.1
+3  image inset / clean   256 square, with room to animate into   free, or ~0.1
    ---- large reference + enriched description; ask about pixel art ----
 4  character new         eight rotations and a character_id     ~3-4 gen
 5  image inspect + clean the rotations                          free or ~0.1

@@ -99,6 +99,33 @@ def pad(
         output.handle(failure)
 
 
+@app.command("inset")
+def inset(
+    context: typer.Context,
+    file: Path = typer.Argument(..., help="The image to re-centre."),
+    to: str = typer.Option("256", "--to", help="The frame to place it in. 256, or 96x64."),
+    margin: int = typer.Option(
+        15, "--margin", help="Percent of each side left empty around the subject."
+    ),
+    out: Path = typer.Option(None, "--out", help="Where to write it. Default: beside the input."),
+) -> None:
+    """Re-centre the subject in a frame with room around it, for a motion to reach into.
+
+    The operation this pipeline wants where `trim` is the instinct. Trimming crops to
+    the subject, which is right for an icon and wrong for anything about to be
+    animated: a raised sword or a thrown arm reaches past the pose it started from,
+    and a subject against the edge has nowhere to put it — so the frame crops the
+    motion, in every frame of every direction.
+    """
+    try:
+        image = pixels.load(file)
+        result = pixels.inset(image, _size(to), margin / 100)
+        written = pixels.write(result, _derived(file, "inset", out))
+        _report(written, image.size, result.size)
+    except PixellabCliError as failure:
+        output.handle(failure)
+
+
 @app.command("trim")
 def trim(
     context: typer.Context,

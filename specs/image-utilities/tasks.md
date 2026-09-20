@@ -25,6 +25,8 @@ ci: wait
   _Depends 1.2_
 - [x] 2.5 (Unit) Scale by a whole-number factor with nearest neighbour, preserving the grid exactly — R2.5
   _Depends 1.2_
+- [x] 2.6 (Unit) Re-centre a subject with room around it — R2.13
+  _Reason trim is the wrong operation before anything that animates_
 
 ## 3 · Many images at once
 

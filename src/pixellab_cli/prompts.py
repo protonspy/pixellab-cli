@@ -15,9 +15,17 @@ from __future__ import annotations
 
 from pixellab_cli.errors import ValidationError
 
+# "margin on every side" is not decoration. Everything downstream animates this image,
+# and a motion reaches past the pose it started from: a sword goes up, an arm goes
+# forward, a jump goes off the ground. A subject drawn against the edge has nowhere to
+# put any of that, so the frame crops it — in every frame of every direction, paid for
+# each time. Asking for the room here is free; adding it afterwards costs the subject
+# some of the pixels it was drawn with.
 ANCHOR_STYLE = (
     "a single subject, facing the viewer head-on, standing at rest with arms down, "
-    "centred, full body in frame, clean silhouette, flat even lighting, plain background"
+    "centred, full body in frame with clear empty margin on every side so a raised "
+    "weapon or an extended limb would still fit, clean silhouette, flat even lighting, "
+    "plain background"
 )
 
 
