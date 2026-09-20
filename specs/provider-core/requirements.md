@@ -1,9 +1,9 @@
 ---
 autonomy: auto
 ci: wait
-branch: feat/the-ui-panel-you-paid-for
+branch: feat/an-object-animation-takes-more-directions
 delivery: in-review
-pr: 79
+pr: 82
 ---
 
 # Provider core — requirements

@@ -1,9 +1,9 @@
 ---
 autonomy: auto
 ci: wait
-branch: feat/one-animation-many-directions
+branch: feat/an-object-animation-takes-more-directions
 delivery: in-review
-pr: 78
+pr: 82
 ---
 
 # Characters and animation — requirements
