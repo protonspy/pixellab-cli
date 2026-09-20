@@ -1,9 +1,9 @@
 ---
 autonomy: auto
 ci: wait
-branch: feat/the-pose-must-suit-the-action
-delivery: merged
-pr: 66
+branch: docs/the-help-is-the-current-list
+delivery: in-review
+pr: 80
 ---
 
 # Agent skill — requirements
