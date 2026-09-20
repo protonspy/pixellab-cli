@@ -33,6 +33,8 @@
   _Reason an untreated concept was sent straight to character new and paid for_
 - [x] 2.10 (Unit) Refuse a character with no reference — R1.12
   _Reason character new was called with no reference at all and drew from nothing_
+- [x] 2.11 (Unit) Refuse a reference that is not the size read best — R1.13
+  _Reason a character rotated from a small anchor comes back softer, measured_
 
 ## 3 · Animating and rotating
 

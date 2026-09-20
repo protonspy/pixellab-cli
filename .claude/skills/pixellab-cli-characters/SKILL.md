@@ -50,10 +50,18 @@ what was asked for.
 
 So, in order:
 
-1. **Send the reference large.** Up to 256 a side, which is the route's ceiling. Do not
-   shrink it to save anything — the frames come back at the size the route picks, and
-   `pixellab-cli image resize` is free in both directions if a smaller sprite is wanted
-   afterwards.
+1. **Send the reference at 256x256.** That is the route's ceiling and the size the
+   result is best at — resize to it before the call, **up as readily as down**:
+
+   ```bash
+   pixellab-cli image resize anchor.png --to 256
+   ```
+
+   Free, and it is not a saving to skip: the route picks the output size itself in
+   reference mode, so a smaller input buys less detail rather than a cheaper call. A
+   smaller sprite afterwards is another free resize. `--directions 4` is the exception
+   — that route wants the reference at exactly its own frame size and refuses a
+   mismatch before spending.
 2. **No large image in the right pose? Make one.** `pixellab-cli art anchor` draws it:
    one subject, facing the viewer, at rest, transparent. That is the step this pipeline
    exists to have, and skipping it to reuse whatever picture is at hand is how a

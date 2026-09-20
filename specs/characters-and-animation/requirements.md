@@ -32,6 +32,8 @@ different endpoint family and no skeleton.
 - **R1.11** (ADDED) Where the caller says the image is to be sent as it stands, the character commands shall send it unchecked.
 - **R1.12** (ADDED) When asked for a character with no reference image, the character commands shall refuse and name the flow that produces one, unless drawing from the description alone was asked for explicitly.
 
+- **R1.13** (ADDED) If a reference given for eight rotations is not the size that route reads best, then the character commands shall refuse the call and name the free command that resizes it, before spending anything, unless the caller asks for it to be sent as it stands.
+
 ## R2 · Animating
 
 - **R2.1** (MODIFIED) When asked to animate a character, the character commands shall animate it by action description, or by named template where one is given, over the directions asked for.

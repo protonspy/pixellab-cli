@@ -44,10 +44,12 @@ wrong, because it is only obvious across eight frames that have already been pai
 
 Measured on real runs:
 
-- **A large reference beats a small one**, up to the route's own ceiling of 256 a side.
-  There is nothing to save by shrinking it first: the route picks the output size in
-  reference mode, so a smaller input buys less detail rather than a cheaper call, and
-  `POST /v2/resize` or a local resize can make a smaller sprite afterwards for nothing.
+- **256x256 is the reference size to send**, which is also the route's ceiling. Not
+  "as large as it happens to be": resize to 256 before the call, up as readily as down.
+  A smaller input buys less detail rather than a cheaper call, because the route picks
+  the output size itself in reference mode — and a smaller sprite is a free local resize
+  afterwards. The four-direction route is the exception and wants the reference at
+  exactly its own frame size, which it refuses a mismatch against before spending.
 - **An enriched description beats a noun.** "a knight" with a good reference still
   produces a generic knight. What it wears, what it carries, its build, its palette,
   what is distinctive about the silhouette — the description is the only place any of

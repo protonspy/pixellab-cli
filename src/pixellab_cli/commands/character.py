@@ -39,6 +39,12 @@ TEMPLATES_PATH = REFERENCE_DIR / "pixellab-animation-templates.json"
 FOUR_DIRECTION_FRAME = 64
 ROTATION_COUNTS = (4, 8)
 
+# What the eight-rotation route reads a reference best at, measured on real runs, and
+# also its ceiling. Not "as large as it happens to be": the route picks the output size
+# itself in reference mode, so a smaller input buys less detail rather than a cheaper
+# call, and a smaller sprite afterwards is a free local resize. See n-0046.
+REFERENCE_FRAME = 256
+
 # PixelLab returns rotations keyed by direction in no particular order; this is the
 # order a spritesheet and every game engine expects them in.
 ROTATION_ORDER = (
@@ -193,6 +199,36 @@ def frame_for_reference(encoded: images.EncodedImage, size: int | None, path: Pa
     return asked
 
 
+def check_reference_size(encoded: images.EncodedImage, path: Path) -> None:
+    """Refuse a reference that is not the size this route reads best, before spending.
+
+    Quality rather than correctness, which is why it names the free command that fixes
+    it and why `--as-is` passes: a deliberately tiny sprite is somebody's choice. What
+    it stops is the undeliberate case — an anchor left at whatever size it came back
+    at, rotated eight times, and only obviously softer across eight frames already paid
+    for.
+
+    A size that cannot be read is not known to be wrong, so it is not treated as wrong.
+    """
+    if encoded.width is None or encoded.height is None:
+        return
+    if (encoded.width, encoded.height) == (REFERENCE_FRAME, REFERENCE_FRAME):
+        return
+    raise ValidationError(
+        f"{path} is {encoded.width}x{encoded.height}, and this route reads a reference "
+        f"best at {REFERENCE_FRAME}x{REFERENCE_FRAME}, which is also its ceiling. "
+        f"`pixellab-cli image resize {path} --to {REFERENCE_FRAME}` is free and works "
+        f"upward as readily as down; the frames come back at the size the route picks "
+        f"either way, so a smaller reference buys less detail rather than a cheaper "
+        f"call. --as-is sends it at the size it is.",
+        context={
+            "path": str(path),
+            "reference": f"{encoded.width}x{encoded.height}",
+            "frame": f"{REFERENCE_FRAME}x{REFERENCE_FRAME}",
+        },
+    )
+
+
 @app.command("new")
 def new(
     context: typer.Context,
@@ -312,6 +348,8 @@ def _new(
             arguments["directions"] = {"south": encoded.as_payload()}
             frame = frame_for_reference(encoded, size, reference)
         else:
+            if not as_is:
+                check_reference_size(encoded, reference)
             arguments["reference_image"] = encoded
     if four and frame is None:
         frame = FOUR_DIRECTION_FRAME
