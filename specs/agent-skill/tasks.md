@@ -40,3 +40,8 @@
 - [x] 2.3 (TDD) Report an installed skill this tool no longer ships — R5.6
   _Depends 2.2_
   _Reason installing six skills is not installing one six times_
+
+## 6 · The help is the current list
+- [x] 6.1 (Unit) Send the agent to a command's own help before naming options — R5.12
+  _Reason a flag that existed was reported as missing_
+

@@ -9,6 +9,10 @@ below: one bad reference becomes eight bad rotations becomes eight bad animation
 
 Read `pixellab-cli-assets` first for the spending rule and the credentials.
 
+The options below are what this page knows. `pixellab-cli <command> --help` is what
+the installed version accepts, it is free, and it is the list to check before you
+name an option or say there is none.
+
 ## The order, and it is not a suggestion
 
 ```

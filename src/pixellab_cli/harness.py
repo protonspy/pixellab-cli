@@ -280,6 +280,11 @@ frames, charged per frame per direction. Use `character enrich`, or `--enhance`,
 whenever the enhancer is unavailable — write the motion out yourself. Never fall back
 to the bare action.
 
+**Run `--help` before you name an option.** `pixellab-cli <command> --help` is free,
+local and instant, and it is what the installed version accepts — the skills list the
+options that existed when they were written. Check it before telling the person a
+command takes something, and before telling them it cannot do something at all.
+
 **Read the entity before reaching for an identifier.** `pixellab-cli inspect <subject>`
 is free and local: every character, every pose made from it, which pose each animation
 started from, and what the subject has cost. A `--start-pose` from the wrong character

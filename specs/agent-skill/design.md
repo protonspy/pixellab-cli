@@ -100,3 +100,23 @@ so it names one path rather than six.
 Endpoint names, enum spellings and size ceilings (R1.2). The CLI validates all three
 and its errors name what would have worked, so an agent that guesses wrong is
 corrected for free. Duplicating them in the skill would create a second copy to drift.
+
+## The help is the current list, and the skill is not
+
+A skill is written once and read for as long as it is installed. The options it names
+are the options that existed the day it was written, and every release since has been
+free to add one — so an agent that reads only the skill answers "the tool cannot do
+that" about a flag that has been there for three versions. That happened: `art concept`
+has carried `--transparent` for as long as it has existed, and it took a live check to
+establish it rather than a read.
+
+The failure is asymmetric, which is why it is worth a rule. Missing a flag that exists
+costs a generation spent on the wrong thing, or an answer that is simply wrong. Reading
+the help costs nothing: it is local, it is instant, it needs no credential and it
+reaches no provider. So the skill says to run it — before naming a command's options,
+and before telling anyone an option does not exist.
+
+The skill keeps its option lists. They are what makes it useful to read at all, and a
+list nobody wrote is not an improvement on a list that is a version behind. They are
+framed as what the skill knows rather than as what the tool accepts, and the command's
+own `--help` is named as the list that is current.

@@ -151,6 +151,27 @@ in their shell history, which is the one thing this command exists to avoid.
 a commit or a message. Do not scan `.env` files or shell history looking for one. The
 person sets the variable; you never see it.
 
+## `--help` before you name an option
+
+**Run the command's own help before you tell anyone what it takes, and before you tell
+anyone it cannot do something.** It is free, instant, local, needs no credential and
+reaches no provider:
+
+```bash
+pixellab-cli <command> --help
+pixellab-cli <group> <command> --help    # character animate, art concept, ui new
+```
+
+The option lists in these skills are what was true when they were written. The installed
+version is what runs, and it is a release or several ahead — so a flag these pages do
+not mention may well be there. `art concept --transparent` was in the tool long before
+anybody read it off the help.
+
+The asymmetry is the whole reason: missing a flag that exists costs a generation spent
+on the wrong thing, or a flat wrong answer to the person. Reading the help costs
+nothing. So read it, then use these pages for *when* to reach for each option, which is
+the part the help does not say.
+
 ## Do not name a route, do not guess a limit
 
 The tool picks between overlapping routes by size and by what you gave it, and says which

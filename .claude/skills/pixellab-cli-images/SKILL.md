@@ -7,6 +7,10 @@ One image at a time, and the one trick that turns one image into a matching set.
 
 Read `pixellab-cli-assets` first for the spending rule and the credentials.
 
+The options below are what this page knows. `pixellab-cli <command> --help` is what
+the installed version accepts, it is free, and it is the list to check before you
+name an option or say there is none.
+
 ## One sprite
 
 ```

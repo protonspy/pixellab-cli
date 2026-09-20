@@ -55,6 +55,8 @@ the person did not agree to.
 
 - **R5.11** (ADDED) The agent skill shall give animating a character that exists its own category skill, separate from creating one, carrying the order its steps are taken in.
 
+- **R5.12** (ADDED) The agent skill shall direct an agent to read a command's own help before naming that command's options, and shall state that the help costs nothing and is what the installed version accepts.
+
 ## Out of scope
 
 - Teaching PixelLab's or fal's APIs. The skill teaches the CLI; the CLI owns the APIs.
