@@ -74,3 +74,4 @@ over this file answers with the example above as well as with the notes. -->
 <!-- n-0034 removed -->
 <!-- n-0035 removed -->
 - n-0036 2026-09-19 #ceiling @src/pixellab_cli/run.py — a failure raised before the request is built still records the estimate, so a purely local bug can put a charge that never happened into the ledger totals
+- n-0037 2026-09-19 #gotcha @src/pixellab_cli/pixels.py @docs/wiki/pages/gpt-image-25.md — gpt-image-2.5 with background=transparent returns a solid subject at alpha 250-252 and never 255, so a split that counts only 255 as opaque reads the whole image as a halo
