@@ -1,9 +1,9 @@
 ---
 autonomy: auto
 ci: wait
-branch: feat/asset-consistency
-delivery: merged
-pr: 2
+branch: feat/guard-the-character-flow
+delivery: in-review
+pr: 59
 ---
 
 # Recipes — requirements
@@ -37,6 +37,8 @@ got.
 
 - **R3.1** While a dry run is asked for, the recipe commands shall list every step, the route it would call and the estimated total, and shall send nothing.
 - **R3.2** Where the estimated total is above a limit the caller names, the recipe commands shall stop before the first call rather than partway through.
+- **R3.3** (ADDED) When a recipe step that costs money completes and a step remains, the recipe shall stop, name the files it wrote and the command that carries on, because the person's own correction to that art is what every later step is built on.
+- **R3.4** (ADDED) Where running every remaining step without stopping is asked for, the recipe shall do so.
 
 ## Out of scope
 

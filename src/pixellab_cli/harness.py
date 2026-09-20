@@ -204,33 +204,71 @@ def block_body(references: Path) -> str:
     to the reference files for everything else. A harness that carries this in every
     prompt should not be carrying the full command list.
     """
-    return f"""## Generating game art with `pixellab`
+    entry = f"{references.as_posix()}/{ENTRY_SKILL}/SKILL.md"
+    return f"""## Generating game art with `pixellab-cli`
 
-`pixellab` generates 2D game assets and **spends real money on every call**.
+`pixellab-cli` generates 2D game assets and **spends the person's real money on every
+call**. Read `{entry}` before the first one; it routes to the skill that owns the kind
+of asset being asked for. Do not generate anything from memory of this block alone.
 
-- **Dry run first.** Every command takes `--dry-run`: it makes the same route choice
-  and the same argument checks, then stops without sending anything. Show the estimate
-  and wait for agreement before the first paid call of a session.
+**Nothing paid runs without `--yes`.** Every paid route refuses without it and prints
+the route, the arguments and the estimate instead of calling. That print-out is what
+you show the person, in full and unsummarised, and then you wait. `--yes` is agreement
+for the one command it was typed on; the next paid command asks again.
+
+**Ask before a character, never after.** Before the first paid call of a character,
+ask the person two things and wait for the answers: whether to send the full-size image
+so the character comes out larger, and whether to convert the reference to pixel art
+first. Both change what is bought and neither can be undone afterwards.
+
+**Stop for the person's own edits.** `pixellab-cli recipe run` performs one paid step
+and stops, naming the files it wrote and the `recipe resume` command that carries on.
+That pause is the point: they open the art, fix what is wrong with it by hand, and only
+then does the next step get built on it. `--unattended` runs straight through and is
+theirs to ask for, not yours to add.
+
+**A reference is read before it is paid for.** `character new`, `rotate`, `animate` and
+`interpolate` check the image locally first and refuse a soft alpha edge, an image with
+no transparency, or a subject adrift in a large canvas — each naming the free command
+that fixes it. Fix it; do not reach for `--as-is`.
+
 - **Pro Tools cost twenty to forty generations a call:** `object new`, `ui`, `inpaint`,
   `tiles variants`, `character state`, `outfit`, `sprite` with more than one `--style`,
-  and `edit` with more than one image. Never run one without agreement.
-- **A failed generation is charged.** `pixellab-cli ledger` lists what was spent and what
-  was submitted and never collected.
-- **Never read, print or echo a credential.** `pixellab-cli config show` says which are set
-  and where they came from, never their values.
+  and `edit` with more than one image.
+- **A failed generation is charged.** `pixellab-cli ledger` lists what was spent, and
+  what was submitted and never collected.
+- **Never read, print or echo a credential.** `pixellab-cli config show` says which are
+  set and where they came from, never their values.
 - Start a character from `pixellab-cli art anchor`, not `art concept`: the rotation and
   animation routes read the image they are given as the south frame.
-- Do not name a provider route, and do not guess enum spellings or size limits. The
-  tool chooses, validates before spending, and its errors name what would have worked.
+- Do not name a provider route, and do not guess enum spellings or size limits. The tool
+  chooses, validates before spending, and its errors name what would have worked.
 
-Full instructions: `{references.as_posix()}/{ENTRY_SKILL}/SKILL.md`, which routes to the
-category skill beside it — `pixellab-cli-images`, `pixellab-cli-characters`,
-`pixellab-cli-editing`, `pixellab-cli-scenes`, `pixellab-cli-interface` — and
-`{ENTRY_SKILL}/references/costs.md` for what each command costs."""
+Full instructions: `{entry}`, which routes to the category skill beside it —
+`pixellab-cli-images`, `pixellab-cli-characters`, `pixellab-cli-editing`,
+`pixellab-cli-scenes`, `pixellab-cli-interface` — and `{ENTRY_SKILL}/references/costs.md`
+for what each command costs."""
 
 
 def claude_skill_dir(root: Path, name: str = ENTRY_SKILL) -> Path:
     return root / ".claude" / "skills" / name
+
+
+# Where Claude Code's skills land, as the memory file has to spell it.
+CLAUDE_SKILLS = Path(".claude") / "skills"
+
+
+def claude_memory(root: Path, *, global_install: bool) -> Path:
+    """The file Claude Code reads every session, whether or not it loads a skill.
+
+    Installing the skills is not the same as the rules being read. A skill is loaded
+    when the agent judges it relevant, and the failure this exists to stop is an agent
+    that judged wrong: the skills were installed, they sat there, and a character was
+    generated and paid for without them. What costs money if it is missed therefore
+    goes in the memory file, which is read whether anything is judged relevant or not,
+    and points at the skills for the rest.
+    """
+    return root / ".claude" / "CLAUDE.md" if global_install else root / "CLAUDE.md"
 
 
 def agents_file(harness: Harness, root: Path, *, global_install: bool) -> Path:
@@ -306,6 +344,9 @@ def install(harness: Harness, root: Path, *, global_install: bool = False) -> Wr
                 skill = claude_skill_dir(root, name)
                 changed = not skill_matches(skill, source) or changed
                 paths.extend(copy_skill(skill, source))
+            memory = claude_memory(root, global_install=global_install)
+            changed = write_block(memory, block_body(CLAUDE_SKILLS)) or changed
+            paths.append(memory)
             return Written(harness, tuple(paths), changed=changed, retired=stale)
 
         agents = agents_file(harness, root, global_install=global_install)

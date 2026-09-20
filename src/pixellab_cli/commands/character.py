@@ -16,7 +16,7 @@ from typing import Any
 
 import typer
 
-from pixellab_cli import catalog, images, output
+from pixellab_cli import catalog, images, output, pixels
 from pixellab_cli.context import AppContext
 from pixellab_cli.errors import PixellabCliError, ProviderError, ValidationError
 from pixellab_cli.ledger import Cost
@@ -183,6 +183,12 @@ def new(
     shading: str = typer.Option(None, "--shading", help=f"One of: {', '.join(SHADING)}"),
     detail: str = typer.Option(None, "--detail", help=f"One of: {', '.join(DETAIL)}"),
     name: str = typer.Option(None, "--name", help="What to call the files."),
+    from_description: bool = typer.Option(
+        False, "--from-description", help="Draw from the description alone, with no reference."
+    ),
+    as_is: bool = typer.Option(
+        False, "--as-is", help="Send the reference unchecked, flaws and all."
+    ),
     seed: int = typer.Option(None, "--seed", help="Repeat a previous generation."),
 ) -> None:
     """Create a character with eight rotations, or four, and a skeleton."""
@@ -199,10 +205,32 @@ def new(
             shading,
             detail,
             name,
+            from_description,
+            as_is,
             seed,
         )
     except PixellabCliError as failure:
         output.handle(failure)
+
+
+def require_a_reference(reference: Path | None, from_description: bool) -> None:
+    """Refuse a character drawn from nothing unless that is what was asked for.
+
+    The route accepts a description alone and says nothing about it, and what comes
+    back is a character nobody chose the look of — then eight rotations of it, then
+    every animation. The reference is where the look is decided cheaply, so a call
+    that skips it is far more often a step missed than a step declined.
+    """
+    if reference is not None or from_description:
+        return
+    raise ValidationError(
+        "character new has no --reference, so it would draw the character from the "
+        "description alone and every rotation and animation would be built on whatever "
+        'came back. Make the reference first — `pixellab-cli art anchor "..."`, then '
+        "`pixellab-cli image inspect` and `pixellab-cli image trim` — or pass "
+        "--from-description to draw from nothing on purpose.",
+        context={"reference": None},
+    )
 
 
 def _new(
@@ -217,6 +245,8 @@ def _new(
     shading,
     detail,
     name,
+    from_description,
+    as_is,
     seed,
 ) -> None:
     app_context: AppContext = context.obj
@@ -241,10 +271,13 @@ def _new(
     else:
         reject_four_direction_styles(outline, shading, detail)
         arguments["name"] = name
+    require_a_reference(reference, from_description)
     frame = size
     if reference is not None:
         if not reference.is_file():
             raise ValidationError(f"{reference} is not a file", context={"path": str(reference)})
+        if not as_is:
+            pixels.check_frame(reference)
         encoded = images.encode_file(reference)
         if four:
             arguments["directions"] = {"south": encoded.as_payload()}

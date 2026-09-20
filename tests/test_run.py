@@ -11,12 +11,12 @@ from pathlib import Path
 
 import pytest
 
-from pixellab_cli.errors import JobFailed, PollTimeout, ProviderError
+from pixellab_cli.errors import ApprovalRequired, JobFailed, PollTimeout, ProviderError
 from pixellab_cli.fal import FalResult
 from pixellab_cli.ledger import Cost, Ledger
 from pixellab_cli.output import describe_cost
 from pixellab_cli.pixellab import Result, Usage
-from pixellab_cli.run import Runner, from_fal, from_pixellab
+from pixellab_cli.run import ASSUME_YES_VAR, Runner, from_fal, from_pixellab
 from pixellab_cli.workspace import Workspace, slugify
 
 MOMENT = datetime(2026, 9, 14, 21, 31, tzinfo=UTC)
@@ -746,3 +746,193 @@ class TestAFailureIsRecordedWhateverItWas:
             )
 
         assert "cost" not in self._entries(tmp_path)[-1]
+
+
+class TestNothingIsPaidForWithoutAgreement:
+    """The gate that a skill instruction cannot be relied on to be.
+
+    An agent told to ask first can fail to ask, and the failure is only visible on the
+    invoice. The runner is the one place a charge can begin, so the agreement is
+    checked there and the whole free half of the tool never meets it.
+    """
+
+    def _runner(self, tmp_path, *, approved: bool = False) -> Runner:
+        workspace = Workspace(root=tmp_path / "out")
+        return Runner(
+            workspace=workspace,
+            ledger=Ledger(path=workspace.ledger_path),
+            approved=approved,
+        )
+
+    def _call(self, runner: Runner):
+        return runner.run(
+            description="a knight",
+            provider="pixellab",
+            route="create-character-v3",
+            arguments={"description": "a knight"},
+            call=lambda: pixellab_result(),
+            translate=from_pixellab,
+            estimate=Cost(generations=4.0),
+        )
+
+    def test_a_paid_call_without_agreement_is_refused(self, tmp_path, monkeypatch):
+        monkeypatch.delenv(ASSUME_YES_VAR, raising=False)
+
+        with pytest.raises(ApprovalRequired) as raised:
+            self._call(self._runner(tmp_path))
+
+        assert "create-character-v3" in str(raised.value)
+        assert "--yes" in str(raised.value)
+
+    def test_the_refusal_names_what_it_would_have_cost(self, tmp_path, monkeypatch):
+        monkeypatch.delenv(ASSUME_YES_VAR, raising=False)
+
+        with pytest.raises(ApprovalRequired) as raised:
+            self._call(self._runner(tmp_path))
+
+        assert "4 generations" in str(raised.value)
+
+    def test_nothing_is_written_and_nothing_is_recorded(self, tmp_path, monkeypatch):
+        """Refused before the intent line, because an intent is a charge that may have
+        happened and no charge can have happened here."""
+        monkeypatch.delenv(ASSUME_YES_VAR, raising=False)
+
+        with pytest.raises(ApprovalRequired):
+            self._call(self._runner(tmp_path))
+
+        assert not (tmp_path / "out").exists()
+
+    def test_the_call_itself_is_never_made(self, tmp_path, monkeypatch):
+        monkeypatch.delenv(ASSUME_YES_VAR, raising=False)
+        made = []
+
+        with pytest.raises(ApprovalRequired):
+            self._runner(tmp_path).run(
+                description="a knight",
+                provider="pixellab",
+                route="create-character-v3",
+                arguments={},
+                call=lambda: made.append(True),
+                translate=from_pixellab,
+            )
+
+        assert made == []
+
+    def test_agreement_lets_it_through(self, tmp_path, monkeypatch):
+        monkeypatch.delenv(ASSUME_YES_VAR, raising=False)
+
+        outcome = self._call(self._runner(tmp_path, approved=True))
+
+        assert outcome.files
+
+    def test_the_environment_stands_in_where_nobody_can_type_it(self, tmp_path, monkeypatch):
+        monkeypatch.setenv(ASSUME_YES_VAR, "1")
+
+        outcome = self._call(self._runner(tmp_path))
+
+        assert outcome.files
+
+    def test_a_route_with_no_estimate_is_still_gated(self, tmp_path, monkeypatch):
+        """An unpriced route is the one most worth stopping on, not the least."""
+        monkeypatch.delenv(ASSUME_YES_VAR, raising=False)
+
+        with pytest.raises(ApprovalRequired) as raised:
+            self._runner(tmp_path).run(
+                description="a knight",
+                provider="fal",
+                route="concept",
+                arguments={},
+                call=lambda: pixellab_result(),
+                translate=from_pixellab,
+            )
+
+        assert "cannot estimate" in str(raised.value)
+
+
+class TestTheRefusalIsRedactedLikeEverythingElse:
+    """The summary prints to a terminal an agent reads and a CI job keeps.
+
+    Every other place these arguments are surfaced — both ledger lines and the manifest
+    — goes through `redact` first. This one printing them raw would make the newest
+    path the only unredacted one.
+    """
+
+    def _runner(self, tmp_path) -> Runner:
+        workspace = Workspace(root=tmp_path / "out")
+        return Runner(
+            workspace=workspace,
+            ledger=Ledger(path=workspace.ledger_path),
+            secrets=("pl-secret",),
+        )
+
+    def test_a_credential_in_an_argument_never_reaches_the_summary(self, tmp_path, monkeypatch):
+        monkeypatch.delenv(ASSUME_YES_VAR, raising=False)
+
+        with pytest.raises(ApprovalRequired) as raised:
+            self._runner(tmp_path).run(
+                description="a knight",
+                provider="pixellab",
+                route="create-image-pixflux",
+                arguments={"description": "a knight", "callback": "token=pl-secret"},
+                call=lambda: pixellab_result(),
+                translate=from_pixellab,
+                estimate=Cost(generations=1.0),
+            )
+
+        assert "pl-secret" not in str(raised.value)
+        assert "<redacted>" in str(raised.value)
+
+    def test_a_long_payload_is_measured_rather_than_printed(self, tmp_path, monkeypatch):
+        monkeypatch.delenv(ASSUME_YES_VAR, raising=False)
+
+        with pytest.raises(ApprovalRequired) as raised:
+            self._runner(tmp_path).run(
+                description="a knight",
+                provider="pixellab",
+                route="create-image-pixflux",
+                arguments={"image": "A" * 4000},
+                call=lambda: pixellab_result(),
+                translate=from_pixellab,
+                estimate=Cost(generations=1.0),
+            )
+
+        assert "AAAA" not in str(raised.value)
+        assert "characters" in str(raised.value)
+
+
+class TestTheEnvironmentEscapeIsReadAsAValue:
+    """`PIXELLAB_ASSUME_YES=0` is what somebody writes to turn the bypass off.
+
+    Read as truthiness it would turn it on instead, and stand the spending gate down
+    for every invocation in that environment.
+    """
+
+    def _runner(self, tmp_path) -> Runner:
+        workspace = Workspace(root=tmp_path / "out")
+        return Runner(workspace=workspace, ledger=Ledger(path=workspace.ledger_path))
+
+    def _call(self, tmp_path):
+        return self._runner(tmp_path).run(
+            description="a knight",
+            provider="pixellab",
+            route="create-image-pixflux",
+            arguments={"description": "a knight"},
+            call=lambda: pixellab_result(),
+            translate=from_pixellab,
+            estimate=Cost(generations=1.0),
+        )
+
+    @pytest.mark.parametrize("value", ["0", "false", "no", "off", ""])
+    def test_a_value_that_is_not_agreement_does_not_open_the_gate(
+        self, tmp_path, monkeypatch, value
+    ):
+        monkeypatch.setenv(ASSUME_YES_VAR, value)
+
+        with pytest.raises(ApprovalRequired):
+            self._call(tmp_path)
+
+    @pytest.mark.parametrize("value", ["1", "true", "TRUE", " yes ", "on"])
+    def test_agreement_is_spelled_the_ways_people_spell_it(self, tmp_path, monkeypatch, value):
+        monkeypatch.setenv(ASSUME_YES_VAR, value)
+
+        assert self._call(tmp_path).files

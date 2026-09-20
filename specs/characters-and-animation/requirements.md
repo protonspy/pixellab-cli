@@ -1,9 +1,9 @@
 ---
 autonomy: auto
 ci: wait
-branch: feat/interpolate-between-poses
-delivery: merged
-pr: 37
+branch: feat/guard-the-character-flow
+delivery: in-review
+pr: 59
 ---
 
 # Characters and animation — requirements
@@ -27,6 +27,10 @@ different endpoint family and no skeleton.
 - **R1.7** (ADDED) Where four rotations are asked for, the character commands shall create the character on the four-direction route and shall write south, east, north and west.
 - **R1.8** (ADDED) Where four rotations are asked for, the character commands shall accept an outline style, a shading style and a detail level.
 - **R1.9** (ADDED) Where four rotations are asked for, if a reference sprite is given whose dimensions differ from the frame size, then the character commands shall refuse the call and name both sizes, before spending anything.
+
+- **R1.10** (ADDED) When an image is given to a route that reads it as a frame, the character commands shall read it locally and refuse it before spending anything where its alpha is soft, where it carries no transparency at all, or where trimming its transparent margin would leave the subject filling little of the frame, naming the free command that fixes each.
+- **R1.11** (ADDED) Where the caller says the image is to be sent as it stands, the character commands shall send it unchecked.
+- **R1.12** (ADDED) When asked for a character with no reference image, the character commands shall refuse and name the flow that produces one, unless drawing from the description alone was asked for explicitly.
 
 ## R2 · Animating
 

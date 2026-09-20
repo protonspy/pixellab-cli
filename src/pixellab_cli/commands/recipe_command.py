@@ -59,15 +59,20 @@ def run(
     max_generations: float = typer.Option(
         None, "--max-generations", help="Stop before the first call if the estimate is over this."
     ),
+    unattended: bool = typer.Option(
+        False,
+        "--unattended",
+        help="Run every step without stopping. Default: stop after each one.",
+    ),
 ) -> None:
-    """Run a recipe end to end. Every step is recorded as it completes."""
+    """Run a recipe one paid step at a time, stopping after each for your own edits."""
     try:
-        _run(context, name, description, tuple(action or ()), max_generations)
+        _run(context, name, description, tuple(action or ()), max_generations, unattended)
     except PixellabCliError as failure:
         output.handle(failure)
 
 
-def _run(context, name, description, actions, max_generations) -> None:
+def _run(context, name, description, actions, max_generations, unattended) -> None:
     app_context: AppContext = context.obj
     try:
         recipe = recipes.build(
@@ -99,7 +104,7 @@ def _run(context, name, description, actions, max_generations) -> None:
         _emit_plan(app_context, recipe, estimate)
         return
 
-    _execute(app_context, recipe, description)
+    _execute(app_context, recipe, description, unattended=unattended)
 
 
 @app.command("resume")
@@ -107,15 +112,20 @@ def resume(
     context: typer.Context,
     manifest: Path = typer.Argument(..., help="The recipe.json of a run that stopped."),
     action: list[str] = typer.Option(None, "--action", "-a", help="As the original run had."),
+    unattended: bool = typer.Option(
+        False,
+        "--unattended",
+        help="Run every step that is left without stopping. Default: stop after each one.",
+    ),
 ) -> None:
     """Carry on from where a recipe stopped. Completed steps are not paid for again."""
     try:
-        _resume(context, manifest, tuple(action or ()))
+        _resume(context, manifest, tuple(action or ()), unattended)
     except PixellabCliError as failure:
         output.handle(failure)
 
 
-def _resume(context, manifest_path, actions) -> None:
+def _resume(context, manifest_path, actions, unattended=False) -> None:
     app_context: AppContext = context.obj
     manifest = read_manifest(manifest_path)
 
@@ -166,7 +176,14 @@ def _resume(context, manifest_path, actions) -> None:
         return
 
     output.stderr(f"resuming {recipe.name}: {len(finished)} step(s) done, {len(remaining)} to go.")
-    _execute(app_context, recipe, description, completed=finished, directory=directory)
+    _execute(
+        app_context,
+        recipe,
+        description,
+        completed=finished,
+        directory=directory,
+        unattended=unattended,
+    )
 
 
 def _emit_plan(app_context: AppContext, recipe, estimate: float) -> None:
@@ -201,6 +218,7 @@ def _execute(
     *,
     completed: dict[str, StepState] | None = None,
     directory: Path | None = None,
+    unattended: bool = False,
 ) -> None:
     clients = {"pixellab": app_context.pixellab(), "fal": app_context.fal()}
     reported: list[dict[str, Any]] = []
@@ -227,6 +245,7 @@ def _execute(
         completed=completed,
         directory=directory,
         on_step=on_step,
+        unattended=unattended,
     )
 
     # The estimate and the report stay apart here too: the gap between them is the
@@ -252,4 +271,17 @@ def _execute(
     ]
     if unknown:
         lines.append(f"{unknown} call(s) the provider did not price")
+    if run.paused:
+        # The pause is the feature, so it reads as a step rather than as a stop: the
+        # files are there, they are yours to fix, and one command carries on.
+        remaining = [state.name for state in run.states if state.state != "done"]
+        payload["paused_before"] = remaining
+        lines.extend(
+            [
+                "",
+                f"stopped before {remaining[0]}. Open what it wrote and fix anything you "
+                f"want fixed — every later step is built on these files.",
+                f"continue with: pixellab-cli recipe resume {run.manifest_path}",
+            ]
+        )
     output.emit(payload, lines, as_json=app_context.as_json)

@@ -100,6 +100,22 @@ class ValidationError(PixellabCliError):
     """An argument the route rejects, caught before the request is sent."""
 
 
+class ApprovalRequired(PixellabCliError):
+    """A paid call nobody has agreed to, refused before anything was sent.
+
+    Its own class rather than a `ValidationError`, because nothing is wrong with the
+    request: it is correct, it is ready, and the only thing missing is a person
+    saying yes. A caller that wants to tell "fix this" from "ask first" reads the
+    type, not the sentence.
+    """
+
+    def __str__(self) -> str:
+        """The message alone. What this prints is read by a person deciding whether to
+        spend money, and `route='create-character-v3', generations=4.0` appended to a
+        summary that already says both is noise in the one place noise is expensive."""
+        return self.message
+
+
 class ProviderError(PixellabCliError):
     """The provider refused the request, and the retries are spent."""
 

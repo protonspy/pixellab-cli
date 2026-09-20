@@ -9,22 +9,61 @@ below: one bad reference becomes eight bad rotations becomes eight bad animation
 
 Read `pixellab-cli-assets` first for the spending rule and the credentials.
 
-## The order
+## The order, and it is not a suggestion
 
 ```
 1  art anchor            the front-facing reference             ~unpriced (fal)
-2  clean / inspect       fix it now, while it is one image      free
-3  character new         eight rotations and a character_id     ~3-4 gen
-4  clean                 fix the rotations                      free or ~0.1
-5  character state       a posed or re-dressed second character 20-40 gen each
-6  character enrich      a motion description from that pose    ~0.05 gen
-7  character animate     one direction at a time                1 gen per frame
-8  image flip            the west-facing half, free             free
-9  export atlas          what the engine loads                  free
+2  image inspect         read its alpha before paying for it    free
+3  image trim / clean    make it a sprite                       free, or ~0.1
+   ---- ask the two questions, then ----
+4  character new         eight rotations and a character_id     ~3-4 gen
+5  image inspect + clean the rotations                          free or ~0.1
+   ---- hand them back, wait for their edits ----
+6  character state       a posed or re-dressed second character 20-40 gen each
+7  character enrich      a motion description from that pose    ~0.05 gen
+8  character animate     one direction at a time                1 gen per frame
+9  image flip            the west-facing half, free             free
+10 export atlas          what the engine loads                  free
 ```
 
-**Do not skip step 2 or step 4.** Cleanup between the paid multiplications is the whole
-economy of this pipeline, and no route does it for you.
+**Every paid line in that list is its own `--yes`.** There is no approval that covers
+the flow. Show the refusal's summary, wait, add `--yes`, and do it again at the next
+paid line — see `pixellab-cli-assets`, which owns the rule.
+
+**Step 4 is never the first thing you run.** `character new` without `--reference`
+refuses, because a character drawn from a description alone is a look nobody chose and
+eight rotations and every animation are then built on it. `--from-description` exists
+for when the person asked for exactly that, and for nothing else.
+
+**Do not skip step 2, 3 or 5.** Cleanup between the paid multiplications is the whole
+economy of this pipeline, and no route does it for you. The tool now refuses the worst
+of it for you — a soft edge, a missing alpha channel, a subject adrift in a big canvas —
+but a refusal is a floor, not the standard.
+
+### The two questions, before step 4
+
+Ask both, together, and wait for the answers. Both decide what is bought and neither
+can be changed afterwards:
+
+1. **The full-size image, or a smaller one?** A reference sent at its full size gives a
+   larger character with more detail in every frame; a smaller one is cheaper to animate
+   later and is what most top-down games actually use. `pixellab-cli image resize` is
+   free either way, and the reference ceiling is 256 a side.
+2. **Convert it to pixel art first?** `pixellab-cli sprite --from <file>` or the
+   `image-to-pixelart-pro` step turns a concept into pixel art before the rotations are
+   built on it. Sending the concept straight in works and gives a softer, painterly
+   character; converting first costs about twenty generations and gives a crisp one.
+
+### Then stop and let them fix it
+
+After the rotations land, **hand over the paths and wait**. They open the frames in the
+PixelLab editor and clean up what the model got wrong — a stray pixel, an outline that
+broke, a colour that drifted. Every state and every animation is built on those frames,
+so a fix made here is made once and a flaw left here is bought again at every step below.
+
+`pixellab-cli recipe run` already works this way: one paid step, then it stops and prints
+the `resume` command. Driving the commands one at a time, do the same thing by hand — do
+not queue the next paid call in the same breath as the last one.
 
 ## Starting from the right image
 
@@ -36,15 +75,22 @@ Use `art anchor` rather than `art concept`, and see `pixellab-cli-images`, which
 both and says when fal is worth its cost at all. A three-quarter concept pose becomes
 eight rotations of a character permanently turned, and nothing reports it.
 
-Run `pixellab-cli image inspect` before spending: a soft alpha edge is read by these
-routes as a halo.
+Run `pixellab-cli image inspect` before spending: `soft` is the number that matters, and
+it is what these routes read as a halo. `character new --reference`, `rotate`, `animate`
+and `interpolate` read the frame themselves and refuse a soft edge, an image with no
+transparency, or a subject adrift in a large canvas, each naming the free command that
+fixes it. `--as-is` sends it anyway and is almost never right.
 
 ## The character
 
 ```
 pixellab-cli character new <description> --reference --size --view --template
-                                         --directions --outline --shading --detail --name --seed
+                                         --directions --outline --shading --detail --name
+                                         --from-description --as-is --seed
 ```
+
+`--reference` is not optional in practice: without it the command refuses and names the
+flow, and `--from-description` is how the person asks for a character drawn from nothing.
 
 `--directions 4` is **a different route, not a smaller number**: south, east, north and
 west, template-based, about one generation against four. It is the shape most top-down

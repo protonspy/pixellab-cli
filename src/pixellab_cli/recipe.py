@@ -103,6 +103,10 @@ class RecipeRun:
     description: str = ""
     context: dict[str, Any] = field(default_factory=dict)
     outcomes: list[RunOutcome] = field(default_factory=list)
+    # Set when the run stopped on purpose between two paid steps rather than because
+    # it finished. Not written to the manifest: the manifest already says which steps
+    # are done, and a second record of the same fact is one that can disagree.
+    paused: bool = False
 
     @property
     def manifest_path(self) -> Path:
@@ -152,13 +156,22 @@ def run_recipe(
     completed: dict[str, StepState] | None = None,
     directory: Path | None = None,
     on_step: Callable[[StepState, RunOutcome | None], None] | None = None,
+    unattended: bool = False,
 ) -> RecipeRun:
-    """Run every step in order, keeping what earlier steps produced.
+    """Run the steps in order, keeping what earlier steps produced.
 
     A failure stops the recipe and keeps everything before it. Throwing away four
     paid steps because the fifth was rejected is the failure mode this exists to
     prevent, which is also why the manifest is written after every step rather than
     at the end.
+
+    **One paid step at a time, unless `unattended`.** Each step feeds the next the
+    image it wrote, so a flaw in step two is bought again in step three and in every
+    step after it — and the person's own fix, made in an editor by hand, is the thing
+    this pipeline is worst at replacing. Stopping is therefore the default and running
+    through is the option, which is the opposite of how a batch usually works and is
+    deliberate: `resume` costs nothing to run and an unwanted generation is not
+    refundable.
     """
     directory = directory or runner.workspace.run_directory(description)
     carried: dict[str, Any] = dict(context or {})
@@ -246,6 +259,9 @@ def run_recipe(
         run.write()
         if on_step:
             on_step(state, outcome)
+        if not unattended and any(other.state != DONE for other in states):
+            run.paused = True
+            break
 
     run.context = carried
     return run
