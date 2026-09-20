@@ -2,8 +2,8 @@
 autonomy: auto
 ci: wait
 branch: feat/no-thin-motion-description
-delivery: in-progress
-pr: 60
+delivery: in-review
+pr: 61
 ---
 
 # Characters and animation — requirements
