@@ -34,6 +34,34 @@ image from a description ([[gpt-image-25]]). PixelLab makes assets a game engine
 Steps 1 and 2 are on fal, 3 onward on PixelLab, and the handoff is a PNG on disk: fal
 returns a CDN URL, PixelLab takes base64, and neither accepts the other's handle.
 
+## What the character step actually reads
+
+`create-character-v3` in reference mode is not drawing from the description with a
+picture as a hint. It is rotating the picture, and the description is what holds the
+rotation to the subject. Both halves therefore decide how precise the result is, and a
+run with one of them thin comes back roughly right — which is the expensive kind of
+wrong, because it is only obvious across eight frames that have already been paid for.
+
+Measured on real runs:
+
+- **A large reference beats a small one**, up to the route's own ceiling of 256 a side.
+  There is nothing to save by shrinking it first: the route picks the output size in
+  reference mode, so a smaller input buys less detail rather than a cheaper call, and
+  `POST /v2/resize` or a local resize can make a smaller sprite afterwards for nothing.
+- **An enriched description beats a noun.** "a knight" with a good reference still
+  produces a generic knight. What it wears, what it carries, its build, its palette,
+  what is distinctive about the silhouette — the description is the only place any of
+  that is stated, because the rotation routes never see the original prompt.
+- **No large image in the right pose is not a reason to send a small one.** It is the
+  reason step 1 exists: draw the anchor, then rotate it. Reusing whatever picture is
+  already on disk is how a character comes back permanently turned or cropped, and the
+  routes report neither.
+
+The same holds one level down, for the same reason: an animation route draws every
+frame from its action description, so a one-word action buys invented frames. That is
+what `POST /v2/enhance-animation-v3-prompt` is for, and where it cannot be run the
+description is written by hand rather than skipped — see [[animation-frames]].
+
 ## Where a human looks
 
 Error does not accumulate down this pipeline, it multiplies. A flaw in the anchor becomes
