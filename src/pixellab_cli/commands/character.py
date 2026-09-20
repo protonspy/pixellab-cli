@@ -209,6 +209,11 @@ def check_reference_size(encoded: images.EncodedImage, path: Path) -> None:
     for.
 
     A size that cannot be read is not known to be wrong, so it is not treated as wrong.
+
+    The command it suggests carries a placeholder rather than the path. An agent reads
+    these messages and runs what they suggest, and a filename is not shell-quoted by
+    being printed — the same reason `prompts.check_the_motion_is_described` does not
+    put its action in one. The path is named in the sentence, which is diagnosis.
     """
     if encoded.width is None or encoded.height is None:
         return
@@ -217,7 +222,7 @@ def check_reference_size(encoded: images.EncodedImage, path: Path) -> None:
     raise ValidationError(
         f"{path} is {encoded.width}x{encoded.height}, and this route reads a reference "
         f"best at {REFERENCE_FRAME}x{REFERENCE_FRAME}, which is also its ceiling. "
-        f"`pixellab-cli image resize {path} --to {REFERENCE_FRAME}` is free and works "
+        f"`pixellab-cli image resize <file> --to {REFERENCE_FRAME}` is free and works "
         f"upward as readily as down; the frames come back at the size the route picks "
         f"either way, so a smaller reference buys less detail rather than a cheaper "
         f"call. --as-is sends it at the size it is.",

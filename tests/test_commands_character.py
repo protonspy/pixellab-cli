@@ -2699,6 +2699,20 @@ class TestTheReferenceSizeTheRouteReadsBest:
         assert not create.calls
 
     @respx.mock
+    def test_the_suggested_command_carries_no_filename(self, tmp_path, monkeypatch):
+        """An agent runs what these messages suggest, and a filename is not shell-quoted
+        by being printed."""
+        reference = tmp_path / "it's $(touch pwned).png"
+        reference.write_bytes(png_bytes(128, 128))
+
+        result = invoke(
+            ["character", "new", "a knight", "--reference", str(reference)], tmp_path, monkeypatch
+        )
+
+        suggested = result.output.split("`")[1]
+        assert suggested == "pixellab-cli image resize <file> --to 256"
+
+    @respx.mock
     def test_a_reference_larger_than_the_ceiling_is_refused_too(self, tmp_path, monkeypatch):
         reference = tmp_path / "anchor.png"
         reference.write_bytes(png_bytes(512, 512))
