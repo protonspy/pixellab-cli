@@ -46,7 +46,7 @@ def anchor_prompt(description: str, *, referenced: bool = False) -> str:
 
 
 # Below this an action is a label rather than a motion. The enhancer's own input is
-# tags — `walking,loop,south` — and an animation route given those animates the words:
+# tags — `walking,loop` — and an animation route given those animates the words:
 # the frames have nothing to interpolate between, and every one of them is charged.
 FULL_ACTION_WORDS = 4
 
@@ -57,7 +57,7 @@ TAG_WORDS = 2
 
 
 def _is_tag_list(action: str) -> bool:
-    """Whether this is `walking,loop,south` rather than a sentence with commas in it.
+    """Whether this is `walking,loop` rather than a sentence with commas in it.
 
     Checked on its own and not behind a word count, because the count is exactly what
     it slips past: `walking, loop, south, once` is four words and four tags, and is

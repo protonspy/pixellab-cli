@@ -151,7 +151,7 @@ currently returning correct frames for it** — do not reach for it to save mone
 **`-a "walking"` is refused.** This route draws every frame from the description it is
 given: `walking` says nothing about what the legs do, where the arms swing or where the
 cycle returns to, so the model invents all of it — differently in each frame — and every
-frame is charged, per direction. The tag form `walking,loop,south` is refused too: that
+frame is charged, per direction. The tag form `walking,loop` is refused too: that
 is `enrich`'s own input, and reaching the animation route with it means somebody meant
 to expand it and did not.
 
@@ -179,13 +179,24 @@ past the refusal.
 ### Write the motion description first
 
 ```bash
-pixellab-cli character enrich -a "walking,loop,south" --pose <state-id>
+pixellab-cli character enrich -a "walking,loop" --pose <state-id> -d south
 ```
 
 About 0.05 generations, nothing animated. The description is written from what is visible
 in the pose, so tags are the input it is built for. The text lands as a `.txt` and is then
-the `-a` of the animation call, reusable across every direction. Prefer this to
-`--enhance`, which expands the action inside the paid call where you cannot read it.
+the `-a` of the animation call. Prefer this to `--enhance`, which expands the action
+inside the paid call where you cannot read it.
+
+**Do not name a direction in the action.** `-d` says which rotation of the pose to read
+the frame from, and that is the only place a direction belongs. The description it
+returns is the `-a` of **every** direction's animation call — one text, reused
+unchanged, which is what keeps the four or eight of them the same motion. A "south" in
+the wording makes the north call a description of walking south, and the frames come
+back arguing with themselves.
+
+One enrichment per motion, then. Not one per direction: re-enriching per direction is
+paying to have the same motion described several ways, which is the drift this step
+exists to prevent.
 
 ## Half the directions are free
 
