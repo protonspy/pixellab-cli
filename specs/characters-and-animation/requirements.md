@@ -1,9 +1,9 @@
 ---
 autonomy: auto
 ci: wait
-branch: feat/the-pose-must-suit-the-action
-delivery: merged
-pr: 66
+branch: feat/room-for-the-motion
+delivery: in-review
+pr: 68
 ---
 
 # Characters and animation — requirements

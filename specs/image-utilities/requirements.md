@@ -1,9 +1,9 @@
 ---
 autonomy: auto
 ci: wait
-branch: fix/inspect-alpha-ceiling
-delivery: merged
-pr: 57
+branch: feat/room-for-the-motion
+delivery: in-review
+pr: 68
 ---
 
 # Image utilities — requirements
