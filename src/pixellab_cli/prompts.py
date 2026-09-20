@@ -101,3 +101,77 @@ def check_the_motion_is_described(action: str | None, enhance: bool, terse: bool
         f"stands.",
         context={"action": action},
     )
+
+
+# Words that say nothing about which motion a pose is for. Two kinds, and the second
+# is the one that matters: a body part is named by almost every pose and almost every
+# action — "head bowed" and "blade raised behind the head" share a head and nothing
+# else — so matching on one says a pose suits a motion it has no relation to. What
+# identifies a pose is the motion, not the limb. Kept short and literal beyond that:
+# a longer list starts deciding that "slow" and "heavy" are noise, and they are not.
+FILLER = frozenset(
+    {
+        "a",
+        "an",
+        "the",
+        "of",
+        "in",
+        "on",
+        "at",
+        "to",
+        "with",
+        "and",
+        "or",
+        "his",
+        "her",
+        "its",
+        "their",
+        "this",
+        "that",
+        "pose",
+        "posed",
+        "frame",
+        "character",
+        "sprite",
+        "same",
+        "one",
+        "onto",
+        "down",
+        "up",
+        "head",
+        "arm",
+        "arms",
+        "hand",
+        "hands",
+        "leg",
+        "legs",
+        "foot",
+        "feet",
+        "knee",
+        "knees",
+        "torso",
+        "body",
+        "shoulder",
+        "shoulders",
+        "chest",
+        "back",
+        "eyes",
+        "face",
+        "hair",
+    }
+)
+
+# How much of a word has to agree. Four letters takes `attack` to `attacking` and
+# `walk` to `walking` without taking `attack` to `attach`.
+STEM = 4
+
+
+def motion_words(text: str) -> set[str]:
+    """The words of a pose or an action that say which motion it is."""
+    cleaned = "".join(character if character.isalnum() else " " for character in text.lower())
+    return {word[:STEM] for word in cleaned.split() if word not in FILLER and len(word) > 2}
+
+
+def suits(pose_text: str, action: str) -> bool:
+    """Whether a pose was made for this motion, as far as the words can say."""
+    return bool(motion_words(pose_text) & motion_words(action))

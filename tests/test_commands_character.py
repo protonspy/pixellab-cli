@@ -2757,3 +2757,164 @@ class TestTheReferenceSizeTheRouteReadsBest:
 
         assert result.exit_code == 0
         assert create.calls
+
+
+class TestThePoseHasToSuitTheAction:
+    """A state of the right character is still the wrong pose to animate from.
+
+    `check_pose_belongs` catches an orc's pose on a knight. This catches the knight's
+    idle used to animate the knight's attack, which is the commoner mistake: every
+    state of a character is a valid identifier and the route takes all of them.
+    """
+
+    def a_character_with_two_poses(self, tmp_path):
+        home = tmp_path / "out" / "warrior"
+        runs = [
+            (1, {"ids": {"character_id": "char-9"}, "arguments": {"description": "a knight"}}),
+            (
+                2,
+                {
+                    "ids": {"character_id": "pose-idle", "source_character_id": "char-9"},
+                    "links": {"character_id": "char-9", "pose": "idle standing pose, arms at rest"},
+                },
+            ),
+            (
+                3,
+                {
+                    "ids": {"character_id": "pose-attack", "source_character_id": "char-9"},
+                    "links": {
+                        "character_id": "char-9",
+                        "pose": "an overhead attack wind-up, blade raised behind the head",
+                    },
+                },
+            ),
+        ]
+        for version, payload in runs:
+            directory = home / "rotations" / f"v{version}"
+            directory.mkdir(parents=True, exist_ok=True)
+            run = f"warrior_rotations_v{version}"
+            (directory / f"{run}.manifest.json").write_text(
+                json.dumps(
+                    {
+                        "schema": 1,
+                        "run": run,
+                        "provider": "pixellab",
+                        "route": "create-character-v3",
+                        "cost": {},
+                        "files": [],
+                        "arguments": {},
+                        **payload,
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+    def animate(self, tmp_path, monkeypatch, pose, action, *extra):
+        return invoke(
+            [
+                "--subject",
+                "warrior",
+                "character",
+                "animate",
+                "char-9",
+                "-a",
+                action,
+                "--start-pose",
+                pose,
+                *extra,
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+    def mock_poses(self):
+        for pose in ("pose-idle", "pose-attack"):
+            respx.get(f"{PIXELLAB_BASE_URL}/characters/{pose}").respond(
+                json={"id": pose, "rotation_urls": rotation_urls(["south"])}
+            )
+        respx.post(f"{PIXELLAB_BASE_URL}/characters/animations").respond(
+            json={"background_job_ids": ["job-2"], "status": "processing"}
+        )
+        respx.get(f"{PIXELLAB_BASE_URL}/background-jobs/job-2").respond(
+            json={"status": "completed", "last_response": {"images": [image_payload()]}}
+        )
+
+    @respx.mock
+    def test_the_idle_pose_on_an_attack_is_refused(self, tmp_path, monkeypatch):
+        animate = respx.post(f"{PIXELLAB_BASE_URL}/characters/animations")
+        mock_character()
+        self.a_character_with_two_poses(tmp_path)
+
+        result = self.animate(
+            tmp_path, monkeypatch, "pose-idle", "attacking overhead with a sword, blade falling"
+        )
+
+        assert result.exit_code == 2
+        assert not animate.calls
+
+    @respx.mock
+    def test_the_refusal_names_the_pose_that_suits_it(self, tmp_path, monkeypatch):
+        mock_character()
+        self.a_character_with_two_poses(tmp_path)
+
+        result = self.animate(
+            tmp_path, monkeypatch, "pose-idle", "attacking overhead with a sword, blade falling"
+        )
+
+        assert "pose-attack" in result.output
+        assert "idle standing pose" in result.output
+
+    @respx.mock
+    def test_the_pose_made_for_it_goes_through(self, tmp_path, monkeypatch):
+        mock_character()
+        self.mock_poses()
+        self.a_character_with_two_poses(tmp_path)
+
+        result = self.animate(
+            tmp_path, monkeypatch, "pose-attack", "attacking overhead with a sword, blade falling"
+        )
+
+        assert result.exit_code == 0
+
+    @respx.mock
+    def test_any_pose_animates_from_the_one_named(self, tmp_path, monkeypatch):
+        mock_character()
+        self.mock_poses()
+        self.a_character_with_two_poses(tmp_path)
+
+        result = self.animate(
+            tmp_path,
+            monkeypatch,
+            "pose-idle",
+            "attacking overhead with a sword, blade falling",
+            "--any-pose",
+        )
+
+        assert result.exit_code == 0
+
+    @respx.mock
+    def test_nothing_is_refused_when_no_other_pose_suits_it(self, tmp_path, monkeypatch):
+        """A character with one pose has nothing else to offer, and a description can
+        legitimately outrun its pose. The rule is about a choice that was available."""
+        mock_character()
+        self.mock_poses()
+        self.a_character_with_two_poses(tmp_path)
+
+        result = self.animate(
+            tmp_path, monkeypatch, "pose-idle", "crouching slowly down onto one knee, head bowed"
+        )
+
+        assert result.exit_code == 0
+
+    @respx.mock
+    def test_the_pose_is_named_by_what_it_was_made_for(self, tmp_path, monkeypatch):
+        """`char-12` says nothing about whether it is the idle or the wind-up."""
+        mock_character()
+        self.mock_poses()
+        self.a_character_with_two_poses(tmp_path)
+
+        result = self.animate(
+            tmp_path, monkeypatch, "pose-attack", "attacking overhead with a sword, blade falling"
+        )
+
+        assert "an overhead attack wind-up" in result.output

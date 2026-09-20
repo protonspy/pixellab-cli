@@ -256,8 +256,9 @@ is accepted by the route, charged per frame per direction, and comes back wrong.
   chooses, validates before spending, and its errors name what would have worked.
 
 Full instructions: `{entry}`, which routes to the category skill beside it —
-`pixellab-cli-images`, `pixellab-cli-characters`, `pixellab-cli-editing`,
-`pixellab-cli-scenes`, `pixellab-cli-interface` — and `{ENTRY_SKILL}/references/costs.md`
+`pixellab-cli-images`, `pixellab-cli-characters`, `pixellab-cli-animation`,
+`pixellab-cli-editing`, `pixellab-cli-scenes`, `pixellab-cli-interface` — and
+`{ENTRY_SKILL}/references/costs.md`
 for what each command costs."""
 
 

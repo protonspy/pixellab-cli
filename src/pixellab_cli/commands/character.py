@@ -22,7 +22,7 @@ from pixellab_cli.context import AppContext
 from pixellab_cli.errors import PixellabCliError, ProviderError, ValidationError
 from pixellab_cli.ledger import Cost
 from pixellab_cli.pixellab import PixelLabClient, Result
-from pixellab_cli.prompts import check_the_motion_is_described
+from pixellab_cli.prompts import check_the_motion_is_described, suits
 from pixellab_cli.reference import REFERENCE_DIR
 from pixellab_cli.routes import DETAIL, DIRECTION, OUTLINE, SHADING, VIEW
 from pixellab_cli.run import from_pixellab
@@ -82,6 +82,51 @@ def _require_character(app_context, character_id: str) -> None:
     payload = app_context.pixellab().call("character", character_id=character_id).raw
     if not payload:
         raise ValidationError(f"no character {character_id!r} on this account")
+
+
+def check_pose_suits(app_context, character_id: str, pose: str | None, action: str | None) -> None:
+    """Refuse an attack animated from the idle pose, where the record can see it.
+
+    The pose the motion starts on is half the result: a walk described from a standing
+    frame has to invent the stride, and an attack started from an idle comes back as a
+    character that stands still and then teleports into a swing. Both are charged per
+    frame per direction, and neither is reported.
+
+    `check_pose_belongs` catches the wrong *character*. This catches the wrong *pose of
+    the right character*, which is the commoner mistake, because every state of a
+    character is a valid identifier and the route accepts all of them.
+
+    **Only where a better one exists.** The rule is not "this pose must match" — a
+    character with one pose has nothing else to offer and a description can legitimately
+    outrun its pose. It is "another pose of this character matches and this one does
+    not", which is a statement about a choice that was available and not taken.
+    """
+    if not pose or not action or not app_context.subject:
+        return
+    subject = subjects.load(app_context.workspace, slugify(app_context.subject))
+    if subject.owner_of(pose) != character_id:
+        # Either not this character's, which `check_pose_belongs` refuses on its own,
+        # or unknown here, and an unknown pose has no text to judge.
+        return
+    chosen = subject.pose_text(pose)
+    if chosen is None or suits(chosen, action):
+        return
+    better = [
+        (other, text)
+        for other, text in subject.poses_of(character_id)
+        if other != pose and text and suits(text, action)
+    ]
+    if not better:
+        return
+    named = "; ".join(f"{other} — {text}" for other, text in better)
+    raise ValidationError(
+        f"--start-pose {pose} is {chosen!r}, and this animates {action!r}. The pose the "
+        f"motion starts on is half the result: a motion described from the wrong frame "
+        f"comes back as a character that snaps into it, charged per frame per "
+        f"direction. This character has a pose made for it: {named}. "
+        f"--any-pose animates from the one you named.",
+        context={"pose": pose, "action": action, "better": [other for other, _ in better]},
+    )
 
 
 def check_pose_belongs(app_context, character_id: str, pose: str | None, flag: str) -> None:
@@ -558,7 +603,13 @@ def pose_frame(app_context, pose: str, direction: str):
             context={"pose": pose},
         )
 
-    output.stderr(f"pose: reading the {direction} rotation of character {pose}")
+    # Named with what it was made for, where the record knows: `char-12` says nothing
+    # about whether it is the idle or the wind-up, and that is the whole question.
+    described = ""
+    if app_context.subject:
+        text = subjects.load(app_context.workspace, slugify(app_context.subject)).pose_text(pose)
+        described = f" — {text}" if text else ""
+    output.stderr(f"pose: reading the {direction} rotation of character {pose}{described}")
     client = app_context.pixellab()
     detail = client.call("character", character_id=pose).raw
     if not detail:
@@ -604,6 +655,9 @@ def animate(
     terse: bool = typer.Option(
         False, "--terse", help="Animate a one-word action as it stands, unexpanded."
     ),
+    any_pose: bool = typer.Option(
+        False, "--any-pose", help="Start from the pose named, even if another suits the action."
+    ),
     seed: int = typer.Option(None, "--seed", help="Repeat a previous generation."),
 ) -> None:
     """Animate a character. Every direction is a separate job and a separate charge."""
@@ -621,6 +675,7 @@ def animate(
             enhance,
             drop_first_frame,
             terse,
+            any_pose,
             seed,
         )
     except PixellabCliError as failure:
@@ -640,6 +695,7 @@ def _animate(
     enhance,
     drop_first_frame,
     terse,
+    any_pose,
     seed,
 ) -> None:
     app_context: AppContext = context.obj
@@ -698,6 +754,8 @@ def _animate(
     _require_character(app_context, character_id)
     check_pose_belongs(app_context, character_id, start_pose, "--start-pose")
     check_pose_belongs(app_context, character_id, end_pose, "--end-pose")
+    if not any_pose:
+        check_pose_suits(app_context, character_id, start_pose, action)
 
     direction = wanted[0]
     start_frame = pose_frame(app_context, start_pose, direction) if start_pose else None

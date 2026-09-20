@@ -74,6 +74,9 @@ different endpoint family and no skeleton.
 - **R2.33** (ADDED) If the action given for an animation is a label rather than a description of the motion, then the character commands shall refuse the call and name the ways to obtain a description, before spending anything, unless the caller asks for it to be animated as it stands.
 - **R2.34** (ADDED) If enrichment cannot be run for want of a pose, then the character commands shall say that the motion is to be written by hand rather than animated as the bare action.
 
+- **R2.35** (ADDED) If the subject's record holds a pose made for the motion being animated and the pose given was made for another, then the character commands shall refuse the call and name the pose that suits it, before spending anything, unless the caller asks for the pose named.
+- **R2.36** (ADDED) Where the subject's record knows what a pose was made for, the character commands shall say so when reading that pose, rather than naming its identifier alone.
+
 
 ## R3 · Rotating
 

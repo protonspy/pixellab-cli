@@ -53,6 +53,8 @@ the person did not agree to.
 - **R5.9** (ADDED) When installing for a harness that loads a skill only where it judges the skill relevant, the tool shall also write the rules that cost money if missed into the file that harness reads every session, and shall point that file at the skills.
 - **R5.10** (ADDED) The entry skill shall state that a paid call needs the person's agreement on that call, and shall forbid treating an earlier agreement as covering a later call.
 
+- **R5.11** (ADDED) The agent skill shall give animating a character that exists its own category skill, separate from creating one, carrying the order its steps are taken in.
+
 ## Out of scope
 
 - Teaching PixelLab's or fal's APIs. The skill teaches the CLI; the CLI owns the APIs.

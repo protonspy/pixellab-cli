@@ -27,6 +27,8 @@
   _Reason the skills were installed and nothing loaded them_
 - [x] 1.12 (Unit) Say that agreement is per call, never per session — R5.10
   _Reason the entry skill told an agent to carry one yes through a session_
+- [x] 1.13 (Unit) Split animating out of creating, with its own order — R5.11
+  _Reason the harness lost the flow at the animation stage and generated without one_
 
 ## 2 · Holding it true
 

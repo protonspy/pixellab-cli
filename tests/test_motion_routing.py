@@ -161,3 +161,24 @@ class TestALooseAnimationNeedsAMotionToo:
         suggested = raised.value.message.split("`")[1]
         assert 'enrich -a "<the action>"' in suggested
         assert "touch pwned" not in suggested
+
+
+class TestWhetherAPoseSuitsAMotion:
+    """The word test behind the pose refusal, on its own."""
+
+    def test_a_walk_pose_suits_a_walk(self):
+        assert prompts.suits("mid-stride walking pose, legs apart", "a full walk cycle")
+
+    def test_an_idle_pose_does_not_suit_an_attack(self):
+        assert not prompts.suits("idle standing pose, arms at rest", "an overhead sword attack")
+
+    def test_a_shared_body_part_is_not_a_match(self):
+        """ "head bowed" and "blade raised behind the head" share a head and nothing
+        else, and a pose is identified by its motion rather than by a limb."""
+        assert not prompts.suits(
+            "an overhead attack wind-up, blade raised behind the head",
+            "crouching slowly onto one knee, head bowed",
+        )
+
+    def test_a_word_matches_across_its_endings(self):
+        assert prompts.suits("an attack wind-up", "attacking with a sword")
