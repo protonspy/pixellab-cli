@@ -2,8 +2,8 @@
 autonomy: auto
 ci: wait
 branch: feat/guard-the-character-flow
-delivery: in-progress
-pr: 56
+delivery: in-review
+pr: 59
 ---
 
 # Asset workspace — requirements

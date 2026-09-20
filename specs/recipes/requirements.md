@@ -2,8 +2,8 @@
 autonomy: auto
 ci: wait
 branch: feat/guard-the-character-flow
-delivery: in-progress
-pr: 2
+delivery: in-review
+pr: 59
 ---
 
 # Recipes — requirements
