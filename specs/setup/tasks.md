@@ -33,3 +33,6 @@
   _Depends 3.3, 3.4_
 - [x] 3.6 (Unit) Report what reached the disk, before any failure — R1.10, R2.5
   _Reason code review found the report hidden by a later failure_
+- [x] 3.7 (Unit) Merge the allow rule into the harness settings and report it — R1.11
+  _Depends 3.5_
+  _Reason the harness prompts every pixellab-cli call_

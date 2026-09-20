@@ -27,6 +27,7 @@ whole reason this is a command rather than a paragraph in the README.
 - **R1.8** (ADDED) The setup command shall leave in a directory it installs into only the files it installed.
 - **R1.9** (ADDED) The setup command shall keep the line endings of a file it edits.
 - **R1.10** (ADDED) Where a harness's installation stops partway, the setup command shall report the paths it wrote before it stopped.
+- **R1.11** (ADDED) Where a harness asks before running a command, the setup command shall add its own allow rule to that harness's settings, keeping the rules already there, and shall report the rule and what it stops asking about.
 
 ## R2 · Credentials
 
