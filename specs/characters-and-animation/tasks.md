@@ -37,6 +37,9 @@
   _Reason a character rotated from a small anchor comes back softer, measured_
 - [x] 2.12 (Unit) Refuse a subject with no room to move into — R1.14
   _Reason a sword was cropped by the frame in every animated frame_
+- [x] 2.13 (Unit) Keep the character's colours in a state unless asked otherwise — R1.15
+      — R1.7
+  _Reason three states came back in three palettes, each a Pro call_
 
 ## 3 · Animating and rotating
 
@@ -97,6 +100,10 @@
   _Reason the states walkthrough named the kept starting frame and its frame arithmetic_
 - [x] 5.10 (Unit) Report the frames the animation will hold — R2.25
   _Reason the states walkthrough named the kept starting frame and its frame arithmetic_
+- [x] 5.11 (Unit) Refuse a motion no pose of this character was made for — R2.37
+  _Reason the guard only fired where a better pose existed, so a character with no state slipped through_
+- [x] 5.12 (Unit) Offer the same rules as a free local check — R2.38
+  _Reason a refusal inside the paid route arrives after the pipeline was built_
 
 ## 6 · Interpolating
 - [x] 6.1 (Unit) Add the interpolation route to the catalogue — R2.26, R2.27

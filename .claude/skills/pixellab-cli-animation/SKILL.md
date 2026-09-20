@@ -58,7 +58,7 @@ eight. Do not pass more than the person asked for.
 ## The pose is half the result
 
 ```
-pixellab-cli character state <character_id> --edit/-p --name --size --keep-palette --seed
+pixellab-cli character state <character_id> --edit/-p --name --size --new-colors --seed
 ```
 
 A state is a second character with its own id, grouped with the source. Pro pricing, so
@@ -72,9 +72,22 @@ Two jobs:
 - **A variant.** `-p "the same goblin in a red outfit"` — armour, a wound, a Christmas
   hat, a powered-up form. Same face, same proportions, across every direction.
 
-`--keep-palette` snaps the edit back onto the source character's colours. Without it a
-state drifts a few hues, which is invisible on its own sheet and obvious the moment two
-states play in sequence.
+**The colours come from the character, and that is the default.** A state drifts a few
+hues otherwise, which is invisible on its own sheet and obvious the moment two states
+play in sequence — three states, three palettes, three Pro calls. `--new-colors` turns it
+off, and is for the one case where the drift is the point: an outfit, or a variant meant
+to look different.
+
+**A motion with no state behind it is refused.** Animating "a walk cycle" from a
+character that has no pose made for walking draws every frame from its rest frame: it
+comes back standing and shuffling, charged per frame per direction. Make the state
+first. `--any-pose` animates from rest where that is genuinely what you want.
+
+**Ask before you pay.** `pixellab-cli character check <character-id> -a "<the motion>"
+[--start-pose <id>]` runs the same rules for nothing: the pose belongs to this character,
+the pose was made for this motion, and some pose of this character was. It names the
+poses that do suit the motion, so the next command writes itself. Run it before the first
+paid animation of a character, every time.
 
 ### Animating the state, and animating from a pose
 

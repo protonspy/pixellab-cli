@@ -142,6 +142,44 @@ def check_pose_suits(
     )
 
 
+def check_a_pose_was_made_for_it(
+    subject: subjects.Subject | None, character_id: str, action: str | None
+) -> None:
+    """Refuse a motion this character has no pose made for.
+
+    `check_pose_suits` catches the wrong pose of the right character, which needs a
+    right one to exist. This catches the case underneath it: no state was ever made,
+    so the motion is drawn from the character's rest frame and every frame of it is
+    invented from a standing figure. A walk comes back as a character that stands and
+    shuffles, an attack as one that teleports into a swing — charged per frame per
+    direction, and nothing in the response says so.
+
+    The state is the cheap half of the pair. Making it and animating from it costs one
+    Pro call more than animating from nothing; getting it wrong costs the whole
+    animation, in every direction, and then the state anyway.
+
+    `--any-pose` is the way past this, as it is past the other pose rules: a motion
+    that genuinely starts from rest is a real thing to want, and it is one flag rather
+    than an argument.
+    """
+    if not action or subject is None:
+        return
+    poses = subject.poses_of(character_id)
+    if any(text and suits(text, action) for _, text in poses):
+        return
+    made = "; ".join(f"{other} — {text}" for other, text in poses if text)
+    held = f"It has: {made}. " if made else "It has no state at all. "
+    raise ValidationError(
+        f"no pose of this character was made for {action!r}. {held}"
+        f"The frame a motion starts on is half the result: animated from the rest "
+        f"frame, every frame of the motion is invented from a standing figure, and it "
+        f"is charged per frame per direction. Make the state first — "
+        f'`pixellab-cli character state {character_id} --edit "<the pose>"` — and '
+        f"animate from it with --start-pose. --any-pose animates from rest anyway.",
+        context={"character": character_id, "action": action, "poses": [p for p, _ in poses]},
+    )
+
+
 def check_pose_belongs(
     subject: subjects.Subject | None, character_id: str, pose: str | None, flag: str
 ) -> None:
@@ -491,19 +529,21 @@ def state(
     size: int = typer.Option(
         None, "--size", help="A larger square canvas, for an edit that needs the room."
     ),
-    palette: bool = typer.Option(
-        False, "--keep-palette", help="Take the colours from the source character."
+    new_colors: bool = typer.Option(
+        False,
+        "--new-colors",
+        help="Let the state pick its own colours. For an outfit, or a variant meant to differ.",
     ),
     seed: int = typer.Option(None, "--seed", help="Repeat a previous generation."),
 ) -> None:
     """Make a new character from an existing one, edited across every rotation. Pro pricing."""
     try:
-        _state(context, character_id, edit, state_name, size, palette, seed)
+        _state(context, character_id, edit, state_name, size, new_colors, seed)
     except PixellabCliError as failure:
         output.handle(failure)
 
 
-def _state(context, character_id, edit, state_name, size, palette, seed) -> None:
+def _state(context, character_id, edit, state_name, size, new_colors, seed) -> None:
     app_context: AppContext = context.obj
     route = catalog.route("create-character-state")
 
@@ -511,7 +551,11 @@ def _state(context, character_id, edit, state_name, size, palette, seed) -> None
         "character_id": character_id,
         "edit_description": edit,
         "state_name": state_name,
-        "use_color_palette_from_reference": True if palette else None,
+        # On unless it is turned off. A state is a Pro call, and a state that came back
+        # in colours of its own is a Pro call spent on a character that no longer
+        # matches the one it was made from — which is not visible until the frames are
+        # side by side. Turning it off is for an outfit or a deliberate variant.
+        "use_color_palette_from_reference": None if new_colors else True,
         "seed": seed,
     }
     if size is not None:
@@ -638,6 +682,59 @@ def pose_frame(app_context, pose: str, direction: str, subject: subjects.Subject
             context={"pose": pose, "direction": direction},
         )
     return images.encode(client.download(url))
+
+
+@app.command("check")
+def check(
+    context: typer.Context,
+    character_id: str = typer.Argument(..., help="The character the animation is of."),
+    action: str = typer.Option(..., "--action", "-a", help="The motion, as it will be animated."),
+    start_pose: str = typer.Option(
+        None, "--start-pose", help="The pose the motion would start from."
+    ),
+) -> None:
+    """Say whether this motion and this character's states go together. Free, local.
+
+    The same three rules `character animate` applies before it spends, asked on their
+    own: the pose belongs to this character, the pose was made for this motion, and
+    some pose of this character was. Run it first and the refusal costs nothing; reach
+    the paid route without it and the refusal costs a run of the pipeline instead.
+    """
+    try:
+        _check(context, character_id, action, start_pose)
+    except PixellabCliError as failure:
+        output.handle(failure)
+
+
+def _check(context, character_id, action, start_pose) -> None:
+    app_context: AppContext = context.obj
+    subject = read_subject(app_context)
+    poses = subject.poses_of(character_id) if subject else []
+
+    check_pose_belongs(subject, character_id, start_pose, "--start-pose")
+    check_pose_suits(subject, character_id, start_pose, action)
+    if not start_pose:
+        check_a_pose_was_made_for_it(subject, character_id, action)
+
+    chosen = subject.pose_text(start_pose) if subject and start_pose else None
+    fitting = [other for other, text in poses if text and suits(text, action)]
+    lines = [f"{action!r} and {start_pose or 'this character'}: nothing to stop the animation"]
+    if chosen:
+        lines.append(f"  --start-pose {start_pose} was made for {chosen!r}")
+    if fitting:
+        lines.append(f"  poses made for this motion: {', '.join(fitting)}")
+    output.emit(
+        {
+            "character": character_id,
+            "action": action,
+            "start_pose": start_pose,
+            "pose_text": chosen,
+            "fitting": fitting,
+            "poses": [{"id": other, "made_for": text} for other, text in poses],
+        },
+        lines,
+        as_json=app_context.as_json,
+    )
 
 
 @app.command("animate")
@@ -772,6 +869,8 @@ def _animate(
     check_pose_belongs(subject, character_id, end_pose, "--end-pose")
     if not any_pose:
         check_pose_suits(subject, character_id, start_pose, action)
+        if not start_pose:
+            check_a_pose_was_made_for_it(subject, character_id, action)
 
     direction = wanted[0]
     start_frame = pose_frame(app_context, start_pose, direction, subject) if start_pose else None

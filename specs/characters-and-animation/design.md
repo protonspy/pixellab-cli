@@ -288,3 +288,43 @@ JWT and carrying its own field names (`image_base64`, `prompt`, `custom_frames`,
 project calls, and every capability above exists there under the documented names. An
 undocumented endpoint behind a session token would break on any deploy and could not be
 held to the vendored schema `reference/` exists to diff against.
+
+## A state keeps the character's colours
+
+`create-character-state` takes `use_color_palette_from_reference`, and it was sent only
+when the caller asked for it. Three states of one character therefore came back in three
+palettes, each one a Pro call, and none of it visible until the frames were put side by
+side. The default is inverted (R1.15): the palette comes from the character unless
+`--new-colors` says otherwise, which is what an outfit or a deliberate variant asks for —
+the provider's own note on the field says the same, that it is not for adding colours.
+
+The flag reads as the exception it is. Sending the palette is not a preference about
+colour; it is what makes a state a state of *that* character rather than a new one that
+resembles it.
+
+## The state a motion starts from, and how to know before paying
+
+Three rules already stood between an animation and the wrong frame: the pose belongs to
+this character, the pose was made for this motion, and — where a better pose existed —
+this one is not it. The last of those needed a better pose to exist, so the commonest
+case fell straight through it: no state had ever been made, the motion was drawn from
+the character's rest frame, and a walk came back as a figure that stands and shuffles.
+Charged per frame per direction, and nothing in the response says so.
+
+R2.37 closes it from underneath: no start pose, and no pose of this character made for
+the motion, is a refusal naming `character state` — `--any-pose` still animates from
+rest, because a motion that genuinely starts there is a real thing to want and one flag
+is the right price for it.
+
+A refusal inside the paid route arrives late, though, which is what R2.38 is for.
+`pixellab-cli character check <id> --action "…" [--start-pose …]` runs those same three
+rules and nothing else: no provider, no ledger line, no cost. It is the question "does
+this motion go with what this character has" asked before the pipeline is built rather
+than after, and it answers with the poses that do suit the motion, so the next command
+is already written.
+
+The matcher underneath is word overlap between the state's `--edit` text and the action
+(`prompts.suits`), which is the only statement anywhere of what a pose *is* — PixelLab
+stores a character, not an idle. That is a real ceiling: a state described in words the
+motion does not reuse reads as unrelated. It fails towards the refusal rather than away
+from it, and `--any-pose` is the way past.
