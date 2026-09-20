@@ -19,6 +19,7 @@ from pixellab_cli import catalog, images, output, pixels
 from pixellab_cli.context import AppContext
 from pixellab_cli.errors import PixellabCliError, ValidationError
 from pixellab_cli.ledger import Cost
+from pixellab_cli.prompts import check_the_motion_is_described
 from pixellab_cli.routes import Route
 from pixellab_cli.run import from_pixellab
 from pixellab_cli.validate import build_request
@@ -281,6 +282,9 @@ def animate(
     name: str = typer.Option(None, "--name", help="What to call the files."),
     transparent: bool = typer.Option(False, "--transparent", help="Transparent background."),
     as_is: bool = typer.Option(False, "--as-is", help="Send the image unchecked, flaws and all."),
+    terse: bool = typer.Option(
+        False, "--terse", help="Animate a one-word action as it stands, unexpanded."
+    ),
     seed: int = typer.Option(None, "--seed", help="Repeat a previous generation."),
 ) -> None:
     """Animate a loose image from its first frame. Frames land in playback order."""
@@ -296,6 +300,7 @@ def animate(
             name,
             transparent,
             as_is,
+            terse,
             seed,
         )
     except PixellabCliError as failure:
@@ -303,9 +308,24 @@ def animate(
 
 
 def _animate(
-    context, file, action, frames, last, route_name, deflicker, name, transparent, as_is, seed
+    context,
+    file,
+    action,
+    frames,
+    last,
+    route_name,
+    deflicker,
+    name,
+    transparent,
+    as_is,
+    terse,
+    seed,
 ) -> None:
     app_context: AppContext = context.obj
+    # The same rule as `character animate`, and the same reason: this route draws every
+    # frame from the description it was given. There is no enhancer on this path at all,
+    # so writing the motion is the only way to have one.
+    check_the_motion_is_described(action, enhance=False, terse=terse)
     route = choose_animation_route(frames, route_name=route_name)
     long_form = route.name == LONG_ANIMATION_ROUTE
 
