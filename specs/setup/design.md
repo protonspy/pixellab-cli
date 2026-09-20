@@ -94,6 +94,32 @@ a clean slate that is not one.
 A file this edits keeps the line endings it had (R1.9). Rewriting a CRLF file with LF
 turns one appended block into a diff of every line somebody else wrote.
 
+## The prompts, and who is left checking
+
+Claude Code asks before a shell command it has no rule for, so an install that stops
+there leaves a prompt on every `pixellab-cli` call. Setup merges `Bash(pixellab-cli *)`
+into `permissions.allow` in `.claude/settings.json` — the same path in a project and in
+the home directory — keeping every rule, hook and section already in the file (R1.11,
+R1.4). It creates the file where there is none, which is the one place this differs from
+`opencode.json`: writing that would be deciding the project uses opencode, while this
+runs only after `.claude/skills/` has been filled.
+
+What the rule removes is a check. The harness prompt was a second pair of eyes on a
+command that spends real money, and after this the only refusal left is the tool's own —
+no paid route runs without `--yes`. So the rule is not written quietly: the report names
+it, says every `pixellab-cli` command now runs unprompted, and says that deleting the
+line from `permissions.allow` brings the prompts back (R1.11, R4.1). A settings file
+that will not parse is refused rather than replaced, and, like any other failure here,
+it is reported with the paths that were written before it (R1.6, R1.10). A global
+install writes the rule to `~/.claude/settings.json`, so it is every project rather than
+this one — the report names the path it wrote, which is where that shows.
+
+The read is guarded the same way the write is (R1.7). Every writer here reads the file
+before it writes one, so refusing a link only at the write meant the read had already
+followed one: a settings file in a cloned repository is a path somebody else chose. The
+refusal moved into the reader, which is also where a file too large to be instructions
+is turned away, rather than read into memory before anything has been validated.
+
 ## What it asks, and what it already knows
 
 Credentials come from four sources already (`adr:0005-read-credentials-from-a-file-as-well-as-the-environment`),

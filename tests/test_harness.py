@@ -10,8 +10,10 @@ from pathlib import Path
 import pytest
 
 from pixellab_cli.harness import (
+    ALLOW_RULE,
     BEGIN,
     END,
+    MAX_READ_BYTES,
     PACKAGED_SKILL,
     Harness,
     detect,
@@ -458,3 +460,176 @@ class TestClaudeAlsoGetsTheRulesItAlwaysReads:
         install(Harness.CLAUDE, tmp_path)
 
         assert install(Harness.CLAUDE, tmp_path).changed is False
+
+
+class TestTheHarnessStopsAsking:
+    """R1.11: the prompts are the harness's own check, so removing them is reported.
+
+    Merged into a settings file that is the person's, never written over it.
+    """
+
+    def test_a_fresh_install_writes_the_rule(self, tmp_path):
+        install(Harness.CLAUDE, tmp_path)
+
+        settings = json.loads((tmp_path / ".claude" / "settings.json").read_text(encoding="utf-8"))
+        assert settings["permissions"]["allow"] == [ALLOW_RULE]
+
+    def test_what_the_settings_file_already_held_survives(self, tmp_path):
+        settings = tmp_path / ".claude" / "settings.json"
+        settings.parent.mkdir(parents=True)
+        settings.write_text(
+            json.dumps(
+                {
+                    "hooks": {"Stop": [{"hooks": [{"type": "command", "command": "tidy"}]}]},
+                    "permissions": {"allow": ["Bash(git *)"], "deny": ["Bash(rm -rf *)"]},
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        install(Harness.CLAUDE, tmp_path)
+
+        after = json.loads(settings.read_text(encoding="utf-8"))
+        assert after["hooks"]["Stop"][0]["hooks"][0]["command"] == "tidy"
+        assert after["permissions"]["allow"] == ["Bash(git *)", ALLOW_RULE]
+        assert after["permissions"]["deny"] == ["Bash(rm -rf *)"]
+
+    def test_a_second_run_does_not_write_it_twice(self, tmp_path):
+        install(Harness.CLAUDE, tmp_path)
+        second = install(Harness.CLAUDE, tmp_path)
+
+        settings = json.loads((tmp_path / ".claude" / "settings.json").read_text(encoding="utf-8"))
+        assert settings["permissions"]["allow"] == [ALLOW_RULE]
+        assert second.changed is False
+
+    def test_the_rule_comes_back_with_the_report(self, tmp_path):
+        written = install(Harness.CLAUDE, tmp_path)
+
+        assert written.allowed == ALLOW_RULE
+        assert tmp_path / ".claude" / "settings.json" in written.paths
+
+    def test_a_settings_file_that_will_not_parse_is_refused(self, tmp_path):
+        settings = tmp_path / ".claude" / "settings.json"
+        settings.parent.mkdir(parents=True)
+        settings.write_text("{not json", encoding="utf-8")
+
+        written = install(Harness.CLAUDE, tmp_path)
+
+        assert written.skipped is not None
+        assert "not valid JSON" in written.skipped
+        assert written.allowed is None
+        assert settings.read_text(encoding="utf-8") == "{not json"
+
+    def test_an_allow_list_that_is_not_a_list_is_refused(self, tmp_path):
+        settings = tmp_path / ".claude" / "settings.json"
+        settings.parent.mkdir(parents=True)
+        settings.write_text(json.dumps({"permissions": {"allow": "everything"}}), encoding="utf-8")
+
+        written = install(Harness.CLAUDE, tmp_path)
+
+        assert written.skipped is not None
+        assert written.allowed is None
+
+    def test_the_skill_is_still_installed_when_the_settings_file_is_refused(self, tmp_path):
+        settings = tmp_path / ".claude" / "settings.json"
+        settings.parent.mkdir(parents=True)
+        settings.write_text("{not json", encoding="utf-8")
+
+        install(Harness.CLAUDE, tmp_path)
+
+        assert (tmp_path / ".claude" / "skills" / "pixellab-cli-assets" / "SKILL.md").is_file()
+
+    def test_only_claude_gets_one(self, tmp_path):
+        written = install(Harness.CODEX, tmp_path)
+
+        assert written.allowed is None
+        assert not (tmp_path / ".claude" / "settings.json").exists()
+
+
+class TestJsonSettingsKeepTheirEndings:
+    """R1.9: a CRLF file rewritten with LF is a diff of every line somebody else wrote.
+
+    The block writer already kept them; the two JSON writers did not.
+    """
+
+    def test_a_crlf_settings_file_stays_crlf(self, tmp_path):
+        settings = tmp_path / ".claude" / "settings.json"
+        settings.parent.mkdir(parents=True)
+        settings.write_bytes(b'{\r\n  "permissions": {\r\n    "allow": []\r\n  }\r\n}\r\n')
+
+        install(Harness.CLAUDE, tmp_path)
+
+        raw = settings.read_bytes()
+        assert b"\r\n" in raw
+        assert raw.count(b"\n") == raw.count(b"\r\n")
+
+    def test_a_crlf_opencode_config_stays_crlf(self, tmp_path):
+        config = tmp_path / "opencode.json"
+        config.write_bytes(b'{\r\n  "instructions": []\r\n}\r\n')
+
+        install(Harness.OPENCODE, tmp_path)
+
+        raw = config.read_bytes()
+        assert b"\r\n" in raw
+        assert raw.count(b"\n") == raw.count(b"\r\n")
+
+
+class TestNothingIsReadThroughALink:
+    """The write refused a link; the read in front of it did not.
+
+    A settings file in a cloned repository is a path somebody else chose, and every
+    writer here reads the file before it writes one.
+    """
+
+    def _link(self, link: Path, target: Path):
+        try:
+            link.symlink_to(target)
+        except (OSError, NotImplementedError):  # Windows without the privilege
+            pytest.skip("this platform will not create a symbolic link here")
+
+    def test_a_linked_settings_file_is_refused_before_it_is_read(self, tmp_path):
+        target = tmp_path / "somebody-elses.json"
+        target.write_text('{"theirs": true}\n', encoding="utf-8")
+        settings = tmp_path / ".claude" / "settings.json"
+        settings.parent.mkdir(parents=True)
+        self._link(settings, target)
+
+        written = install(Harness.CLAUDE, tmp_path)
+
+        assert written.skipped is not None
+        assert "symbolic link" in written.skipped
+        assert written.allowed is None
+        assert target.read_text(encoding="utf-8") == '{"theirs": true}\n'
+
+    def test_a_linked_opencode_config_is_refused_before_it_is_read(self, tmp_path):
+        target = tmp_path / "somebody-elses.json"
+        target.write_text('{"theirs": true}\n', encoding="utf-8")
+        self._link(tmp_path / "opencode.json", target)
+
+        written = install(Harness.OPENCODE, tmp_path)
+
+        assert written.skipped is not None
+        assert "symbolic link" in written.skipped
+        assert target.read_text(encoding="utf-8") == '{"theirs": true}\n'
+
+    def test_a_dangling_link_is_refused_rather_than_taken_for_an_absent_file(self, tmp_path):
+        settings = tmp_path / ".claude" / "settings.json"
+        settings.parent.mkdir(parents=True)
+        self._link(settings, tmp_path / "nothing-here.json")
+
+        written = install(Harness.CLAUDE, tmp_path)
+
+        assert written.skipped is not None
+        assert "symbolic link" in written.skipped
+
+
+def test_a_file_too_large_to_be_instructions_is_refused(tmp_path):
+    """A clone chooses this path, and the read happens before anything is validated."""
+    settings = tmp_path / ".claude" / "settings.json"
+    settings.parent.mkdir(parents=True)
+    settings.write_bytes(b"{}" + b" " * (MAX_READ_BYTES + 1))
+
+    written = install(Harness.CLAUDE, tmp_path)
+
+    assert written.skipped is not None
+    assert "not an instructions file" in written.skipped

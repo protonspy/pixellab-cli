@@ -24,5 +24,10 @@
         ]
       }
     ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(pixellab-cli *)"
+    ]
   }
 }

@@ -11,7 +11,7 @@ from typer.testing import CliRunner
 
 from pixellab_cli.cli import app
 from pixellab_cli.config import CONFIG_NAME, FAL_KEY_VAR, PIXELLAB_SECRET_VAR
-from pixellab_cli.harness import BEGIN
+from pixellab_cli.harness import ALLOW_RULE, BEGIN
 
 runner = CliRunner()
 
@@ -277,3 +277,28 @@ class TestASkillThisToolNoLongerShips:
         result = invoke(["setup", "--claude", "--non-interactive"], tmp_path, monkeypatch)
 
         assert "no longer" not in result.stdout.lower()
+
+
+class TestSayingTheHarnessWasOpened:
+    """The rule is what stops the prompts, so the run that writes it says so.
+
+    A permission the person did not read about is one they cannot weigh.
+    """
+
+    def test_the_report_names_the_rule_and_what_it_turns_off(self, tmp_path, monkeypatch):
+        result = invoke(["setup", "--claude", "--non-interactive"], tmp_path, monkeypatch)
+
+        assert ALLOW_RULE in result.output
+        assert "without the harness asking" in result.output
+        assert "--yes" in result.output
+        assert "permissions.allow" in result.output
+
+    def test_json_carries_the_rule_too(self, tmp_path, monkeypatch):
+        result = invoke(["--json", "setup", "--claude", "--non-interactive"], tmp_path, monkeypatch)
+
+        assert json.loads(result.stdout)["harnesses"]["claude"]["allowed"] == ALLOW_RULE
+
+    def test_a_harness_with_no_prompt_to_answer_says_nothing_about_one(self, tmp_path, monkeypatch):
+        result = invoke(["--json", "setup", "--codex", "--non-interactive"], tmp_path, monkeypatch)
+
+        assert json.loads(result.stdout)["harnesses"]["codex"]["allowed"] is None

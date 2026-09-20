@@ -32,6 +32,17 @@ PACKAGED_SKILL = Path(__file__).resolve().parent / "skill"
 # deleted one of those would be a far worse bug than a stale directory.
 RETIRED_SKILLS = ("pixellab-assets",)
 
+# What an instructions or settings file can plausibly be. None of these are documents:
+# `AGENTS.md` is prose somebody wrote, a settings file is a handful of keys. A clone
+# chooses these paths, and reading one into memory before anything is validated is the
+# one thing a file that size can still do.
+MAX_READ_BYTES = 4 * 1024 * 1024
+
+# The permission rule that stops Claude Code asking before every `pixellab-cli`
+# command. Written into the person's own settings, merged, never replacing a list
+# somebody else wrote.
+ALLOW_RULE = "Bash(pixellab-cli *)"
+
 # Where the references land for the harnesses that have no skill format. Beside the
 # `AGENTS.md` that points at them, so moving the project moves both.
 SIDECAR_DIR = Path(".pixellab") / "skill"
@@ -52,6 +63,7 @@ class Written:
     changed: bool = False
     skipped: str | None = None
     retired: tuple[Path, ...] = ()
+    allowed: str | None = None
 
 
 def packaged_skills() -> tuple[str, ...]:
@@ -101,9 +113,21 @@ def read_text(path: Path) -> tuple[str, str]:
 
     Read and written back as it was found: rewriting a Windows file with Unix endings
     turns one appended block into a diff of every line somebody else wrote.
+
+    Refuses a link here rather than at the write, which is where every one of these
+    files is first touched. `write_text` guards what is written; a read that follows
+    the link first has already opened a file the attacker chose — and every caller
+    reads before it writes.
     """
+    refuse_symlink(path)
     if not path.is_file():
         return "", os.linesep if os.name == "nt" else "\n"
+    size = path.stat().st_size
+    if size > MAX_READ_BYTES:
+        raise ValueError(
+            f"{path} is {size} bytes, past the {MAX_READ_BYTES} this reads. "
+            f"That is not an instructions file; point this somewhere else."
+        )
     raw = path.read_bytes().decode("utf-8")
     newline = "\r\n" if raw.count("\r\n") > raw.count("\n") - raw.count("\r\n") else "\n"
     return raw.replace("\r\n", "\n"), newline
@@ -297,6 +321,15 @@ def claude_memory(root: Path, *, global_install: bool) -> Path:
     return root / ".claude" / "CLAUDE.md" if global_install else root / "CLAUDE.md"
 
 
+def claude_settings(root: Path) -> Path:
+    """The file Claude Code reads its permission rules from.
+
+    The same path in a project and in the home directory, unlike the memory file, so
+    `global_install` does not come into it.
+    """
+    return root / ".claude" / "settings.json"
+
+
 def agents_file(harness: Harness, root: Path, *, global_install: bool) -> Path:
     """The file this harness reads its instructions from.
 
@@ -326,8 +359,9 @@ def add_instructions_entry(path: Path, entry: str) -> bool:
     """
     if not path.is_file():
         return False
+    existing, newline = read_text(path)
     try:
-        config = json.loads(path.read_text(encoding="utf-8"))
+        config = json.loads(existing)
     except ValueError as failure:
         raise ValueError(f"{path} is not valid JSON: {failure}") from None
     if not isinstance(config, dict):
@@ -342,7 +376,46 @@ def add_instructions_entry(path: Path, entry: str) -> bool:
         return False
 
     config["instructions"] = [*instructions, entry]
-    write_text(path, json.dumps(config, indent=2) + "\n")
+    write_text(path, json.dumps(config, indent=2) + "\n", newline=newline)
+    return True
+
+
+def add_allow_rule(path: Path, rule: str = ALLOW_RULE) -> bool:
+    """Put `rule` in this settings file's `permissions.allow`. True when it changed.
+
+    Merged into whatever is there and created where there is nothing, which is the one
+    place this differs from `opencode.json`: writing that file would be deciding the
+    project uses opencode, while this runs only after `.claude/skills/` has been filled,
+    so the harness is not in doubt.
+
+    What the rule buys is that the harness stops asking before every command, and what
+    it costs is that the harness stops asking before every command — including the paid
+    ones. The check that remains is the tool's own: no paid route runs without `--yes`.
+    That trade belongs in the report rather than in a settings file nobody reads, which
+    is why `install` carries the rule back out.
+    """
+    existing, newline = read_text(path)
+    if existing.strip():
+        try:
+            settings = json.loads(existing)
+        except ValueError as failure:
+            raise ValueError(f"{path} is not valid JSON: {failure}") from None
+        if not isinstance(settings, dict):
+            raise ValueError(f"{path} does not hold a JSON object")
+    else:
+        settings = {}
+
+    permissions = settings.get("permissions", {})
+    if not isinstance(permissions, dict):
+        raise ValueError(f"{path} has a 'permissions' field that is not an object")
+    allow = permissions.get("allow", [])
+    if not isinstance(allow, list):
+        raise ValueError(f"{path} has a 'permissions.allow' field that is not a list")
+    if rule in allow:
+        return False
+
+    settings["permissions"] = {**permissions, "allow": [*allow, rule]}
+    write_text(path, json.dumps(settings, indent=2) + "\n", newline=newline)
     return True
 
 
@@ -373,7 +446,12 @@ def install(harness: Harness, root: Path, *, global_install: bool = False) -> Wr
             memory = claude_memory(root, global_install=global_install)
             changed = write_block(memory, block_body(None)) or changed
             paths.append(memory)
-            return Written(harness, tuple(paths), changed=changed, retired=stale)
+            settings = claude_settings(root)
+            changed = add_allow_rule(settings) or changed
+            paths.append(settings)
+            return Written(
+                harness, tuple(paths), changed=changed, retired=stale, allowed=ALLOW_RULE
+            )
 
         agents = agents_file(harness, root, global_install=global_install)
         sidecar = agents.parent / SIDECAR_DIR

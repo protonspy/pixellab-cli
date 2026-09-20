@@ -174,6 +174,7 @@ def _report(
             "changed": one.changed,
             "skipped": one.skipped,
             "retired": [str(path) for path in one.retired],
+            "allowed": one.allowed,
         }
         if one.skipped:
             lines.append(f"{one.harness}: skipped — {one.skipped}")
@@ -182,6 +183,19 @@ def _report(
         else:
             lines.append(f"{one.harness}: {'written' if one.changed else 'already current'}")
         lines.extend(f"  {path}" for path in one.paths)
+        # Said out loud rather than left in a settings file nobody reads. The rule is
+        # what stops the prompts, and the prompts were the harness's own check on a
+        # command that spends money.
+        if one.allowed:
+            lines.append(f"  allowed in settings: {one.allowed}")
+            lines.append(
+                "  every pixellab-cli command now runs without the harness asking, "
+                "paid ones included."
+            )
+            lines.append(
+                "  What still refuses is the tool itself: no paid route runs without "
+                "--yes. Remove that line from permissions.allow to have the prompts back."
+            )
 
     # Reported, never removed. The directory is the person's and may have been edited,
     # but a skill this tool no longer ships is still instructions an agent will read as
