@@ -232,6 +232,11 @@ theirs to ask for, not yours to add.
 no transparency, or a subject adrift in a large canvas — each naming the free command
 that fixes it. Fix it; do not reach for `--as-is`.
 
+**Read the entity before reaching for an identifier.** `pixellab-cli inspect <subject>`
+is free and local: every character, every pose made from it, which pose each animation
+started from, and what the subject has cost. A `--start-pose` from the wrong character
+is accepted by the route, charged per frame per direction, and comes back wrong.
+
 - **Pro Tools cost twenty to forty generations a call:** `object new`, `ui`, `inpaint`,
   `tiles variants`, `character state`, `outfit`, `sprite` with more than one `--style`,
   and `edit` with more than one image.

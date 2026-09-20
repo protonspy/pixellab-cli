@@ -1,9 +1,9 @@
 ---
 autonomy: auto
 ci: wait
-branch: feat/guard-the-character-flow
+branch: feat/the-subject-manifest
 delivery: in-review
-pr: 59
+pr: 60
 ---
 
 # Asset workspace — requirements
@@ -61,6 +61,13 @@ A file nobody can account for is worth less than the same file with a manifest.
 - **R6.2** Where the person's agreement has not been stated, the asset workspace shall send no request and shall write no ledger entry, because neither can have happened.
 - **R6.3** Where there is nobody present to state the agreement, the asset workspace shall take it from a named environment variable instead.
 - **R6.4** While a call is a dry run, the asset workspace shall require no agreement, because nothing is sent.
+
+## R7 · The subject as an entity
+
+- **R7.1** When a run names a subject, the asset workspace shall write a manifest for that subject holding each character it made, the poses made from each, the animations built on them, the files each produced, and what the subject has cost.
+- **R7.2** The asset workspace shall derive the subject's manifest from the run manifests every time it writes it, so that it cannot disagree with what was paid for.
+- **R7.3** Where a call is made from an identifier an earlier call produced, the asset workspace shall record that identifier beside the request, because a request carrying a frame does not say which pose the frame came from.
+- **R7.4** When asked to describe a subject, the asset workspace shall report it without calling a provider, and shall report the subjects it holds where none is named.
 
 ## Out of scope
 

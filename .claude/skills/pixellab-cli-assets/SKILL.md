@@ -61,6 +61,39 @@ pixellab-cli recipe resume pixellab-out/<run>/recipe.json
 Hand them the paths and wait. **Do not chain the steps yourself** to get around the
 pause, and do not reach for `--unattended` — that flag is the person's to ask for.
 
+## Read the entity before you generate anything for it
+
+```bash
+pixellab-cli inspect warrior          # the characters, their poses, their animations
+pixellab-cli --json inspect warrior   # the same, for a parser
+pixellab-cli inspect                  # the subjects there are
+```
+
+Free, local, no provider call. It answers the question that costs money to get wrong:
+**which identifier is which.** A character's id, every pose made from it and what each
+pose is, every animation and which pose it started from, the files each produced, and
+what the subject has cost so far.
+
+```
+warrior  1 character(s)  3 paid call(s)  32 generations  $0.3200
+
+character char-9  a knight in red armour
+  frames     rotations/v1  8 frame(s) by direction
+  pose       char-12  mid-stride walking pose
+             rotations/v2  8 frame(s) by direction
+  animation  walking  south  9 frame(s)
+             animations/v1  from pose char-12
+```
+
+**Run it before reaching for an identifier you did not just receive.** Animating a
+character from another character's pose is accepted by the route, charged per frame per
+direction, and comes back wrong — the tool refuses that one where the record can see it,
+but only where the record has seen both. Everything else is on you to read.
+
+It is built from the run manifests every time, so it cannot be stale, and it is written
+to `pixellab-out/<subject>/manifest.json` after every run for anything that wants the
+file rather than the command.
+
 ## Which skill owns what
 
 | They asked for | Skill | Starts with |

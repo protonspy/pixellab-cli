@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
 
+from pixellab_cli import subject as subjects
 from pixellab_cli.errors import (
     ApprovalRequired,
     PixellabCliError,
@@ -22,7 +23,7 @@ from pixellab_cli.errors import (
     redact,
 )
 from pixellab_cli.ledger import ESTIMATED, MEASURED, REPORTED, UNKNOWN, Cost, Ledger
-from pixellab_cli.workspace import Workspace, asset_filename
+from pixellab_cli.workspace import Workspace, asset_filename, slugify
 
 MANIFEST_SCHEMA = 1
 
@@ -227,6 +228,7 @@ class Runner:
         run_id: str | None = None,
         subject: str | None = None,
         kind: str | None = None,
+        links: dict[str, Any] | None = None,
     ) -> RunOutcome:
         """Make one paid call, write what it produced, and record both.
 
@@ -302,7 +304,7 @@ class Runner:
 
         files = self._write_images(directory, produced, name or _base(description), roles, suffix)
         manifest = self._write_manifest(
-            directory, run_id, provider, route, arguments, produced, files
+            directory, run_id, provider, route, arguments, produced, files, links or {}
         )
         self.ledger.outcome(
             run_id,
@@ -313,6 +315,11 @@ class Runner:
             job_id=produced.job_id,
             secrets=self.secrets,
         )
+        if subject:
+            # After the run rather than before it, and rebuilt rather than appended to:
+            # the file is an index over the run manifests and one of those has just
+            # been written. See `subject.write`.
+            subjects.write(self.workspace, slugify(subject))
         return RunOutcome(
             run_id=run_id,
             directory=directory,
@@ -351,6 +358,7 @@ class Runner:
         arguments: dict[str, Any],
         produced: Produced,
         files: Sequence[Path],
+        links: dict[str, Any],
     ) -> Path:
         manifest = {
             "schema": MANIFEST_SCHEMA,
@@ -358,6 +366,11 @@ class Runner:
             "provider": provider,
             "route": route,
             "arguments": redact(arguments, self.secrets),
+            # What the arguments cannot say. A posed animation sends the pose's frame,
+            # so the request records the bytes and loses which pose they came from —
+            # which is the one thing somebody asking "was this animated from the right
+            # pose" needs. Identifiers, not payloads.
+            "links": redact(links, self.secrets),
             "seed": arguments.get("seed"),
             "ids": produced.ids,
             "cost": produced.cost.as_json(),

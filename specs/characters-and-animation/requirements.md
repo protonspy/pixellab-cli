@@ -1,9 +1,9 @@
 ---
 autonomy: auto
 ci: wait
-branch: feat/guard-the-character-flow
+branch: feat/the-subject-manifest
 delivery: in-review
-pr: 59
+pr: 60
 ---
 
 # Characters and animation — requirements
@@ -44,6 +44,7 @@ different endpoint family and no skeleton.
 - **R2.8** (MODIFIED) The character commands shall animate an action from its description whether or not the character has a skeleton knowing a motion of that name.
 - **R2.9** (MODIFIED) Where a named template is given, the character commands shall say that a template animates from the character's skeleton and that the provider does not currently return correct frames for it.
 - **R2.10** (MODIFIED) While a dry run is asked for, the character commands shall report the estimate the real call would be charged.
+- **R2.32** (ADDED) If a pose given for an animation is one the subject's record holds for a different character, then the character commands shall refuse the call and name both characters, before spending anything.
 - **R2.11** (MODIFIED) If the character named cannot be read, then the character commands shall say so before spending anything.
 
 - **R2.12** (ADDED) Where a start pose is given, the character commands shall animate from that pose instead of from the character's rotation for the direction.
@@ -67,6 +68,7 @@ different endpoint family and no skeleton.
 - **R2.29** (ADDED) If an image given to interpolate is outside the size the interpolation route accepts, then the character commands shall refuse the call and name that route's limit, before spending anything.
 - **R2.30** (ADDED) If a frame count is given for an interpolation, then the character commands shall refuse the call and say that the interpolation route decides its own frame count, before spending anything.
 - **R2.31** (ADDED) If the frame count and the frame size together exceed the pixel budget the animation route allows, then the character commands shall refuse the call, name the budget, and say how many frames that size does allow, before spending anything.
+
 
 ## R3 · Rotating
 

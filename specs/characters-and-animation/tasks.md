@@ -50,6 +50,8 @@
   _Reason PixMiniMax asked for after delivery_
 - [x] 3.7 (Unit) Drive an animation from the character's skeleton when the action names a motion that skeleton knows, and estimate a described animation per frame — R2.1, R2.2, R2.8, R2.9, R2.10, R2.11
   _Reason a described walk drifted in pose and cost eight times its estimate; delivered in plans/paid-call-defects.md_
+- [x] 3.8 (Unit) Refuse a pose that belongs to another character — R2.32
+  _Reason an animation was paid for from another character's pose_
 
 ## 4 · Reading
 

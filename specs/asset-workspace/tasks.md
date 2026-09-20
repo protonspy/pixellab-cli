@@ -18,6 +18,10 @@
   _Depends 2.2_
 - [x] 2.4 (Unit) Skip a ledger line that will not parse and keep reading — R3.5
   _Depends 2.2_
+- [x] 2.5 (Unit) Build the subject manifest from the runs under it — R7.1, R7.2
+  _Reason an agent had to reassemble the entity from nine directories and did not_
+- [x] 2.6 (Unit) Record the identifiers a request cannot carry — R7.3
+  _Reason a posed animation sent the frame and lost which pose it was_
 
 ## 3 · The run
 
@@ -38,6 +42,8 @@
   _Depends 4.1_
 - [x] 4.3 (Unit) Filter the summary to a period the user names — R4.1
   _Depends 4.1_
+- [x] 4.4 (Unit) Describe a subject without calling a provider — R7.4
+  _Reason the entity view had to be free to be read before every generation_
 
 ## 5 · The boundary
 

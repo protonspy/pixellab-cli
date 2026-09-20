@@ -115,6 +115,22 @@ pixellab-cli character sheet <character_id> --name
 plus `character list` and `character templates`, which take nothing. `character sheet`
 downloads the spritesheet and its layout together as a ZIP.
 
+## Which id is which
+
+```bash
+pixellab-cli inspect warrior
+```
+
+Free, and the answer to every "which pose was that" question this pipeline raises. It
+lists each character, the poses made from it, and which pose each animation started
+from. **Run it before passing an identifier you did not just receive in this session** —
+a `--start-pose` from the wrong character is accepted by the route, charged per frame
+per direction, and comes back as a character that turns into somebody else.
+
+Where the subject's record holds both, the tool refuses that call itself and names both
+characters. Where the pose was made somewhere else, the record has never seen it and
+nothing can refuse it for you.
+
 ## States — the same character, changed
 
 ```
