@@ -2,7 +2,7 @@
 autonomy: auto
 ci: wait
 branch: feat/room-for-the-motion
-delivery: in-review
+delivery: merged
 pr: 68
 ---
 
