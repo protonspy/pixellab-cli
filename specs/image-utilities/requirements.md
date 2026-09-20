@@ -2,7 +2,7 @@
 autonomy: auto
 ci: wait
 branch: fix/inspect-alpha-ceiling
-delivery: in-review
+delivery: merged
 pr: 57
 ---
 
