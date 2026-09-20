@@ -10,7 +10,9 @@ import pytest
 from PIL import Image
 from typer.testing import CliRunner
 
+from pixellab_cli import pixels
 from pixellab_cli.cli import app
+from pixellab_cli.errors import ValidationError
 
 runner = CliRunner()
 
@@ -805,3 +807,71 @@ class TestFlip:
 
         assert result.exit_code != 0
         assert not list(tmp_path.glob("walk-west-*.png"))
+
+
+class TestAFrameIsReadBeforeItIsPaidFor:
+    """`pixels.frame_flaws` — the thresholds, which the command tests do not pin.
+
+    Both are shares of the canvas rather than counts, so the same picture at 64 and at
+    1024 gets the same answer.
+    """
+
+    def flawed(self, tmp_path, name, *, alpha=255, box=None, size=(64, 64)):
+        path = tmp_path / name
+        image = Image.new("RGBA", size, (0, 0, 0, 0))
+        image.paste((200, 50, 50, alpha), box or (0, 0, *size))
+        image.save(path)
+        return path
+
+    def test_a_clean_sprite_has_nothing_wrong_with_it(self, tmp_path):
+        source = self.flawed(tmp_path, "sprite.png", box=(4, 4, 60, 60))
+
+        assert pixels.frame_flaws(source) == []
+
+    def test_a_margin_inside_the_allowance_passes(self, tmp_path):
+        # 8 of 64 a side is 12.5%, under the 15% a padded sprite frame is allowed.
+        source = self.flawed(tmp_path, "padded.png", box=(4, 4, 60, 60))
+
+        assert pixels.frame_flaws(source) == []
+
+    def test_a_margin_past_the_allowance_is_named(self, tmp_path):
+        # 16 of 64 is 25%: a subject floating in a canvas, not a frame's padding.
+        source = self.flawed(tmp_path, "adrift.png", box=(8, 8, 56, 56))
+
+        assert any("image trim" in flaw for flaw in pixels.frame_flaws(source))
+
+    def test_a_soft_share_under_the_allowance_passes(self, tmp_path):
+        source = self.flawed(tmp_path, "nearly.png", box=(4, 4, 60, 60))
+        image = pixels.load(source)
+        image.paste((200, 50, 50, 128), (4, 4, 10, 10))
+        image.save(source)
+
+        assert pixels.frame_flaws(source) == []
+
+    def test_a_soft_edge_over_the_allowance_is_named(self, tmp_path):
+        source = self.flawed(tmp_path, "soft.png", alpha=128, box=(4, 4, 60, 60))
+
+        assert any("halo" in flaw for flaw in pixels.frame_flaws(source))
+
+    def test_an_image_with_no_transparency_is_named(self, tmp_path):
+        source = self.flawed(tmp_path, "opaque.png")
+
+        assert any("no transparency at all" in flaw for flaw in pixels.frame_flaws(source))
+
+    def test_an_entirely_transparent_frame_is_named(self, tmp_path):
+        """Nothing to measure means every other check passes, which is the one way an
+        empty file reaches a paid route looking fine."""
+        path = tmp_path / "empty.png"
+        Image.new("RGBA", (64, 64), (0, 0, 0, 0)).save(path)
+
+        assert any("every pixel in it is transparent" in flaw for flaw in pixels.frame_flaws(path))
+
+    def test_check_frame_says_every_one_of_them_at_once(self, tmp_path):
+        source = self.flawed(tmp_path, "both.png", alpha=128, box=(24, 24, 40, 40))
+
+        with pytest.raises(ValidationError) as raised:
+            pixels.check_frame(source)
+
+        assert "halo" in str(raised.value)
+        assert "image trim" in str(raised.value)
+        assert "--as-is" in str(raised.value)

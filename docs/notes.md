@@ -75,3 +75,7 @@ over this file answers with the example above as well as with the notes. -->
 <!-- n-0035 removed -->
 - n-0036 2026-09-19 #ceiling @src/pixellab_cli/run.py — a failure raised before the request is built still records the estimate, so a purely local bug can put a charge that never happened into the ledger totals
 - n-0037 2026-09-19 #gotcha @src/pixellab_cli/pixels.py @docs/wiki/pages/gpt-image-25.md — gpt-image-2.5 with background=transparent returns a solid subject at alpha 250-252 and never 255, so a split that counts only 255 as opaque reads the whole image as a halo
+- n-0038 2026-09-19 #gotcha @src/pixellab_cli/run.py — every paid route refuses without --yes and the refusal prints the request summary; PIXELLAB_ASSUME_YES=1 is the person's own escape and is never set by the tool
+- n-0039 2026-09-19 #gotcha @src/pixellab_cli/recipe.py — recipe run performs one paid step and stops so the person can fix the art by hand; --unattended is what runs it through
+- n-0040 2026-09-19 #gotcha @src/pixellab_cli/harness.py — installing for Claude Code writes the managed block into CLAUDE.md as well as the skills, because a skill is only loaded when the agent judges it relevant
+- n-0041 2026-09-19 #security @src/pixellab_cli/run.py — the approval refusal prints route arguments, so it redacts twice: summarise_request through redact and the raise through secrets, the way both ledger lines do

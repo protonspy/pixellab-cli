@@ -10,24 +10,56 @@ The person is usually not watching. That single fact sets everything below.
 says which skill owns the command you actually want. Load that one for the options and
 the workflow.
 
-## Before the first paid call of a session
+## Nothing paid runs without `--yes`
 
-**Dry run, show the estimate, wait for a yes.** Every command takes `--dry-run`, which
-performs the same route choice and the same argument validation as the real call and
-then stops without sending anything. A dry run that passes is evidence the real call
-will not be rejected.
+**Every paid route refuses without `--yes`, and the refusal is the summary.** It prints
+the provider, the route, every argument that decides what comes back, and the estimate,
+and it sends nothing:
 
-```bash
-pixellab-cli --dry-run recipe run character "a knight in red armour" -a walking
+```
+Nothing has been sent. This would be a paid call:
+
+  provider     pixellab
+  route        create-character-v3
+  cost         about 4 generations
+  description  a chibi warrior with a red cape
+  view         low top-down
 ```
 
-Show what it prints — the steps, the routes, the estimated generations — and wait for
-the person to agree before running it for real. After they have agreed once, keep going
-within that agreement; ask again when the shape of the work changes, when a Pro Tools
-route enters the picture, or when the estimate grows.
+Show that to the person **in full**. Do not summarise it, do not paraphrase the cost,
+and do not run the command again until they have answered. Then add `--yes`:
 
-`--max-generations N` stops a recipe before its first call if the estimate is over N.
-Use it whenever the person has named a budget.
+```bash
+pixellab-cli --yes character new "a chibi warrior" --reference anchor.png
+```
+
+**`--yes` is agreement for the one command it was typed on.** There is no session-wide
+yes and you must not behave as though there were: the next paid command asks again,
+whatever they said to the last one. An agreement to make a character is not an agreement
+to make eight animations from it.
+
+`--dry-run` prints the whole request rather than the summary, and is free. Reach for it
+when the person wants to see exactly what would be sent. `--max-generations N` stops a
+recipe before its first call when the estimate is over N.
+
+`PIXELLAB_ASSUME_YES=1` stands in for `--yes` where nobody is there to give it, and
+only `1`, `true`, `yes` or `on` count — `0` and `false` leave the gate up. **The
+person sets it, once, themselves.** Never set it, never export it, never suggest it as a
+way past a refusal you are in the middle of.
+
+## Stop for the person's own edits
+
+Generated art has imperfections the person fixes by hand, in the PixelLab editor, and
+every later step is built on the file they fixed. So the pipeline stops:
+
+```bash
+pixellab-cli recipe run character "a chibi warrior"     # one paid step, then stops
+pixellab-cli recipe resume pixellab-out/<run>/recipe.json
+```
+
+`recipe run` performs one paid step, says what it wrote and prints the `resume` command.
+Hand them the paths and wait. **Do not chain the steps yourself** to get around the
+pause, and do not reach for `--unattended` — that flag is the person's to ask for.
 
 ## Which skill owns what
 
@@ -128,11 +160,12 @@ A recipe writes `recipe.json` beside its output as it goes. If it stopped, every
 before the failing step is still there and paid for:
 
 ```
-pixellab-cli recipe run <name> <description> --action/-a --max-generations
-pixellab-cli recipe resume <manifest> --action/-a
+pixellab-cli recipe run <name> <description> --action/-a --max-generations --unattended
+pixellab-cli recipe resume <manifest> --action/-a --unattended
 ```
 
-So a stopped run is picked up with `recipe resume pixellab-out/<run>/recipe.json`.
+So a stopped run is picked up with `recipe resume pixellab-out/<run>/recipe.json`, and so
+is one that stopped on purpose between two steps — the ordinary case, not the failure.
 Completed steps are not run again — never re-run a whole recipe to recover one step.
 `pixellab-cli recipe list` says what ships and takes nothing.
 
@@ -166,8 +199,16 @@ pixellab-cli image inspect <file>
 ```
 
 `image inspect` answers the question that is otherwise only answerable after the art comes
-back wrong: whether an image's alpha is binary or soft at the edges. The rotation and
-animation routes read a soft edge as a halo.
+back wrong: whether an image's alpha is binary or soft at the edges. It splits the partial
+pixels into `soft` — what a rotation route reads as a halo — and the two bands beside the
+extremes, which are a provider's own ceiling and are not a halo. It also reports `ceiling`,
+the highest alpha present: gpt-image-2.5 stops at about 251, so a concept from it has no
+fully opaque pixel and that on its own is nothing to fix.
+
+**The paid routes read the frame before sending it.** `character new --reference`, `rotate`,
+`animate` and `interpolate` all refuse an image with a soft edge, with no transparency at
+all, or with the subject adrift in a large canvas, naming the free command that fixes each.
+Fix it and run again. `--as-is` sends it anyway and is almost never the right answer.
 
 `image flip` is how an eight-direction set stops costing eight paid animations — see
 `pixellab-cli-characters`, which owns that workflow.

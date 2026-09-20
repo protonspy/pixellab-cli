@@ -27,6 +27,8 @@ class AppContext:
     workspace: Workspace = field(default_factory=Workspace)
     as_json: bool = False
     dry_run: bool = False
+    # Whether the person agreed to this invocation's paid calls. See `Runner.approve`.
+    approved: bool = False
     # Names the directory one piece of work's assets gather under. Absent, every
     # run gets its own timestamped directory, which is the older shape.
     subject: str | None = None
@@ -38,6 +40,7 @@ class AppContext:
         root: Path | None = None,
         as_json: bool = False,
         dry_run: bool = False,
+        approved: bool = False,
         subject: str | None = None,
     ) -> AppContext:
         return cls(
@@ -45,6 +48,7 @@ class AppContext:
             workspace=Workspace(root=root or DEFAULT_ROOT),
             as_json=as_json,
             dry_run=dry_run,
+            approved=approved,
             subject=subject,
         )
 
@@ -58,6 +62,7 @@ class AppContext:
             workspace=self.workspace,
             ledger=self.ledger,
             secrets=self.credentials.secrets,
+            approved=self.approved,
         )
 
     def pixellab(self) -> PixelLabClient:

@@ -29,6 +29,10 @@
   _Reason four directions asked for after delivery_
 - [x] 2.8 (TDD) Refuse an animation over the route's pixel budget — R2.31
   _Reason the budget is documented and unenforced, see n-0031_
+- [x] 2.9 (Unit) Refuse a reference that would be multiplied by eight — R1.10, R1.11
+  _Reason an untreated concept was sent straight to character new and paid for_
+- [x] 2.10 (Unit) Refuse a character with no reference — R1.12
+  _Reason character new was called with no reference at all and drew from nothing_
 
 ## 3 · Animating and rotating
 

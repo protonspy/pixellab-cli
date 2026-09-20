@@ -20,6 +20,7 @@ from typing import Any
 import typer
 
 from pixellab_cli.errors import (
+    ApprovalRequired,
     ConfigurationError,
     PixellabCliError,
     PollTimeout,
@@ -48,7 +49,13 @@ def fail(error: Exception) -> typer.Exit:
     typer.echo(str(error), err=True)
     if isinstance(error, PollTimeout):
         typer.echo(f"Collect it with: {error.resume_command}", err=True)
-    code = EXIT_BAD_ARGUMENT if isinstance(error, ValidationError) else EXIT_FAILURE
+    # A missing --yes is the same class of thing as a rejected argument: the
+    # command is one edit away from being right, and 2 is what says so.
+    code = (
+        EXIT_BAD_ARGUMENT
+        if isinstance(error, (ValidationError, ApprovalRequired))
+        else EXIT_FAILURE
+    )
     return typer.Exit(code)
 
 

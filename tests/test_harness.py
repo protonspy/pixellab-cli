@@ -393,3 +393,55 @@ class TestASkillThisToolNoLongerShips:
         written = install(Harness.CLAUDE, tmp_path)
 
         assert written.retired == ()
+
+
+class TestClaudeAlsoGetsTheRulesItAlwaysReads:
+    """Installing the skills is not the same as the rules being read.
+
+    A skill is loaded when the agent judges it relevant, and the failure this closes is
+    an agent that judged wrong: the skills were on disk, nothing loaded them, and a
+    character was generated and paid for without any of it.
+    """
+
+    def test_a_project_install_writes_claude_md(self, tmp_path):
+        install(Harness.CLAUDE, tmp_path)
+
+        assert (tmp_path / "CLAUDE.md").is_file()
+
+    def test_the_block_names_the_entry_skill(self, tmp_path):
+        install(Harness.CLAUDE, tmp_path)
+
+        body = (tmp_path / "CLAUDE.md").read_text(encoding="utf-8")
+        assert ".claude/skills/pixellab-cli-assets/SKILL.md" in body
+
+    def test_the_block_carries_the_rules_that_cost_money_if_missed(self, tmp_path):
+        install(Harness.CLAUDE, tmp_path)
+
+        body = (tmp_path / "CLAUDE.md").read_text(encoding="utf-8")
+        assert "--yes" in body
+        assert "recipe resume" in body
+
+    def test_it_is_written_between_the_markers(self, tmp_path):
+        memory = tmp_path / "CLAUDE.md"
+        memory.write_text("# My project\n\nMy own rules.\n", encoding="utf-8")
+
+        install(Harness.CLAUDE, tmp_path)
+
+        body = memory.read_text(encoding="utf-8")
+        assert "My own rules." in body
+        assert BEGIN in body and END in body
+
+    def test_a_global_install_writes_it_where_that_harness_keeps_it(self, tmp_path):
+        install(Harness.CLAUDE, tmp_path, global_install=True)
+
+        assert (tmp_path / ".claude" / "CLAUDE.md").is_file()
+
+    def test_the_memory_file_is_reported_with_the_rest(self, tmp_path):
+        written = install(Harness.CLAUDE, tmp_path)
+
+        assert tmp_path / "CLAUDE.md" in written.paths
+
+    def test_a_second_install_changes_nothing(self, tmp_path):
+        install(Harness.CLAUDE, tmp_path)
+
+        assert install(Harness.CLAUDE, tmp_path).changed is False

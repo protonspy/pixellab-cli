@@ -12,6 +12,8 @@ from pathlib import Path
 
 import pytest
 
+from pixellab_cli.run import ASSUME_YES_VAR
+
 
 @pytest.fixture(autouse=True)
 def an_isolated_home(tmp_path, monkeypatch):
@@ -34,3 +36,14 @@ def an_isolated_home(tmp_path, monkeypatch):
     # climbs out of the fixtures entirely. `.hg` because no test writes one.
     (tmp_path / ".hg").mkdir(exist_ok=True)
     return home
+
+
+@pytest.fixture(autouse=True)
+def an_approved_run(monkeypatch):
+    """Stand in for `--yes` across the suite, the way a headless run does.
+
+    Every paid route refuses without agreement, and a test run is the case the
+    environment variable exists for: nobody is there to give it. The tests that are
+    about the gate itself take it away again with `monkeypatch.delenv`.
+    """
+    monkeypatch.setenv(ASSUME_YES_VAR, "1")

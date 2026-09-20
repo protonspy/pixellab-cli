@@ -15,7 +15,7 @@ from typing import Any
 
 import typer
 
-from pixellab_cli import catalog, images, output
+from pixellab_cli import catalog, images, output, pixels
 from pixellab_cli.context import AppContext
 from pixellab_cli.errors import PixellabCliError, ValidationError
 from pixellab_cli.ledger import Cost
@@ -154,20 +154,27 @@ def register(app: typer.Typer) -> None:
     app.command("interpolate")(interpolate)
 
 
-def _load(path: Path):
+def _load(path: Path, *, as_is: bool = False):
+    """The bytes, refusing a frame these routes would multiply — see `pixels.check_frame`.
+
+    The check is local and free and runs before anything is sent, because every one of
+    the flaws it names is cheaper to fix here than it is to buy eight times.
+    """
     if not path.is_file():
         raise ValidationError(f"{path} is not a file", context={"path": str(path)})
+    if not as_is:
+        pixels.check_frame(path)
     return images.encode_file(path)
 
 
-def _keyframe(path: Path) -> dict[str, Any]:
+def _keyframe(path: Path, *, as_is: bool = False) -> dict[str, Any]:
     """Wrap an image as the `KeyframeImage` the interpolation route takes.
 
     Every other image slot in the catalogue is a bare `Base64Image`; this one carries
     the size beside the bytes. `validate._dimensions` reads the nested shape already,
     so the size limit still binds and no new `ParamKind` is needed.
     """
-    encoded = _load(path)
+    encoded = _load(path, as_is=as_is)
     if encoded.width is None or encoded.height is None:
         raise ValidationError(
             f"{path} is not a PNG or JPEG whose size can be read, and interpolating "
@@ -231,16 +238,17 @@ def rotate(
     ),
     name: str = typer.Option(None, "--name", help="What to call the files."),
     transparent: bool = typer.Option(False, "--transparent", help="Transparent background."),
+    as_is: bool = typer.Option(False, "--as-is", help="Send the image unchecked, flaws and all."),
     seed: int = typer.Option(None, "--seed", help="Repeat a previous generation."),
 ) -> None:
     """Generate eight directional views of an image, each named after its direction."""
     try:
-        _rotate(context, file, description, name, transparent, seed)
+        _rotate(context, file, description, name, transparent, as_is, seed)
     except PixellabCliError as failure:
         output.handle(failure)
 
 
-def _rotate(context, file, description, name, transparent, seed) -> None:
+def _rotate(context, file, description, name, transparent, as_is, seed) -> None:
     app_context: AppContext = context.obj
     _execute(
         app_context,
@@ -250,7 +258,7 @@ def _rotate(context, file, description, name, transparent, seed) -> None:
         name=name or file.stem,
         roles=list(ROTATION_ORDER),
         arguments={
-            "first_frame": _load(file),
+            "first_frame": _load(file, as_is=as_is),
             "description": description,
             "no_background": True if transparent else None,
             "seed": seed,
@@ -272,19 +280,30 @@ def animate(
     ),
     name: str = typer.Option(None, "--name", help="What to call the files."),
     transparent: bool = typer.Option(False, "--transparent", help="Transparent background."),
+    as_is: bool = typer.Option(False, "--as-is", help="Send the image unchecked, flaws and all."),
     seed: int = typer.Option(None, "--seed", help="Repeat a previous generation."),
 ) -> None:
     """Animate a loose image from its first frame. Frames land in playback order."""
     try:
         _animate(
-            context, file, action, frames, last, route_name, deflicker, name, transparent, seed
+            context,
+            file,
+            action,
+            frames,
+            last,
+            route_name,
+            deflicker,
+            name,
+            transparent,
+            as_is,
+            seed,
         )
     except PixellabCliError as failure:
         output.handle(failure)
 
 
 def _animate(
-    context, file, action, frames, last, route_name, deflicker, name, transparent, seed
+    context, file, action, frames, last, route_name, deflicker, name, transparent, as_is, seed
 ) -> None:
     app_context: AppContext = context.obj
     route = choose_animation_route(frames, route_name=route_name)
@@ -292,7 +311,7 @@ def _animate(
 
     # Read off the file rather than asked for, and checked here rather than left to the
     # provider: the frame count and the frame size are each legal alone.
-    first = _load(file)
+    first = _load(file, as_is=as_is)
     check_pixel_budget(route.name, frames, first.width, first.height)
 
     if deflicker is not None and not long_form:
@@ -314,7 +333,7 @@ def _animate(
 
     arguments: dict[str, Any] = {
         "first_frame": first,
-        "last_frame": _load(last) if last else None,
+        "last_frame": _load(last, as_is=as_is) if last else None,
         "frame_count": frames,
         "no_background": True if transparent else None,
         "seed": seed,
@@ -343,16 +362,17 @@ def interpolate(
     frames: int = typer.Option(None, "--frames", help="Not settable here: the route decides."),
     name: str = typer.Option(None, "--name", help="What to call the files."),
     transparent: bool = typer.Option(False, "--transparent", help="Transparent background."),
+    as_is: bool = typer.Option(False, "--as-is", help="Send the image unchecked, flaws and all."),
     seed: int = typer.Option(None, "--seed", help="Repeat a previous generation."),
 ) -> None:
     """Generate the frames between two poses. Frames land in playback order."""
     try:
-        _interpolate(context, start, end, action, frames, name, transparent, seed)
+        _interpolate(context, start, end, action, frames, name, transparent, as_is, seed)
     except PixellabCliError as failure:
         output.handle(failure)
 
 
-def _interpolate(context, start, end, action, frames, name, transparent, seed) -> None:
+def _interpolate(context, start, end, action, frames, name, transparent, as_is, seed) -> None:
     app_context: AppContext = context.obj
     route = catalog.route(INTERPOLATION_ROUTE)
 
@@ -367,7 +387,7 @@ def _interpolate(context, start, end, action, frames, name, transparent, seed) -
             context={"route": route.name, "frames": frames},
         )
 
-    first, last = _keyframe(start), _keyframe(end)
+    first, last = _keyframe(start, as_is=as_is), _keyframe(end, as_is=as_is)
     output.stderr(
         f"{route.name} is a Pro Tools route: about {route.estimated_generations:g} "
         f"generations, and it decides how many frames come back."

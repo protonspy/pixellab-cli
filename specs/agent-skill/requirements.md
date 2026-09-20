@@ -1,8 +1,8 @@
 ---
 autonomy: auto
 ci: wait
-branch: feat/asset-consistency
-delivery: merged
+branch: feat/guard-the-character-flow
+delivery: in-progress
 pr: 45
 ---
 
@@ -46,6 +46,12 @@ the person did not agree to.
 - **R5.4** (ADDED) The category skill shall carry the workflow its category needs, in the order the steps are taken.
 - **R5.5** (ADDED) When installing, the tool shall write every packaged skill, and shall replace the contents of each one it owns.
 - **R5.6** (ADDED) If a skill directory from a previous installation is no longer packaged, then the tool shall say so rather than leaving it to be read as current instructions.
+
+- **R5.7** (ADDED) The character skill shall carry the reference flow in the order its steps are taken — a concept or a box art, then a local inspect and trim, then the paid character call with that reference — and shall state that the paid call is not entered from anywhere else.
+- **R5.8** (ADDED) When the flow reaches the paid character call, the character skill shall require the agent to ask first whether the full-size image is to be sent for a larger character, and whether it is to be converted to pixel art first.
+
+- **R5.9** (ADDED) When installing for a harness that loads a skill only where it judges the skill relevant, the tool shall also write the rules that cost money if missed into the file that harness reads every session, and shall point that file at the skills.
+- **R5.10** (ADDED) The entry skill shall state that a paid call needs the person's agreement on that call, and shall forbid treating an earlier agreement as covering a later call.
 
 ## Out of scope
 

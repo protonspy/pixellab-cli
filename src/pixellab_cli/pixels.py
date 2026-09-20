@@ -383,3 +383,78 @@ def write(image: Image.Image, path: Path) -> Path:
     target.parent.mkdir(parents=True, exist_ok=True)
     image.save(target)
     return target
+
+
+# What a frame may carry before a paid route reads it. Shares of the canvas rather than
+# counts, because the same number of pixels means one thing at 64 and another at 1024.
+#
+# A rotation route reads the image it is given as the south frame and multiplies
+# whatever is wrong with it by eight, then every animation built on those eight
+# multiplies it again. None of that is reported: the art simply comes back wrong and
+# paid for. Every one of these is readable here, on this machine, for nothing.
+MAX_SOFT_SHARE = 0.01
+MAX_MARGIN_SHARE = 0.15
+
+
+def frame_flaws(path: Path) -> list[str]:
+    """What is wrong with an image about to be sent as a frame, each with its fix.
+
+    Sentences rather than codes, because the caller prints them and the reader is a
+    person deciding what to run next. An empty list is an image worth paying for.
+    """
+    image = load(path)
+    report = inspect(image, mode_on_disk(path))
+    flaws = []
+
+    if not report.transparent and not report.near_transparent:
+        flaws.append(
+            "it carries no transparency at all, so its background is part of the subject "
+            "and will be rotated with it — `pixellab-cli clean background` removes it"
+        )
+    soft = report.soft / report.pixels if report.pixels else 0.0
+    if soft > MAX_SOFT_SHARE:
+        flaws.append(
+            f"{soft:.1%} of it is a soft alpha edge, which these routes read as a halo — "
+            f"`pixellab-cli image inspect` shows the split and "
+            f"`pixellab-cli clean background` makes the edge binary"
+        )
+
+    box = image.getchannel("A").getbbox()
+    if box is None:
+        # Every pixel transparent, so none of the checks below has anything to measure
+        # and all of them pass. An empty frame is the one image a paid route can make
+        # nothing of, and it is the easiest one to send by accident.
+        flaws.append(
+            "every pixel in it is transparent, so there is nothing for a route to read — "
+            "check the file is the one you meant"
+        )
+    else:
+        left, upper, right, lower = box
+        margin = max(
+            (image.width - (right - left)) / image.width,
+            (image.height - (lower - upper)) / image.height,
+        )
+        if margin > MAX_MARGIN_SHARE:
+            flaws.append(
+                f"the subject fills {1 - margin:.0%} of the frame and the rest is a "
+                f"transparent margin, so the character comes back that much smaller — "
+                f"`pixellab-cli image trim` drops it"
+            )
+    return flaws
+
+
+def check_frame(path: Path) -> None:
+    """Refuse an image a paid route would multiply, naming every fix at once.
+
+    All of them in one refusal rather than one per run: a caller who fixes the alpha
+    and pays again to be told about the margin has paid twice for one reading.
+    """
+    flaws = frame_flaws(path)
+    if not flaws:
+        return
+    listed = "".join(f"\n  - {flaw}" for flaw in flaws)
+    raise ValidationError(
+        f"{path} is not ready to be sent as a frame:{listed}\n"
+        f"Fix it first, or pass --as-is to send it the way it is.",
+        context={"path": str(path), "flaws": len(flaws)},
+    )

@@ -1,8 +1,8 @@
 ---
 autonomy: auto
 ci: wait
-branch: feat/output-by-subject
-delivery: merged
+branch: feat/guard-the-character-flow
+delivery: in-progress
 pr: 56
 ---
 
@@ -54,6 +54,13 @@ A file nobody can account for is worth less than the same file with a manifest.
 - **R4.1** The asset workspace shall report what has been spent, over a period the user names, broken down by route.
 - **R4.2** The asset workspace shall report the estimated cost against the reported cost, so an estimate that is consistently wrong is visible.
 - **R4.3** Where an entry was written and never resolved, the asset workspace shall report it as unresolved together with the identifier that would collect it.
+
+## R6 · Agreement before a charge
+
+- **R6.1** When a call that can cost money is about to be made, the asset workspace shall refuse it unless the caller states that the person has agreed, naming the route and what it is estimated to cost.
+- **R6.2** Where the person's agreement has not been stated, the asset workspace shall send no request and shall write no ledger entry, because neither can have happened.
+- **R6.3** Where there is nobody present to state the agreement, the asset workspace shall take it from a named environment variable instead.
+- **R6.4** While a call is a dry run, the asset workspace shall require no agreement, because nothing is sent.
 
 ## Out of scope
 

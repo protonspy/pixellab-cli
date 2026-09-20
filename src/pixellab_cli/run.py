@@ -9,16 +9,35 @@ worth having here.
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
 
-from pixellab_cli.errors import PixellabCliError, PollTimeout, redact
+from pixellab_cli.errors import (
+    ApprovalRequired,
+    PixellabCliError,
+    PollTimeout,
+    redact,
+)
 from pixellab_cli.ledger import ESTIMATED, MEASURED, REPORTED, UNKNOWN, Cost, Ledger
 from pixellab_cli.workspace import Workspace, asset_filename
 
 MANIFEST_SCHEMA = 1
+
+# What stands in for `--yes` where there is nobody to type it: a headless run, a CI
+# job, a script the person wrote themselves. Deliberately an environment variable and
+# not a setting in the credentials file — it is turned on once, outside the run, by
+# the person, and an agent in the middle of a task has no reason to be editing the
+# environment it was started in.
+ASSUME_YES_VAR = "PIXELLAB_ASSUME_YES"
+
+# What counts as agreement in that variable. An allow-list rather than "is it set",
+# because the natural way to turn this off is to set it to 0 or false, and truthiness
+# would read both of those as yes — standing the gate down permanently in exactly the
+# shared environment somebody was trying to make safer.
+ASSUME_YES_VALUES = frozenset({"1", "true", "yes", "on"})
 
 
 class Callable_(Protocol):
@@ -91,6 +110,53 @@ class RunOutcome:
     ids: dict[str, str] = field(default_factory=dict)
 
 
+# Long enough to be a payload rather than a value. An image arrives as base64 and is
+# the one argument nobody wants printed; a description is the one everybody does.
+PAYLOAD_LENGTH = 120
+
+
+def summarise_request(
+    provider: str, route: str, arguments: dict[str, Any], cost: str, secrets: tuple[str, ...] = ()
+) -> list[str]:
+    """What is about to be bought, in lines a person reads before agreeing to it.
+
+    Not the whole request — that is what `--dry-run` is for. This is the part somebody
+    has to check: which route, what it costs, and the arguments that decide what comes
+    back. A base64 image is named and measured rather than printed.
+
+    Through `redact` first, the way every other place these arguments are surfaced does
+    — the ledger's two lines and the manifest. This one prints to a terminal an agent is
+    reading and a CI job is keeping, so it is the last place that should be the
+    exception.
+    """
+    arguments = redact(arguments, secrets)
+    shown = {key: value for key, value in sorted(arguments.items()) if value is not None}
+    width = max([len("provider"), *(len(key) for key in shown)]) + 2
+    lines = [
+        f"  {'provider':<{width}}{provider}",
+        f"  {'route':<{width}}{route}",
+        f"  {'cost':<{width}}{cost}",
+    ]
+    lines.extend(f"  {key:<{width}}{_readable(value)}" for key, value in shown.items())
+    return lines
+
+
+def _assumed_yes() -> bool:
+    """Whether the environment says the person has already agreed."""
+    return (os.environ.get(ASSUME_YES_VAR) or "").strip().lower() in ASSUME_YES_VALUES
+
+
+def _readable(value: Any) -> str:
+    """One argument, short enough to read and honest about what it left out."""
+    if isinstance(value, dict):
+        inner = ", ".join(f"{key}={_readable(item)}" for key, item in sorted(value.items()))
+        return f"{{{inner}}}"
+    if isinstance(value, (list, tuple)):
+        return f"{len(value)} item{'' if len(value) == 1 else 's'}"
+    text = str(value)
+    return f"<{len(text)} characters>" if len(text) > PAYLOAD_LENGTH else text
+
+
 @dataclass
 class Runner:
     """Makes calls on behalf of commands, and records every one of them."""
@@ -98,6 +164,51 @@ class Runner:
     workspace: Workspace
     ledger: Ledger
     secrets: tuple[str, ...] = ()
+    # Whether the person has said yes to this invocation. False is the default on
+    # purpose: the flag has to be typed, and typing it is the agreement.
+    approved: bool = False
+
+    def approve(
+        self, provider: str, route: str, arguments: dict[str, Any], estimate: Cost | None
+    ) -> None:
+        """Refuse a paid call nobody agreed to, before it is made.
+
+        A skill can be told to ask first and can fail to; this cannot. The agreement
+        is per invocation rather than per session, which is the whole point — an
+        agent that was told yes once for a sprite cannot spend that yes on eight
+        rotations an hour later, because the yes is a flag on the command in front of
+        the person and not a state it carries.
+
+        It sits beside the ledger write for the same reason the ledger write is here:
+        this is the one place a charge can begin, so it is the one place worth
+        guarding. Everything free — `inspect`, `trim`, `ledger`, `show` — never
+        reaches it and is never gated.
+        """
+        if self.approved or _assumed_yes():
+            return
+        generations = estimate.generations if estimate else 0.0
+        cost = (
+            f"about {generations:g} generation{'' if generations == 1 else 's'}"
+            if generations
+            else "an amount this tool cannot estimate in advance"
+        )
+        raise ApprovalRequired(
+            "\n".join(
+                [
+                    "Nothing has been sent. This would be a paid call:",
+                    "",
+                    *summarise_request(provider, route, arguments, cost, self.secrets),
+                    "",
+                    "Show that to the person and run it again with --yes once they have "
+                    "agreed. --dry-run prints the whole request instead of a summary, and "
+                    f"{ASSUME_YES_VAR}=1 stands in for --yes where nobody is there to give it.",
+                ]
+            ),
+            context={"provider": provider, "route": route, "generations": generations},
+            # Also at the raise, not only on the summary: the sentence is built here and
+            # every other raise in this module hands the credentials over the same way.
+            secrets=self.secrets,
+        )
 
     def run(
         self,
@@ -123,6 +234,7 @@ class Runner:
         saying a charge may have happened. The outcome is written whether the call
         succeeded or failed, because a failed generation is charged too.
         """
+        self.approve(provider, route, arguments, estimate)
         # A recipe hands in one directory for all of its steps, and a distinct run
         # id per step so the ledger's intent and outcome lines still pair up.
         directory = directory or self.workspace.run_directory(

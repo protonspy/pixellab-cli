@@ -5,11 +5,12 @@ and download eight URLs. These tests replay all three.
 """
 
 import base64
+import io
 import json
-import struct
 
 import pytest
 import respx
+from PIL import Image
 from typer.testing import CliRunner
 
 from pixellab_cli import images
@@ -21,6 +22,7 @@ from pixellab_cli.commands.character import (
 )
 from pixellab_cli.config import PIXELLAB_BASE_URL, PIXELLAB_SECRET_VAR
 from pixellab_cli.errors import ValidationError
+from pixellab_cli.run import ASSUME_YES_VAR
 
 runner = CliRunner()
 
@@ -37,7 +39,18 @@ DIRECTIONS = (
 
 
 def png_bytes(width: int = 64, height: int = 64) -> bytes:
-    return b"\x89PNG\r\n\x1a\n" + b"\x00\x00\x00\rIHDR" + struct.pack(">II", width, height)
+    """A real PNG, because every route here now reads the frame before sending it.
+
+    A transparent canvas with a hard-edged subject filling it: binary alpha, a margin
+    well inside what `pixels.check_frame` allows, and transparency present — which is
+    what a reference is supposed to look like by the time it is paid for.
+    """
+    image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    inset = (max(1, width // 16), max(1, height // 16))
+    image.paste((200, 50, 50, 255), (inset[0], inset[1], width - inset[0], height - inset[1]))
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    return buffer.getvalue()
 
 
 def image_payload() -> dict:
@@ -139,7 +152,9 @@ class TestCharacterNew:
     def test_every_rotation_is_written(self, tmp_path, monkeypatch):
         mock_character()
 
-        result = invoke(["character", "new", "a knight"], tmp_path, monkeypatch)
+        result = invoke(
+            ["character", "new", "a knight", "--from-description"], tmp_path, monkeypatch
+        )
 
         assert result.exit_code == 0
         assert len(list((tmp_path / "out").glob("*/*.png"))) == 8
@@ -148,7 +163,11 @@ class TestCharacterNew:
     def test_each_file_is_named_after_its_direction(self, tmp_path, monkeypatch):
         mock_character()
 
-        invoke(["character", "new", "a knight", "--name", "knight"], tmp_path, monkeypatch)
+        invoke(
+            ["character", "new", "a knight", "--from-description", "--name", "knight"],
+            tmp_path,
+            monkeypatch,
+        )
 
         names = {path.name for path in (tmp_path / "out").glob("*/*.png")}
         assert "knight-south-00.png" in names
@@ -158,7 +177,9 @@ class TestCharacterNew:
     def test_the_character_id_is_reported_and_kept(self, tmp_path, monkeypatch):
         mock_character()
 
-        result = invoke(["character", "new", "a knight"], tmp_path, monkeypatch)
+        result = invoke(
+            ["character", "new", "a knight", "--from-description"], tmp_path, monkeypatch
+        )
 
         assert "char-9" in result.stdout
         manifest = json.loads(
@@ -170,7 +191,7 @@ class TestCharacterNew:
     def test_a_four_direction_character_writes_four_files(self, tmp_path, monkeypatch):
         mock_character(directions=("south", "west", "east", "north"))
 
-        invoke(["character", "new", "a knight"], tmp_path, monkeypatch)
+        invoke(["character", "new", "a knight", "--from-description"], tmp_path, monkeypatch)
 
         assert len(list((tmp_path / "out").glob("*/*.png"))) == 4
 
@@ -202,12 +223,18 @@ class TestCharacterNew:
     def test_the_cost_is_reported(self, tmp_path, monkeypatch):
         mock_character()
 
-        result = invoke(["character", "new", "a knight"], tmp_path, monkeypatch)
+        result = invoke(
+            ["character", "new", "a knight", "--from-description"], tmp_path, monkeypatch
+        )
 
         assert "reported" in result.stdout
 
     def test_a_dry_run_names_the_route_and_sends_nothing(self, tmp_path, monkeypatch):
-        result = invoke(["--dry-run", "character", "new", "a knight"], tmp_path, monkeypatch)
+        result = invoke(
+            ["--dry-run", "character", "new", "a knight", "--from-description"],
+            tmp_path,
+            monkeypatch,
+        )
 
         assert result.exit_code == 0
         assert "create-character-v3" in result.stdout
@@ -925,7 +952,9 @@ class TestChoosingHowManyRotations:
         mock_four_direction_character()
 
         result = invoke(
-            ["character", "new", "a knight", "--directions", "4"], tmp_path, monkeypatch
+            ["character", "new", "a knight", "--from-description", "--directions", "4"],
+            tmp_path,
+            monkeypatch,
         )
 
         assert result.exit_code == 0
@@ -935,7 +964,11 @@ class TestChoosingHowManyRotations:
     def test_four_directions_writes_the_four_rotations(self, tmp_path, monkeypatch):
         mock_four_direction_character()
 
-        invoke(["character", "new", "a knight", "--directions", "4"], tmp_path, monkeypatch)
+        invoke(
+            ["character", "new", "a knight", "--from-description", "--directions", "4"],
+            tmp_path,
+            monkeypatch,
+        )
 
         names = {path.name for path in (tmp_path / "out").glob("*/*.png")}
         assert len(names) == 4
@@ -946,7 +979,7 @@ class TestChoosingHowManyRotations:
         v3 = respx.post(f"{PIXELLAB_BASE_URL}/create-character-v3")
         mock_character()
 
-        invoke(["character", "new", "a knight"], tmp_path, monkeypatch)
+        invoke(["character", "new", "a knight", "--from-description"], tmp_path, monkeypatch)
 
         assert v3.called
 
@@ -955,7 +988,11 @@ class TestChoosingHowManyRotations:
         create = respx.post(f"{PIXELLAB_BASE_URL}/create-character-with-4-directions")
         mock_four_direction_character()
 
-        invoke(["character", "new", "a knight", "--directions", "4"], tmp_path, monkeypatch)
+        invoke(
+            ["character", "new", "a knight", "--from-description", "--directions", "4"],
+            tmp_path,
+            monkeypatch,
+        )
 
         body = json.loads(create.calls.last.request.content)
         assert body["image_size"] == {"width": 64, "height": 64}
@@ -966,7 +1003,16 @@ class TestChoosingHowManyRotations:
         mock_four_direction_character()
 
         invoke(
-            ["character", "new", "a knight", "--directions", "4", "--size", "48"],
+            [
+                "character",
+                "new",
+                "a knight",
+                "--from-description",
+                "--directions",
+                "4",
+                "--size",
+                "48",
+            ],
             tmp_path,
             monkeypatch,
         )
@@ -984,6 +1030,7 @@ class TestChoosingHowManyRotations:
                 "character",
                 "new",
                 "a knight",
+                "--from-description",
                 "--directions",
                 "4",
                 "--outline",
@@ -1021,7 +1068,9 @@ class TestChoosingHowManyRotations:
 
     def test_a_count_neither_route_offers_is_refused(self, tmp_path, monkeypatch):
         result = invoke(
-            ["character", "new", "a knight", "--directions", "6"], tmp_path, monkeypatch
+            ["character", "new", "a knight", "--from-description", "--directions", "6"],
+            tmp_path,
+            monkeypatch,
         )
 
         assert result.exit_code == 2
@@ -1029,7 +1078,9 @@ class TestChoosingHowManyRotations:
 
     def test_shading_is_refused_on_the_route_that_has_none(self, tmp_path, monkeypatch):
         result = invoke(
-            ["character", "new", "a knight", "--shading", "flat shading"], tmp_path, monkeypatch
+            ["character", "new", "a knight", "--from-description", "--shading", "flat shading"],
+            tmp_path,
+            monkeypatch,
         )
 
         assert result.exit_code == 2
@@ -1039,7 +1090,9 @@ class TestChoosingHowManyRotations:
         self, tmp_path, monkeypatch
     ):
         result = invoke(
-            ["character", "new", "a knight", "--outline", "lineless"], tmp_path, monkeypatch
+            ["character", "new", "a knight", "--from-description", "--outline", "lineless"],
+            tmp_path,
+            monkeypatch,
         )
 
         assert result.exit_code == 2
@@ -1055,7 +1108,7 @@ class TestChoosingHowManyRotations:
         create = respx.post(f"{PIXELLAB_BASE_URL}/create-character-v3")
         mock_character()
 
-        invoke(["character", "new", "a knight"], tmp_path, monkeypatch)
+        invoke(["character", "new", "a knight", "--from-description"], tmp_path, monkeypatch)
 
         body = json.loads(create.calls.last.request.content)
         assert "outline" not in body
@@ -1221,7 +1274,16 @@ class TestASubjectGathersTheCommandsOutput:
         mock_character()
 
         result = invoke(
-            ["--subject", "warrior tibiame", "character", "new", "a knight", "--name", "knight"],
+            [
+                "--subject",
+                "warrior tibiame",
+                "character",
+                "new",
+                "a knight",
+                "--from-description",
+                "--name",
+                "knight",
+            ],
             tmp_path,
             monkeypatch,
         )
@@ -1845,3 +1907,196 @@ class TestTheAnimationPixelBudget:
         )
 
         assert result.exit_code == 0
+
+
+def flawed_png(kind: str, width: int = 64, height: int = 64) -> bytes:
+    """A reference with exactly one thing wrong with it, drawn on purpose.
+
+    `soft` is what a concept image comes back as, `opaque` is one with its background
+    still in it, and `adrift` is a subject floating in a canvas several times its size
+    — the three that a rotation route turns into eight of the same problem.
+    """
+    image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    if kind == "soft":
+        image.paste((200, 50, 50, 128), (4, 4, width - 4, height - 4))
+    elif kind == "opaque":
+        image.paste((200, 50, 50, 255), (0, 0, width, height))
+    elif kind == "adrift":
+        image.paste((200, 50, 50, 255), (width // 2 - 4, height // 2 - 4, width // 2, height // 2))
+    else:
+        raise AssertionError(kind)
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+class TestAReferenceIsReadBeforeItIsPaidFor:
+    """One flaw in the reference is eight flawed rotations, then an animation each.
+
+    Every check here is Pillow on this machine and costs nothing; the thing it stands
+    in front of costs three to four generations and everything built on it afterwards.
+    """
+
+    @respx.mock
+    def test_a_soft_edged_reference_is_refused(self, tmp_path, monkeypatch):
+        create = respx.post(f"{PIXELLAB_BASE_URL}/create-character-v3")
+        mock_character()
+        reference = tmp_path / "concept.png"
+        reference.write_bytes(flawed_png("soft"))
+
+        result = invoke(
+            ["character", "new", "a knight", "--reference", str(reference)], tmp_path, monkeypatch
+        )
+
+        assert result.exit_code == 2
+        assert "halo" in result.output
+        assert not create.calls
+
+    @respx.mock
+    def test_a_reference_with_its_background_still_on_it_is_refused(self, tmp_path, monkeypatch):
+        reference = tmp_path / "concept.png"
+        reference.write_bytes(flawed_png("opaque"))
+
+        result = invoke(
+            ["character", "new", "a knight", "--reference", str(reference)], tmp_path, monkeypatch
+        )
+
+        assert result.exit_code == 2
+        assert "no transparency at all" in result.output
+        assert "clean background" in result.output
+
+    @respx.mock
+    def test_a_subject_adrift_in_a_large_canvas_is_refused(self, tmp_path, monkeypatch):
+        reference = tmp_path / "concept.png"
+        reference.write_bytes(flawed_png("adrift"))
+
+        result = invoke(
+            ["character", "new", "a knight", "--reference", str(reference)], tmp_path, monkeypatch
+        )
+
+        assert result.exit_code == 2
+        assert "image trim" in result.output
+
+    @respx.mock
+    def test_every_flaw_is_named_in_one_refusal(self, tmp_path, monkeypatch):
+        """Fixing one and paying to be told the next is paying twice for one reading."""
+        reference = tmp_path / "concept.png"
+        image = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+        image.paste((200, 50, 50, 128), (28, 28, 36, 36))
+        image.save(reference)
+
+        result = invoke(
+            ["character", "new", "a knight", "--reference", str(reference)], tmp_path, monkeypatch
+        )
+
+        assert "halo" in result.output
+        assert "image trim" in result.output
+
+    @respx.mock
+    def test_as_is_sends_it_the_way_it_stands(self, tmp_path, monkeypatch):
+        create = respx.post(f"{PIXELLAB_BASE_URL}/create-character-v3")
+        mock_character()
+        reference = tmp_path / "concept.png"
+        reference.write_bytes(flawed_png("soft"))
+
+        result = invoke(
+            ["character", "new", "a knight", "--reference", str(reference), "--as-is"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 0
+        assert create.calls
+
+    @respx.mock
+    def test_a_clean_reference_goes_straight_through(self, tmp_path, monkeypatch):
+        create = respx.post(f"{PIXELLAB_BASE_URL}/create-character-v3")
+        mock_character()
+        reference = tmp_path / "anchor.png"
+        reference.write_bytes(png_bytes())
+
+        result = invoke(
+            ["character", "new", "a knight", "--reference", str(reference)], tmp_path, monkeypatch
+        )
+
+        assert result.exit_code == 0
+        assert create.calls
+
+    @respx.mock
+    def test_rotate_reads_the_frame_too(self, tmp_path, monkeypatch):
+        rotate = respx.post(f"{PIXELLAB_BASE_URL}/generate-8-rotations-v3")
+        source = tmp_path / "concept.png"
+        source.write_bytes(flawed_png("soft"))
+
+        result = invoke(["rotate", str(source)], tmp_path, monkeypatch)
+
+        assert result.exit_code == 2
+        assert not rotate.calls
+
+
+class TestACharacterIsNotDrawnFromNothingByAccident:
+    @respx.mock
+    def test_no_reference_is_refused_and_names_the_flow(self, tmp_path, monkeypatch):
+        create = respx.post(f"{PIXELLAB_BASE_URL}/create-character-v3")
+
+        result = invoke(["character", "new", "a knight"], tmp_path, monkeypatch)
+
+        assert result.exit_code == 2
+        assert "art anchor" in result.output
+        assert "image trim" in result.output
+        assert not create.calls
+
+    @respx.mock
+    def test_from_description_is_how_it_is_asked_for_on_purpose(self, tmp_path, monkeypatch):
+        create = respx.post(f"{PIXELLAB_BASE_URL}/create-character-v3")
+        mock_character()
+
+        result = invoke(
+            ["character", "new", "a knight", "--from-description"], tmp_path, monkeypatch
+        )
+
+        assert result.exit_code == 0
+        assert create.calls
+
+
+class TestNothingPaidRunsWithoutTheFlag:
+    @respx.mock
+    def test_a_character_without_yes_is_refused_before_the_call(self, tmp_path, monkeypatch):
+        monkeypatch.delenv(ASSUME_YES_VAR, raising=False)
+        create = respx.post(f"{PIXELLAB_BASE_URL}/create-character-v3")
+        mock_character()
+
+        result = invoke(
+            ["character", "new", "a knight", "--from-description"], tmp_path, monkeypatch
+        )
+
+        assert result.exit_code == 2
+        assert "--yes" in result.output
+        assert not create.calls
+
+    @respx.mock
+    def test_the_flag_is_what_lets_it_spend(self, tmp_path, monkeypatch):
+        monkeypatch.delenv(ASSUME_YES_VAR, raising=False)
+        create = respx.post(f"{PIXELLAB_BASE_URL}/create-character-v3")
+        mock_character()
+
+        result = invoke(
+            ["--yes", "character", "new", "a knight", "--from-description"], tmp_path, monkeypatch
+        )
+
+        assert result.exit_code == 0
+        assert create.calls
+
+    @respx.mock
+    def test_a_dry_run_needs_no_agreement_because_it_spends_nothing(self, tmp_path, monkeypatch):
+        monkeypatch.delenv(ASSUME_YES_VAR, raising=False)
+        create = respx.post(f"{PIXELLAB_BASE_URL}/create-character-v3")
+
+        result = invoke(
+            ["--dry-run", "character", "new", "a knight", "--from-description"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 0
+        assert not create.calls

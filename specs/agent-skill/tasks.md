@@ -21,6 +21,12 @@
   _Reason replaces 1.5_
 - [x] 1.9 (Unit) Say when fal earns its cost against PixelLab direct — R1.4
   _Reason two providers make images and the choice is a cost decision_
+- [x] 1.10 (Unit) Write the character flow as a sequence with a checkpoint — R5.7, R5.8
+  _Reason the flow was prose an agent skipped, and a paid call followed_
+- [x] 1.11 (Unit) Write the rules into the file the harness always reads — R5.9
+  _Reason the skills were installed and nothing loaded them_
+- [x] 1.12 (Unit) Say that agreement is per call, never per session — R5.10
+  _Reason the entry skill told an agent to carry one yes through a session_
 
 ## 2 · Holding it true
 

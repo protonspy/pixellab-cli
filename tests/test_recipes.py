@@ -139,7 +139,9 @@ class TestRunning:
     def test_the_sprite_recipe_runs_end_to_end(self, tmp_path, monkeypatch, fal_calls):
         mock_pixellab()
 
-        result = invoke(["recipe", "run", "sprite", "a knight"], tmp_path, monkeypatch)
+        result = invoke(
+            ["recipe", "run", "--unattended", "sprite", "a knight"], tmp_path, monkeypatch
+        )
 
         assert result.exit_code == 0
         assert len(fal_calls) == 1
@@ -149,7 +151,7 @@ class TestRunning:
     def test_every_step_writes_into_one_directory(self, tmp_path, monkeypatch, fal_calls):
         mock_pixellab()
 
-        invoke(["recipe", "run", "sprite", "a knight"], tmp_path, monkeypatch)
+        invoke(["recipe", "run", "--unattended", "sprite", "a knight"], tmp_path, monkeypatch)
 
         directories = {path.parent for path in (tmp_path / "out").glob("*/*.png")}
         assert len(directories) == 1
@@ -158,7 +160,7 @@ class TestRunning:
     def test_each_step_is_its_own_pair_of_ledger_lines(self, tmp_path, monkeypatch, fal_calls):
         mock_pixellab()
 
-        invoke(["recipe", "run", "sprite", "a knight"], tmp_path, monkeypatch)
+        invoke(["recipe", "run", "--unattended", "sprite", "a knight"], tmp_path, monkeypatch)
 
         entries = [
             json.loads(line)
@@ -172,7 +174,7 @@ class TestRunning:
         convert = respx.post(f"{PIXELLAB_BASE_URL}/image-to-pixelart-pro")
         mock_pixellab()
 
-        invoke(["recipe", "run", "sprite", "a knight"], tmp_path, monkeypatch)
+        invoke(["recipe", "run", "--unattended", "sprite", "a knight"], tmp_path, monkeypatch)
 
         sent = json.loads(convert.calls.last.request.content)
         assert base64.b64decode(sent["image"]["base64"]).startswith(b"\x89PNG")
@@ -183,7 +185,9 @@ class TestRunning:
     ):
         mock_pixellab()
 
-        result = invoke(["--json", "recipe", "run", "sprite", "a knight"], tmp_path, monkeypatch)
+        result = invoke(
+            ["--json", "recipe", "run", "--unattended", "sprite", "a knight"], tmp_path, monkeypatch
+        )
 
         totals = json.loads(result.stdout)["totals"]
         assert totals["estimated_generations"] != totals["reported_generations"]
@@ -194,7 +198,9 @@ class TestRunning:
     ):
         mock_pixellab()
 
-        result = invoke(["--json", "recipe", "run", "sprite", "a knight"], tmp_path, monkeypatch)
+        result = invoke(
+            ["--json", "recipe", "run", "--unattended", "sprite", "a knight"], tmp_path, monkeypatch
+        )
 
         assert json.loads(result.stdout)["totals"]["calls_with_unknown_cost"] == 1
 
@@ -205,7 +211,9 @@ class TestRunning:
         mock_pixellab()
 
         result = invoke(
-            ["recipe", "run", "character", "a knight", "-a", "walking"], tmp_path, monkeypatch
+            ["recipe", "run", "--unattended", "character", "a knight", "-a", "walking"],
+            tmp_path,
+            monkeypatch,
         )
 
         assert result.exit_code == 0
@@ -219,7 +227,9 @@ class TestStopping:
     def test_a_failed_step_stops_the_recipe(self, tmp_path, monkeypatch, fal_calls):
         mock_pixellab(cleanup_status=422)
 
-        result = invoke(["recipe", "run", "character", "a knight"], tmp_path, monkeypatch)
+        result = invoke(
+            ["recipe", "run", "--unattended", "character", "a knight"], tmp_path, monkeypatch
+        )
 
         assert result.exit_code == 1
         assert "the model refused" in result.output
@@ -228,7 +238,7 @@ class TestStopping:
     def test_everything_the_earlier_steps_produced_is_kept(self, tmp_path, monkeypatch, fal_calls):
         mock_pixellab(cleanup_status=422)
 
-        invoke(["recipe", "run", "sprite", "a knight"], tmp_path, monkeypatch)
+        invoke(["recipe", "run", "--unattended", "sprite", "a knight"], tmp_path, monkeypatch)
 
         assert list((tmp_path / "out").glob("*/concept.png"))
         assert list((tmp_path / "out").glob("*/pixelart.png"))
@@ -237,7 +247,7 @@ class TestStopping:
     def test_the_manifest_records_which_step_failed(self, tmp_path, monkeypatch, fal_calls):
         mock_pixellab(cleanup_status=422)
 
-        invoke(["recipe", "run", "sprite", "a knight"], tmp_path, monkeypatch)
+        invoke(["recipe", "run", "--unattended", "sprite", "a knight"], tmp_path, monkeypatch)
 
         [manifest_path] = list((tmp_path / "out").glob("*/recipe.json"))
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -250,7 +260,7 @@ class TestStopping:
     def test_the_failure_reason_is_in_the_manifest(self, tmp_path, monkeypatch, fal_calls):
         mock_pixellab(cleanup_status=422)
 
-        invoke(["recipe", "run", "sprite", "a knight"], tmp_path, monkeypatch)
+        invoke(["recipe", "run", "--unattended", "sprite", "a knight"], tmp_path, monkeypatch)
 
         [manifest_path] = list((tmp_path / "out").glob("*/recipe.json"))
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -262,12 +272,14 @@ class TestResuming:
     @respx.mock
     def test_completed_steps_are_not_paid_for_again(self, tmp_path, monkeypatch, fal_calls):
         cleanup = mock_pixellab(cleanup_status=422)
-        invoke(["recipe", "run", "sprite", "a knight"], tmp_path, monkeypatch)
+        invoke(["recipe", "run", "--unattended", "sprite", "a knight"], tmp_path, monkeypatch)
         [manifest_path] = list((tmp_path / "out").glob("*/recipe.json"))
         calls_before = len(fal_calls)
 
         cleanup.respond(json={"image": image_payload(), "usage": {"generations": 0.1}})
-        result = invoke(["recipe", "resume", str(manifest_path)], tmp_path, monkeypatch)
+        result = invoke(
+            ["recipe", "resume", "--unattended", str(manifest_path)], tmp_path, monkeypatch
+        )
 
         assert result.exit_code == 0
         assert len(fal_calls) == calls_before
@@ -275,11 +287,11 @@ class TestResuming:
     @respx.mock
     def test_the_remaining_step_completes(self, tmp_path, monkeypatch, fal_calls):
         cleanup = mock_pixellab(cleanup_status=422)
-        invoke(["recipe", "run", "sprite", "a knight"], tmp_path, monkeypatch)
+        invoke(["recipe", "run", "--unattended", "sprite", "a knight"], tmp_path, monkeypatch)
         [manifest_path] = list((tmp_path / "out").glob("*/recipe.json"))
 
         cleanup.respond(json={"image": image_payload(), "usage": {"generations": 0.1}})
-        invoke(["recipe", "resume", str(manifest_path)], tmp_path, monkeypatch)
+        invoke(["recipe", "resume", "--unattended", str(manifest_path)], tmp_path, monkeypatch)
 
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         assert all(entry["state"] == "done" for entry in manifest["steps"])
@@ -287,10 +299,12 @@ class TestResuming:
     @respx.mock
     def test_a_finished_recipe_resumes_to_nothing(self, tmp_path, monkeypatch, fal_calls):
         mock_pixellab()
-        invoke(["recipe", "run", "sprite", "a knight"], tmp_path, monkeypatch)
+        invoke(["recipe", "run", "--unattended", "sprite", "a knight"], tmp_path, monkeypatch)
         [manifest_path] = list((tmp_path / "out").glob("*/recipe.json"))
 
-        result = invoke(["recipe", "resume", str(manifest_path)], tmp_path, monkeypatch)
+        result = invoke(
+            ["recipe", "resume", "--unattended", str(manifest_path)], tmp_path, monkeypatch
+        )
 
         assert result.exit_code == 0
         assert "nothing to pay for" in result.stdout
@@ -303,13 +317,17 @@ class TestResuming:
         # there and is resumed, the prompt it is sent again has to be the words the
         # person asked for — not something reconstructed from a directory name.
         respx.get(CONCEPT_URL).respond(500)
-        invoke(["recipe", "run", "sprite", "a brave knight with a sword"], tmp_path, monkeypatch)
+        invoke(
+            ["recipe", "run", "--unattended", "sprite", "a brave knight with a sword"],
+            tmp_path,
+            monkeypatch,
+        )
         [manifest_path] = list((tmp_path / "out").glob("*/recipe.json"))
         fal_calls.clear()
 
         respx.get(CONCEPT_URL).respond(content=png_bytes())
         mock_pixellab()
-        invoke(["recipe", "resume", str(manifest_path)], tmp_path, monkeypatch)
+        invoke(["recipe", "resume", "--unattended", str(manifest_path)], tmp_path, monkeypatch)
 
         [(_, arguments)] = fal_calls
         assert arguments["prompt"].startswith("a brave knight with a sword,")
@@ -318,7 +336,7 @@ class TestResuming:
     def test_the_manifest_records_what_was_asked_for(self, tmp_path, monkeypatch, fal_calls):
         mock_pixellab()
 
-        invoke(["recipe", "run", "sprite", "a brave knight"], tmp_path, monkeypatch)
+        invoke(["recipe", "run", "--unattended", "sprite", "a brave knight"], tmp_path, monkeypatch)
 
         [manifest_path] = list((tmp_path / "out").glob("*/recipe.json"))
         assert json.loads(manifest_path.read_text(encoding="utf-8"))["description"] == (
@@ -344,7 +362,7 @@ class TestBudget:
         self, tmp_path, monkeypatch, fal_calls
     ):
         result = invoke(
-            ["recipe", "run", "character", "a knight", "--max-generations", "5"],
+            ["recipe", "run", "--unattended", "character", "a knight", "--max-generations", "5"],
             tmp_path,
             monkeypatch,
         )
@@ -358,7 +376,7 @@ class TestBudget:
         mock_pixellab()
 
         result = invoke(
-            ["recipe", "run", "sprite", "a knight", "--max-generations", "100"],
+            ["recipe", "run", "--unattended", "sprite", "a knight", "--max-generations", "100"],
             tmp_path,
             monkeypatch,
         )
@@ -369,7 +387,7 @@ class TestBudget:
         self, tmp_path, monkeypatch, fal_calls
     ):
         result = invoke(
-            ["recipe", "run", "character", "a knight", "--max-generations", "5"],
+            ["recipe", "run", "--unattended", "character", "a knight", "--max-generations", "5"],
             tmp_path,
             monkeypatch,
         )
@@ -471,3 +489,57 @@ class TestWithoutFal:
         recipe = recipes.build("sprite", "a knight", fal_available=False)
 
         assert not any(step.provider == "fal" for step in recipe.steps)
+
+
+class TestItStopsForTheHandThatFixesThings:
+    """Each step is built on the file the one before it wrote, and the person's own
+    edit — an imperfection cleaned up in the PixelLab editor — is the thing this
+    pipeline cannot do for them. So it stops and says where the files are."""
+
+    @respx.mock
+    def test_only_the_first_step_runs(self, tmp_path, monkeypatch, fal_calls):
+        mock_pixellab()
+
+        result = invoke(["recipe", "run", "sprite", "a knight"], tmp_path, monkeypatch)
+
+        assert result.exit_code == 0
+        assert len(fal_calls) == 1
+        assert not list((tmp_path / "out").glob("*/sprite.png"))
+
+    @respx.mock
+    def test_it_says_which_step_it_stopped_before(self, tmp_path, monkeypatch, fal_calls):
+        mock_pixellab()
+
+        result = invoke(["recipe", "run", "sprite", "a knight"], tmp_path, monkeypatch)
+
+        assert "stopped before pixelart" in result.stdout
+
+    @respx.mock
+    def test_it_hands_over_the_command_that_carries_on(self, tmp_path, monkeypatch, fal_calls):
+        mock_pixellab()
+
+        result = invoke(["recipe", "run", "sprite", "a knight"], tmp_path, monkeypatch)
+
+        assert "recipe resume" in result.stdout
+        assert "recipe.json" in result.stdout
+
+    @respx.mock
+    def test_resuming_also_stops_after_one_step(self, tmp_path, monkeypatch, fal_calls):
+        mock_pixellab()
+        invoke(["recipe", "run", "sprite", "a knight"], tmp_path, monkeypatch)
+        manifest_path = next((tmp_path / "out").glob("*/recipe.json"))
+
+        result = invoke(["recipe", "resume", str(manifest_path)], tmp_path, monkeypatch)
+
+        assert "stopped before cleanup" in result.stdout
+
+    @respx.mock
+    def test_the_last_step_leaves_nothing_to_resume(self, tmp_path, monkeypatch, fal_calls):
+        mock_pixellab()
+
+        result = invoke(
+            ["recipe", "run", "--unattended", "sprite", "a knight"], tmp_path, monkeypatch
+        )
+
+        assert "stopped before" not in result.stdout
+        assert "recipe resume" not in result.stdout

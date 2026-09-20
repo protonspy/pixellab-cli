@@ -82,12 +82,28 @@ manifest, a ledger entry, or an error message.
 
 ## The first command
 
-Nothing here is free, so start with a dry run. It performs the same route choice and
-the same argument validation as the real call, then stops.
+Nothing here is free, so **no paid route runs without `--yes`**. Without it the command
+prints what it would call, what it would send and what it is estimated to cost, and
+sends nothing:
 
 ```bash
-pixellab-cli --dry-run sprite "a healing potion" --size 64 --transparent
 pixellab-cli sprite "a healing potion" --size 64 --transparent
+```
+
+```
+Nothing has been sent. This would be a paid call:
+
+  provider     pixellab
+  route        create-image-pixflux
+  cost         about 1 generation
+  description  a healing potion
+  image_size   {height=64, width=64}
+```
+
+Read it, then agree to it:
+
+```bash
+pixellab-cli --yes sprite "a healing potion" --size 64 --transparent
 ```
 
 ```
@@ -95,6 +111,12 @@ route: create-image-pixflux
 pixellab-out/2026-09-14T2131-a-healing-potion/a-healing-potion.png
 cost: 1 generations, $0.0079 (reported)
 ```
+
+`--yes` is agreement for the one command it is on, which is the point: an agent driving
+this tool cannot carry one yes across a session. `--dry-run` prints the whole request
+rather than the summary and is free. Where nobody is there to type it — a script of your
+own, a CI job — `PIXELLAB_ASSUME_YES=1` stands in for `--yes`. Only `1`, `true`,
+`yes` or `on` count as agreement, so `PIXELLAB_ASSUME_YES=0` leaves the gate up.
 
 ## What it can make
 
@@ -116,8 +138,8 @@ pixellab-cli image flip walk-east-*.png
 pixellab-cli clean unzoom downloaded-sprite.png
 ```
 
-`pixellab-cli --help` lists everything; every command takes `--dry-run`, `--json` and
-`--workspace`.
+`pixellab-cli --help` lists everything; every command takes `--dry-run`, `--yes`,
+`--json` and `--workspace`.
 
 ### Recipes
 
@@ -128,9 +150,19 @@ pixellab-cli recipe run character "a knight in red armour" -a walking -a attacki
 ```
 
 A concept image on fal, converted to pixel art, background removed, eight rotations,
-then one animation per action. Every step is recorded as it finishes, a failure keeps
-everything before it, and `pixellab-cli recipe resume <recipe.json>` carries on without
-paying for the steps that already completed.
+then one animation per action.
+
+**It performs one paid step and stops**, naming the files it wrote and the command that
+carries on. That pause is where you open the art and fix what the model got wrong —
+every later step is built on the file you fixed, so a correction made there is made
+once. `pixellab-cli recipe resume <recipe.json>` continues, and completed steps are
+never paid for twice. `--unattended` runs the whole thing through.
+
+Every step is recorded as it finishes, and a failure keeps everything before it.
+
+`pixellab-cli character new` also refuses a reference it can see is not ready — a soft
+alpha edge, no transparency at all, or a subject adrift in a large canvas — and names
+the free `pixellab-cli image` command that fixes each one, before anything is sent.
 
 `--max-generations N` stops before the first call if the estimate is over N.
 

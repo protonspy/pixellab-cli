@@ -87,6 +87,11 @@ def main(
         "--dry-run",
         help="Say what would be called and what it is estimated to cost. Sends nothing.",
     ),
+    approved: bool = typer.Option(
+        False,
+        "--yes",
+        help="The person has agreed to this call's cost. Every paid route refuses without it.",
+    ),
     version: bool = typer.Option(
         False,
         "--version",
@@ -97,5 +102,5 @@ def main(
 ) -> None:
     """Generate 2D game assets from PixelLab, and concept art from fal."""
     context.obj = AppContext.build(
-        root=workspace, as_json=as_json, dry_run=dry_run, subject=subject
+        root=workspace, as_json=as_json, dry_run=dry_run, approved=approved, subject=subject
     )

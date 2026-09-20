@@ -25,6 +25,10 @@
   _Depends 2.1, 2.3_
 - [x] 3.2 (TDD) Record a failure whatever type it was raised as — R3.3
   _Reason only PixellabCliError was recorded; see n-0035_
+- [x] 3.3 (Unit) Refuse a paid call nobody agreed to — R6.1, R6.2
+  _Reason the harness spent generations on characters nobody approved_
+- [x] 3.4 (Unit) Take the agreement from the environment — R6.3, R6.4
+  _Reason a headless run has nobody to state it_
 
 ## 4 · Reading it back
 

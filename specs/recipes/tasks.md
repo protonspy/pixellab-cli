@@ -29,6 +29,8 @@
   _Depends 3.2_
 - [x] 3.5 (Unit) Resume a recipe from its manifest — R2.3
   _Depends 1.3, 3.2_
+- [x] 3.6 (Unit) Stop after each paid step for the person's own edits — R3.3, R3.4
+  _Reason a run that chained every step gave nowhere to fix the art by hand_
 
 ## 4 · A manifest is a document, not a memory
 
