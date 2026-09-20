@@ -280,3 +280,43 @@ class TestNothingShipsUntested:
         from pixellab_cli.harness import packaged_skills
 
         assert set(packaged_skills()) == set(ALL_SKILLS)
+
+
+class TestAPriceNamesACommand:
+    """`ui` was listed as a Pro Tools route, and then `ui` became a group whose other
+    two commands are free. Nothing caught it, because a group's name reads as a command
+    everywhere else in this file. A price is quoted against what a person types, so
+    every name in a price list has to be a leaf command."""
+
+    PRICED = re.compile(r"Pro Tools[^\n|]*[:|]([^\n]*)")
+
+    def priced_names(self, body: str) -> set[str]:
+        """Every backticked command named on a line that quotes the Pro Tools price."""
+        named: set[str] = set()
+        for line in self.PRICED.findall(body):
+            for quoted in re.findall(r"`([^`]+)`", line):
+                # `sprite` with several `--style` is one entry in two spans: a flag is
+                # not a command and is not what this is checking.
+                if not quoted.startswith("-"):
+                    named.add(quoted)
+        return named
+
+    def sources(self) -> dict[str, str]:
+        from pixellab_cli.harness import block_body
+
+        return {
+            "the harness block": block_body(None),
+            "the entry skill": entry_text(),
+            "the cost reference": (REFERENCES / "costs.md").read_text(encoding="utf-8"),
+        }
+
+    def test_each_source_quotes_a_price_against_something(self):
+        """A regex that matches nothing would pass every assertion below."""
+        for where, body in self.sources().items():
+            assert self.priced_names(body), f"no priced command found in {where}"
+
+    def test_every_priced_name_is_a_command_somebody_can_type(self):
+        commands = cli_commands()
+        for where, body in self.sources().items():
+            for name in sorted(self.priced_names(body)):
+                assert name in commands, f"{where} prices {name!r}, which is not a command"

@@ -113,7 +113,7 @@ recovering a stopped run, and the free local tooling every category uses.
 - Free or cheap, reach for them freely: `balance`, `ledger`, `character list|show|sheet`,
   `object list`, `recipe list`, every `image` command, every `export` command,
   `config show|path`.
-- **Pro Tools, twenty to forty generations a call:** `object new`, `ui`, `inpaint`,
+- **Pro Tools, twenty to forty generations a call:** `object new`, `ui new`, `inpaint`,
   `tiles variants`, `character state`, `outfit`, `portrait`, `sprite` with more than one
   `--style`, and `edit` with more than one image. They say so before calling. Never run
   one without agreement.

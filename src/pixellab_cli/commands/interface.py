@@ -375,7 +375,7 @@ def _choose_ui_route(
 ) -> str:
     """A panel unless a panel was never possible or never intended (R1.3).
 
-    The default is unchanged, because a panel is what `ui` has always made. The two
+    The default is unchanged, because a panel is what this command has always made. The two
     signals that move it are the ones a panel route cannot answer: a size beneath its
     floor, and a concept image it has no slot for.
     """
