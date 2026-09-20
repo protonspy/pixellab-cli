@@ -232,6 +232,12 @@ theirs to ask for, not yours to add.
 no transparency, or a subject adrift in a large canvas — each naming the free command
 that fixes it. Fix it; do not reach for `--as-is`.
 
+**An action is a motion, not a label.** `character animate -a "walking"` is refused:
+the route draws every frame from the description, so a one-word action buys invented
+frames, charged per frame per direction. Use `character enrich`, or `--enhance`, or —
+whenever the enhancer is unavailable — write the motion out yourself. Never fall back
+to the bare action.
+
 **Read the entity before reaching for an identifier.** `pixellab-cli inspect <subject>`
 is free and local: every character, every pose made from it, which pose each animation
 started from, and what the subject has cost. A `--start-pose` from the wrong character

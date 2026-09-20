@@ -22,6 +22,7 @@ from pixellab_cli.context import AppContext
 from pixellab_cli.errors import PixellabCliError, ProviderError, ValidationError
 from pixellab_cli.ledger import Cost
 from pixellab_cli.pixellab import PixelLabClient, Result
+from pixellab_cli.prompts import check_the_motion_is_described
 from pixellab_cli.reference import REFERENCE_DIR
 from pixellab_cli.routes import DETAIL, DIRECTION, OUTLINE, SHADING, VIEW
 from pixellab_cli.run import from_pixellab
@@ -557,6 +558,9 @@ def animate(
         "--drop-first-frame",
         help="Store only the frames generated, without the frame the motion started on.",
     ),
+    terse: bool = typer.Option(
+        False, "--terse", help="Animate a one-word action as it stands, unexpanded."
+    ),
     seed: int = typer.Option(None, "--seed", help="Repeat a previous generation."),
 ) -> None:
     """Animate a character. Every direction is a separate job and a separate charge."""
@@ -573,6 +577,7 @@ def animate(
             end_pose,
             enhance,
             drop_first_frame,
+            terse,
             seed,
         )
     except PixellabCliError as failure:
@@ -591,6 +596,7 @@ def _animate(
     end_pose,
     enhance,
     drop_first_frame,
+    terse,
     seed,
 ) -> None:
     app_context: AppContext = context.obj
@@ -598,6 +604,8 @@ def _animate(
 
     if not action and not template:
         raise ValidationError("give either --action or --template")
+
+    check_the_motion_is_described(action, enhance, terse)
 
     wanted = list(directions) if directions else ["south"]
     unknown = sorted(set(wanted) - set(DIRECTION))
@@ -817,7 +825,10 @@ def _enrich(context, action, pose, direction, end_pose, frames, engine) -> None:
     if not pose:
         raise ValidationError(
             "--pose is what the description is written from: the enhancer reads a "
-            "frame, not a character record"
+            "frame, not a character record. Make one with `pixellab-cli character "
+            "state`, or write the motion yourself — what the enhancer cannot do for "
+            "you is still worth doing, and animating the bare action instead is how "
+            "an animation comes back stuttering and paid for."
         )
 
     if direction not in DIRECTION:

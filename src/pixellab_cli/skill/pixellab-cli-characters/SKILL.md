@@ -181,6 +181,36 @@ one-shot like an attack, where a held frame at the front is a stutter.
 `--template` drives the character's skeleton and is cheaper, and **PixelLab is not
 currently returning correct frames for it** — do not reach for it to save money.
 
+### An action is a motion, not a label
+
+**`-a "walking"` is refused.** This route draws every frame from the description it is
+given: `walking` says nothing about what the legs do, where the arms swing or where the
+cycle returns to, so the model invents all of it — differently in each frame — and every
+frame is charged, per direction. The tag form `walking,loop,south` is refused too: that
+is `enrich`'s own input, and reaching the animation route with it means somebody meant
+to expand it and did not.
+
+Three ways to have a description, in order of preference:
+
+1. **`character enrich`** — about 0.05 generations, written from the pose, reviewable
+   before anything is animated and reusable across every direction.
+2. **`--enhance`** — the provider expands it inside the paid call, where you cannot read
+   it first.
+3. **Write it yourself.** Free, and **this is the answer whenever the enhancer is not
+   available** — no pose to read it from, a tier that does not reach it, a call that
+   failed. Do not fall back to the bare action: that is the failure the refusal exists
+   to stop.
+
+A description worth paying for names the pose the motion starts from, what each limb
+does through the cycle, the arc between the extremes, and where it returns to:
+
+> a full walk cycle seen from the south, legs alternating through a stride with the
+> rear foot pushing off as the front heel lands, arms swinging opposite the legs,
+> torso rising slightly at mid-stride, returning to the starting pose on the last frame
+
+`--terse` animates a label as it stands. It is for the person who means it, not a way
+past the refusal.
+
 ### Write the motion description first
 
 ```bash

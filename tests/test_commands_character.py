@@ -253,7 +253,17 @@ class TestCharacterAnimate:
             json={"status": "completed", "last_response": {"images": [image_payload()]}}
         )
 
-        result = invoke(["character", "animate", "char-9", "-a", "walking"], tmp_path, monkeypatch)
+        result = invoke(
+            [
+                "character",
+                "animate",
+                "char-9",
+                "-a",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
+            ],
+            tmp_path,
+            monkeypatch,
+        )
 
         assert result.exit_code == 0
         assert json.loads(route.calls.last.request.content)["directions"] == ["south"]
@@ -302,7 +312,17 @@ class TestCharacterAnimate:
         )
 
         result = invoke(
-            ["character", "animate", "char-9", "-a", "walking", "-d", "south", "-d", "north"],
+            [
+                "character",
+                "animate",
+                "char-9",
+                "-a",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
+                "-d",
+                "south",
+                "-d",
+                "north",
+            ],
             tmp_path,
             monkeypatch,
         )
@@ -317,7 +337,15 @@ class TestCharacterAnimate:
 
     def test_a_direction_that_is_not_one_is_refused(self, tmp_path, monkeypatch):
         result = invoke(
-            ["character", "animate", "char-9", "-a", "walking", "-d", "sideways"],
+            [
+                "character",
+                "animate",
+                "char-9",
+                "-a",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
+                "-d",
+                "sideways",
+            ],
             tmp_path,
             monkeypatch,
         )
@@ -386,11 +414,24 @@ class TestCharacterAnimate:
             json={"status": "completed", "last_response": {"images": [image_payload()]}}
         )
 
-        result = invoke(["character", "animate", "char-9", "-a", "walking"], tmp_path, monkeypatch)
+        result = invoke(
+            [
+                "character",
+                "animate",
+                "char-9",
+                "-a",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
+            ],
+            tmp_path,
+            monkeypatch,
+        )
 
         sent = json.loads(route.calls.last.request.content)
         assert sent["mode"] == "v3"
-        assert sent["action_description"] == "walking"
+        assert (
+            sent["action_description"]
+            == "a full walk cycle, legs alternating through a stride, arms swinging opposite"
+        )
         assert "template_animation_id" not in sent
         assert "skeleton knows" not in result.output
 
@@ -406,11 +447,24 @@ class TestCharacterAnimate:
             json={"status": "completed", "last_response": {"images": [image_payload()]}}
         )
 
-        invoke(["character", "animate", "char-9", "-a", "walking"], tmp_path, monkeypatch)
+        invoke(
+            [
+                "character",
+                "animate",
+                "char-9",
+                "-a",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
+            ],
+            tmp_path,
+            monkeypatch,
+        )
 
         sent = json.loads(route.calls.last.request.content)
         assert sent["mode"] == "v3"
-        assert sent["action_description"] == "walking"
+        assert (
+            sent["action_description"]
+            == "a full walk cycle, legs alternating through a stride, arms swinging opposite"
+        )
 
     @respx.mock
     def test_an_action_no_skeleton_knows_stays_free_text(self, tmp_path, monkeypatch):
@@ -425,14 +479,22 @@ class TestCharacterAnimate:
         )
 
         invoke(
-            ["character", "animate", "char-9", "-a", "juggling three apples"],
+            [
+                "character",
+                "animate",
+                "char-9",
+                "-a",
+                "juggling three apples, hands alternating, one apple always airborne",
+            ],
             tmp_path,
             monkeypatch,
         )
 
         sent = json.loads(route.calls.last.request.content)
         assert sent["mode"] == "v3"
-        assert sent["action_description"] == "juggling three apples"
+        assert sent["action_description"] == (
+            "juggling three apples, hands alternating, one apple always airborne"
+        )
 
     @respx.mock
     def test_a_free_text_animation_is_estimated_by_its_frames(self, tmp_path, monkeypatch):
@@ -453,7 +515,13 @@ class TestCharacterAnimate:
         )
 
         invoke(
-            ["character", "animate", "char-9", "-a", "juggling three apples"],
+            [
+                "character",
+                "animate",
+                "char-9",
+                "-a",
+                "juggling three apples, hands alternating, one apple always airborne",
+            ],
             tmp_path,
             monkeypatch,
         )
@@ -474,7 +542,15 @@ class TestCharacterAnimate:
         )
 
         invoke(
-            ["character", "animate", "char-9", "-a", "juggling three apples", "--frames", "4"],
+            [
+                "character",
+                "animate",
+                "char-9",
+                "-a",
+                "juggling three apples, hands alternating, one apple always airborne",
+                "--frames",
+                "4",
+            ],
             tmp_path,
             monkeypatch,
         )
@@ -721,7 +797,16 @@ class TestLooseImages:
             json={"status": "completed", "last_response": {"images": [image_payload()] * 8}}
         )
 
-        result = invoke(["animate", str(sprite), "-a", "walking"], tmp_path, monkeypatch)
+        result = invoke(
+            [
+                "animate",
+                str(sprite),
+                "-a",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
+            ],
+            tmp_path,
+            monkeypatch,
+        )
 
         assert result.exit_code == 0
         names = sorted(path.name for path in (tmp_path / "out").glob("*/*.png"))
@@ -730,7 +815,14 @@ class TestLooseImages:
 
     def test_animating_a_file_that_is_not_there_is_refused(self, tmp_path, monkeypatch):
         result = invoke(
-            ["animate", str(tmp_path / "gone.png"), "-a", "walking"], tmp_path, monkeypatch
+            [
+                "animate",
+                str(tmp_path / "gone.png"),
+                "-a",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
+            ],
+            tmp_path,
+            monkeypatch,
         )
 
         assert result.exit_code == 2
@@ -840,7 +932,14 @@ class TestLongFormAnimation:
 
     def test_a_short_run_stays_on_the_cheap_route(self, tmp_path, monkeypatch):
         result = invoke(
-            ["--dry-run", "--json", "animate", self._sprite(tmp_path), "-a", "walking"],
+            [
+                "--dry-run",
+                "--json",
+                "animate",
+                self._sprite(tmp_path),
+                "-a",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
+            ],
             tmp_path,
             monkeypatch,
         )
@@ -855,7 +954,7 @@ class TestLongFormAnimation:
                 "animate",
                 self._sprite(tmp_path),
                 "-a",
-                "walking",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
                 "--frames",
                 "24",
             ],
@@ -865,11 +964,21 @@ class TestLongFormAnimation:
 
         payload = json.loads(result.stdout)
         assert payload["route"] == "animate-pixminimax"
-        assert payload["arguments"]["description"] == "walking"
+        assert payload["arguments"]["description"] == (
+            "a full walk cycle, legs alternating through a stride, arms swinging opposite"
+        )
 
     def test_the_beta_and_the_weaker_estimate_are_said_before_the_call(self, tmp_path, monkeypatch):
         result = invoke(
-            ["--dry-run", "animate", self._sprite(tmp_path), "-a", "walking", "--frames", "24"],
+            [
+                "--dry-run",
+                "animate",
+                self._sprite(tmp_path),
+                "-a",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
+                "--frames",
+                "24",
+            ],
             tmp_path,
             monkeypatch,
         )
@@ -885,7 +994,7 @@ class TestLongFormAnimation:
                 "animate",
                 self._sprite(tmp_path),
                 "-a",
-                "walking",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
                 "--frames",
                 "24",
                 "--deflicker",
@@ -899,7 +1008,15 @@ class TestLongFormAnimation:
 
     def test_deflicker_on_the_cheap_route_is_refused_with_what_to_do(self, tmp_path, monkeypatch):
         result = invoke(
-            ["--dry-run", "animate", self._sprite(tmp_path), "-a", "walking", "--deflicker", "2"],
+            [
+                "--dry-run",
+                "animate",
+                self._sprite(tmp_path),
+                "-a",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
+                "--deflicker",
+                "2",
+            ],
             tmp_path,
             monkeypatch,
         )
@@ -909,7 +1026,15 @@ class TestLongFormAnimation:
 
     def test_a_frame_count_neither_route_takes_is_refused(self, tmp_path, monkeypatch):
         result = invoke(
-            ["--dry-run", "animate", self._sprite(tmp_path), "-a", "walking", "--frames", "44"],
+            [
+                "--dry-run",
+                "animate",
+                self._sprite(tmp_path),
+                "-a",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
+                "--frames",
+                "44",
+            ],
             tmp_path,
             monkeypatch,
         )
@@ -1200,7 +1325,14 @@ class TestTheDryRunPredictsTheRealCall:
         )
 
         result = invoke(
-            ["--dry-run", "character", "animate", "char-9", "-a", "walking"],
+            [
+                "--dry-run",
+                "character",
+                "animate",
+                "char-9",
+                "-a",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
+            ],
             tmp_path,
             monkeypatch,
         )
@@ -1217,7 +1349,14 @@ class TestTheDryRunPredictsTheRealCall:
         )
 
         result = invoke(
-            ["--dry-run", "character", "animate", "char-9", "-a", "walking"],
+            [
+                "--dry-run",
+                "character",
+                "animate",
+                "char-9",
+                "-a",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
+            ],
             tmp_path,
             monkeypatch,
         )
@@ -1229,7 +1368,17 @@ class TestTheDryRunPredictsTheRealCall:
     def test_a_character_that_does_not_exist_is_reported(self, tmp_path, monkeypatch):
         respx.get(f"{PIXELLAB_BASE_URL}/characters/char-9").respond(json={})
 
-        result = invoke(["character", "animate", "char-9", "-a", "walking"], tmp_path, monkeypatch)
+        result = invoke(
+            [
+                "character",
+                "animate",
+                "char-9",
+                "-a",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
+            ],
+            tmp_path,
+            monkeypatch,
+        )
 
         assert result.exit_code == 2
         assert "char-9" in result.output
@@ -1304,7 +1453,15 @@ class TestASubjectGathersTheCommandsOutput:
         )
 
         result = invoke(
-            ["--subject", "warrior tibiame", "character", "animate", "char-9", "-a", "walking"],
+            [
+                "--subject",
+                "warrior tibiame",
+                "character",
+                "animate",
+                "char-9",
+                "-a",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
+            ],
             tmp_path,
             monkeypatch,
         )
@@ -1346,7 +1503,15 @@ class TestAnimatingFromAPose:
         mock_pose()
 
         result = invoke(
-            ["character", "animate", "char-9", "-a", "walking", "--start-pose", "pose-1"],
+            [
+                "character",
+                "animate",
+                "char-9",
+                "-a",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
+                "--start-pose",
+                "pose-1",
+            ],
             tmp_path,
             monkeypatch,
         )
@@ -1364,7 +1529,15 @@ class TestAnimatingFromAPose:
         respx.get("https://assets.pixellab.ai/s.png").respond(content=png_bytes(48, 48))
 
         invoke(
-            ["character", "animate", "char-9", "-a", "walking", "--start-pose", "pose-1"],
+            [
+                "character",
+                "animate",
+                "char-9",
+                "-a",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
+                "--start-pose",
+                "pose-1",
+            ],
             tmp_path,
             monkeypatch,
         )
@@ -1379,7 +1552,15 @@ class TestAnimatingFromAPose:
         pose.write_bytes(png_bytes(32, 32))
 
         result = invoke(
-            ["character", "animate", "char-9", "-a", "walking", "--start-pose", str(pose)],
+            [
+                "character",
+                "animate",
+                "char-9",
+                "-a",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
+                "--start-pose",
+                str(pose),
+            ],
             tmp_path,
             monkeypatch,
         )
@@ -1394,7 +1575,15 @@ class TestAnimatingFromAPose:
         mock_pose(directions=("east",))
 
         result = invoke(
-            ["character", "animate", "char-9", "-a", "walking", "--start-pose", "pose-1"],
+            [
+                "character",
+                "animate",
+                "char-9",
+                "-a",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
+                "--start-pose",
+                "pose-1",
+            ],
             tmp_path,
             monkeypatch,
         )
@@ -1415,7 +1604,7 @@ class TestAnimatingFromAPose:
                 "animate",
                 "char-9",
                 "-a",
-                "walking",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
                 "--start-pose",
                 "pose-1",
                 "--end-pose",
@@ -1459,7 +1648,7 @@ class TestAnimatingFromAPose:
                 "animate",
                 "char-9",
                 "-a",
-                "walking",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
                 "--start-pose",
                 "pose-1",
                 "-d",
@@ -1479,7 +1668,14 @@ class TestAnimatingFromAPose:
         route = mock_posed_animation()
 
         invoke(
-            ["character", "animate", "char-9", "-a", "walking", "--enhance"],
+            [
+                "character",
+                "animate",
+                "char-9",
+                "-a",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
+                "--enhance",
+            ],
             tmp_path,
             monkeypatch,
         )
@@ -1522,7 +1718,16 @@ class TestEnrichingAnAction:
         mock_pose()
 
         invoke(
-            ["character", "enrich", "-a", "walking", "--pose", "pose-1", "-d", "east"],
+            [
+                "character",
+                "enrich",
+                "-a",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
+                "--pose",
+                "pose-1",
+                "-d",
+                "east",
+            ],
             tmp_path,
             monkeypatch,
         )
@@ -1562,7 +1767,14 @@ class TestEnrichingAnAction:
         mock_pose()
 
         invoke(
-            ["character", "enrich", "-a", "walking", "--pose", "pose-1"],
+            [
+                "character",
+                "enrich",
+                "-a",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
+                "--pose",
+                "pose-1",
+            ],
             tmp_path,
             monkeypatch,
         )
@@ -1575,7 +1787,15 @@ class TestEnrichingAnAction:
         pose.write_bytes(png_bytes())
 
         result = invoke(
-            ["--dry-run", "character", "enrich", "-a", "walking", "--pose", str(pose)],
+            [
+                "--dry-run",
+                "character",
+                "enrich",
+                "-a",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
+                "--pose",
+                str(pose),
+            ],
             tmp_path,
             monkeypatch,
         )
@@ -1585,7 +1805,16 @@ class TestEnrichingAnAction:
         assert "0.05" in result.output
 
     def test_no_pose_is_refused_before_anything_is_sent(self, tmp_path, monkeypatch):
-        result = invoke(["character", "enrich", "-a", "walking"], tmp_path, monkeypatch)
+        result = invoke(
+            [
+                "character",
+                "enrich",
+                "-a",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
+            ],
+            tmp_path,
+            monkeypatch,
+        )
 
         assert result.exit_code != 0
         assert "--pose" in result.output
@@ -1606,7 +1835,15 @@ class TestWhichPoseWasRead:
         monkeypatch.chdir(tmp_path)
 
         result = invoke(
-            ["character", "animate", "char-9", "-a", "walking", "--start-pose", POSE_UUID],
+            [
+                "character",
+                "animate",
+                "char-9",
+                "-a",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
+                "--start-pose",
+                POSE_UUID,
+            ],
             tmp_path,
             monkeypatch,
         )
@@ -1621,7 +1858,15 @@ class TestWhichPoseWasRead:
         mock_pose()
 
         result = invoke(
-            ["character", "animate", "char-9", "-a", "walking", "--start-pose", "pose-1"],
+            [
+                "character",
+                "animate",
+                "char-9",
+                "-a",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
+                "--start-pose",
+                "pose-1",
+            ],
             tmp_path,
             monkeypatch,
         )
@@ -1635,7 +1880,15 @@ class TestWhichPoseWasRead:
         pose.write_bytes(png_bytes())
 
         result = invoke(
-            ["character", "animate", "char-9", "-a", "walking", "--start-pose", str(pose)],
+            [
+                "character",
+                "animate",
+                "char-9",
+                "-a",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
+                "--start-pose",
+                str(pose),
+            ],
             tmp_path,
             monkeypatch,
         )
@@ -1654,7 +1907,7 @@ class TestWhichPoseWasRead:
                 "animate",
                 "char-9",
                 "-a",
-                "walking",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
                 "--start-pose",
                 "../../etc/passwd",
             ],
@@ -1670,7 +1923,15 @@ class TestWhichPoseWasRead:
         end.write_bytes(png_bytes())
 
         result = invoke(
-            ["character", "animate", "char-9", "-a", "walking", "--end-pose", str(end)],
+            [
+                "character",
+                "animate",
+                "char-9",
+                "-a",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
+                "--end-pose",
+                str(end),
+            ],
             tmp_path,
             monkeypatch,
         )
@@ -1691,7 +1952,7 @@ class TestTheFramesAnAnimationHolds:
                 "animate",
                 "char-9",
                 "-a",
-                "walking",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
                 "--start-pose",
                 "pose-1",
                 "--frames",
@@ -1713,7 +1974,7 @@ class TestTheFramesAnAnimationHolds:
                 "animate",
                 "char-9",
                 "-a",
-                "walking",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
                 "--frames",
                 "6",
                 "--drop-first-frame",
@@ -1729,7 +1990,17 @@ class TestTheFramesAnAnimationHolds:
     def test_the_starting_frame_is_kept_unless_asked_otherwise(self, tmp_path, monkeypatch):
         route = mock_posed_animation()
 
-        invoke(["character", "animate", "char-9", "-a", "walking"], tmp_path, monkeypatch)
+        invoke(
+            [
+                "character",
+                "animate",
+                "char-9",
+                "-a",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
+            ],
+            tmp_path,
+            monkeypatch,
+        )
 
         assert "keep_first_frame" not in json.loads(route.calls.last.request.content)
 
@@ -1878,7 +2149,15 @@ class TestTheAnimationPixelBudget:
         frame = self._frame(tmp_path, 256, 256)
 
         result = invoke(
-            ["--dry-run", "animate", frame, "-a", "walking", "--frames", "16"],
+            [
+                "--dry-run",
+                "animate",
+                frame,
+                "-a",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
+                "--frames",
+                "16",
+            ],
             tmp_path,
             monkeypatch,
         )
@@ -1890,7 +2169,15 @@ class TestTheAnimationPixelBudget:
         frame = self._frame(tmp_path, 256, 256)
 
         result = invoke(
-            ["--dry-run", "animate", frame, "-a", "walking", "--frames", "16"],
+            [
+                "--dry-run",
+                "animate",
+                frame,
+                "-a",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
+                "--frames",
+                "16",
+            ],
             tmp_path,
             monkeypatch,
         )
@@ -1901,7 +2188,15 @@ class TestTheAnimationPixelBudget:
         frame = self._frame(tmp_path, 64, 64)
 
         result = invoke(
-            ["--dry-run", "animate", frame, "-a", "walking", "--frames", "16"],
+            [
+                "--dry-run",
+                "animate",
+                frame,
+                "-a",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
+                "--frames",
+                "16",
+            ],
             tmp_path,
             monkeypatch,
         )
@@ -2187,7 +2482,7 @@ class TestAPoseBelongsToOneCharacter:
                 "animate",
                 "char-9",
                 "-a",
-                "walking",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
                 "--start-pose",
                 "pose-1",
             ],
@@ -2212,7 +2507,7 @@ class TestAPoseBelongsToOneCharacter:
                 "animate",
                 "char-9",
                 "-a",
-                "walking",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
                 "--start-pose",
                 "pose-1",
             ],
@@ -2236,7 +2531,7 @@ class TestAPoseBelongsToOneCharacter:
                 "animate",
                 "char-9",
                 "-a",
-                "walking",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
                 "--start-pose",
                 "pose-1",
             ],
@@ -2261,7 +2556,7 @@ class TestAPoseBelongsToOneCharacter:
                 "animate",
                 "char-9",
                 "-a",
-                "walking",
+                "a full walk cycle, legs alternating through a stride, arms swinging opposite",
                 "--start-pose",
                 "pose-from-elsewhere",
             ],
@@ -2270,3 +2565,110 @@ class TestAPoseBelongsToOneCharacter:
         )
 
         assert "belongs" not in result.output
+
+
+class TestAnActionIsAMotionNotALabel:
+    """An animation route draws every frame from the description it is given.
+
+    `walking` says nothing about what the legs do or where the cycle returns to, so
+    the model invents all of it, differently in each frame — and every frame is
+    charged, per direction. The habit is to enrich first; the failure this catches is
+    what happens when enrichment is unavailable and the bare tag goes instead.
+    """
+
+    @respx.mock
+    def test_a_one_word_action_is_refused(self, tmp_path, monkeypatch):
+        animate = respx.post(f"{PIXELLAB_BASE_URL}/characters/animations")
+
+        result = invoke(["character", "animate", "char-9", "-a", "walking"], tmp_path, monkeypatch)
+
+        assert result.exit_code == 2
+        assert not animate.calls
+
+    @respx.mock
+    def test_the_refusal_names_all_three_ways_out(self, tmp_path, monkeypatch):
+        result = invoke(["character", "animate", "char-9", "-a", "walking"], tmp_path, monkeypatch)
+
+        assert "character enrich" in result.output
+        assert "--enhance" in result.output
+        assert "write it yourself" in result.output
+
+    @respx.mock
+    def test_the_tag_form_the_enhancer_takes_is_refused_here(self, tmp_path, monkeypatch):
+        """`walking,loop,south` is `enrich`'s own input, and reaching the animation
+        route means somebody meant to expand it and did not."""
+        result = invoke(
+            ["character", "animate", "char-9", "-a", "walking,loop,south"], tmp_path, monkeypatch
+        )
+
+        assert result.exit_code == 2
+
+    @respx.mock
+    def test_asking_the_provider_to_expand_it_is_enough(self, tmp_path, monkeypatch):
+        respx.get(f"{PIXELLAB_BASE_URL}/characters/char-9").respond(
+            json={"id": "char-9", "skeletons": {"south": {}}}
+        )
+        animate = respx.post(f"{PIXELLAB_BASE_URL}/characters/animations").respond(
+            json={"background_job_ids": ["job-2"], "status": "processing"}
+        )
+        respx.get(f"{PIXELLAB_BASE_URL}/background-jobs/job-2").respond(
+            json={"status": "completed", "last_response": {"images": [image_payload()]}}
+        )
+
+        result = invoke(
+            ["character", "animate", "char-9", "-a", "walking", "--enhance"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 0
+        assert animate.calls
+
+    @respx.mock
+    def test_terse_animates_the_label_as_it_stands(self, tmp_path, monkeypatch):
+        respx.get(f"{PIXELLAB_BASE_URL}/characters/char-9").respond(
+            json={"id": "char-9", "skeletons": {"south": {}}}
+        )
+        animate = respx.post(f"{PIXELLAB_BASE_URL}/characters/animations").respond(
+            json={"background_job_ids": ["job-2"], "status": "processing"}
+        )
+        respx.get(f"{PIXELLAB_BASE_URL}/background-jobs/job-2").respond(
+            json={"status": "completed", "last_response": {"images": [image_payload()]}}
+        )
+
+        result = invoke(
+            ["character", "animate", "char-9", "-a", "walking", "--terse"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 0
+        assert animate.calls
+
+    @respx.mock
+    def test_a_template_carries_no_action_and_is_not_checked(self, tmp_path, monkeypatch):
+        respx.get(f"{PIXELLAB_BASE_URL}/characters/char-9").respond(
+            json={"id": "char-9", "template_id": "mannequin", "skeletons": {"south": {}}}
+        )
+        animate = respx.post(f"{PIXELLAB_BASE_URL}/characters/animations").respond(
+            json={"background_job_ids": ["job-2"], "status": "processing"}
+        )
+        respx.get(f"{PIXELLAB_BASE_URL}/background-jobs/job-2").respond(
+            json={"status": "completed", "last_response": {"images": [image_payload()]}}
+        )
+
+        result = invoke(
+            ["character", "animate", "char-9", "--template", "walking"], tmp_path, monkeypatch
+        )
+
+        assert result.exit_code == 0
+        assert animate.calls
+
+    @respx.mock
+    def test_enrich_with_no_pose_says_to_write_it_by_hand(self, tmp_path, monkeypatch):
+        """The case the whole rule exists for: the enhancer is not available, and the
+        answer is a description written by hand rather than the bare tag."""
+        result = invoke(["character", "enrich", "-a", "walking,loop,south"], tmp_path, monkeypatch)
+
+        assert result.exit_code == 2
+        assert "write the motion yourself" in result.output
