@@ -1,9 +1,9 @@
 ---
 autonomy: auto
 ci: wait
-branch: feat/the-pose-must-suit-the-action
-delivery: merged
-pr: 66
+branch: feat/room-for-the-motion
+delivery: in-review
+pr: 68
 ---
 
 # Characters and animation — requirements
@@ -33,6 +33,8 @@ different endpoint family and no skeleton.
 - **R1.12** (ADDED) When asked for a character with no reference image, the character commands shall refuse and name the flow that produces one, unless drawing from the description alone was asked for explicitly.
 
 - **R1.13** (ADDED) If a reference given for eight rotations is not the size that route reads best, then the character commands shall refuse the call and name the free command that resizes it, before spending anything, unless the caller asks for it to be sent as it stands.
+
+- **R1.14** (ADDED) If the subject of an image given to a route that animates it reaches the edge of the frame, then the character commands shall refuse the call and say that a motion has no room to reach into, before spending anything, unless the caller asks for it to be sent as it stands.
 
 ## R2 · Animating
 

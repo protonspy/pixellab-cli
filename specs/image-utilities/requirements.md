@@ -1,9 +1,9 @@
 ---
 autonomy: auto
 ci: wait
-branch: fix/inspect-alpha-ceiling
-delivery: merged
-pr: 57
+branch: feat/room-for-the-motion
+delivery: in-review
+pr: 68
 ---
 
 # Image utilities — requirements
@@ -40,6 +40,8 @@ and reading an alpha histogram to settle whether a background was transparent.
 - **R2.10** (ADDED) When asked to flip, the image utilities shall mirror each image given left to right, or top to bottom where that is asked for.
 - **R2.11** (ADDED) Where the name of an image being flipped left to right carries a direction, the image utilities shall name the result after the mirrored direction.
 - **R2.12** (ADDED) When asked to flip left to right, the image utilities shall report that the result is wrong for a subject whose left and right differ.
+
+- **R2.13** (ADDED) When asked to inset, the image utilities shall place the subject centred in the size asked for with the share of each side asked for left empty around it, keeping the subject's aspect ratio.
 
 ## 3 · Alpha, because it is what the paid routes read
 

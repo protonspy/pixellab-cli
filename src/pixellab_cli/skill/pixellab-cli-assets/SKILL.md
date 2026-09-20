@@ -225,6 +225,7 @@ pixellab-cli image resize <file> --to 256|96x64 --out      # any size, no grid g
 pixellab-cli image scale <file> --by 2 --out               # whole number, grid survives
 pixellab-cli image pad <file> --to 256|96x64 --out         # centre in a larger frame
 pixellab-cli image trim <file> --out                       # drop the transparent margin
+pixellab-cli image inset <file> --to 256 --margin 15       # re-centre, with room to animate into
 pixellab-cli image flip <files> --vertical --into          # mirror, renaming by direction
 pixellab-cli image sheet <files> --columns 4 --out
 pixellab-cli image gif <frames> --duration 110 --out
@@ -238,6 +239,13 @@ pixels into `soft` — what a rotation route reads as a halo — and the two ban
 extremes, which are a provider's own ceiling and are not a halo. It also reports `ceiling`,
 the highest alpha present: gpt-image-2.5 stops at about 251, so a concept from it has no
 fully opaque pixel and that on its own is nothing to fix.
+
+**`image inset`, not `image trim`, before anything that animates.** Trimming crops to
+the subject, which is right for an icon and wrong for a character: a motion reaches
+past the pose it started from — a sword goes up, an arm goes forward — and a subject
+against the edge has that cropped in every frame of every direction. `inset` re-centres
+the subject at 256 with about 15% of each side left empty, which is the room a motion
+needs. Every image entering the character and animation routes wants that shape.
 
 **The paid routes read the frame before sending it.** `character new --reference`, `rotate`,
 `animate` and `interpolate` all refuse an image with a soft edge, with no transparency at

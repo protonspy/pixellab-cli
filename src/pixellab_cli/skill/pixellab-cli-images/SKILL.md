@@ -46,7 +46,9 @@ So `--size` cannot be given with more than one `--style`, and **the crop is the 
 decision and therefore the count decision**. A 64-pixel character cropped to its own
 bounds returns sixteen new characters in that style; the same character left on a
 200-pixel canvas returns one, for the same Pro Tools price. Crop tight with
-`pixellab-cli image trim` before spending.
+`pixellab-cli image trim` before spending — this is the one place a tight crop is what
+you want, because here the crop is the price. Anything headed for the character or
+animation routes wants `image inset` instead, which keeps the room a motion needs.
 
 `--style-description` names the style in words alongside the images — "16-bit RPG, bright
 flat colours" — and is sent on this route only, because the base routes have a style slot

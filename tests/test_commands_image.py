@@ -835,10 +835,23 @@ class TestAFrameIsReadBeforeItIsPaidFor:
         assert pixels.frame_flaws(source) == []
 
     def test_a_margin_past_the_allowance_is_named(self, tmp_path):
-        # 16 of 64 is 25%: a subject floating in a canvas, not a frame's padding.
-        source = self.flawed(tmp_path, "adrift.png", box=(8, 8, 56, 56))
+        # 24 of 64 a side is 75%: a subject adrift in a canvas, not a frame's padding.
+        source = self.flawed(tmp_path, "adrift.png", box=(24, 24, 40, 40))
 
-        assert any("image trim" in flaw for flaw in pixels.frame_flaws(source))
+        assert any("image inset" in flaw for flaw in pixels.frame_flaws(source))
+
+    def test_a_subject_against_the_edge_is_named(self, tmp_path):
+        """Right for a still image, wrong for one about to be animated: a raised sword
+        has nowhere to go and the frame crops it in every frame of every direction."""
+        source = self.flawed(tmp_path, "tight.png", box=(1, 1, 63, 63))
+
+        assert any("no room" in flaw for flaw in pixels.frame_flaws(source))
+
+    def test_the_room_a_motion_needs_is_not_a_flaw(self, tmp_path):
+        # 15% a side is the target: a subject at 70% of the frame, room around it.
+        source = self.flawed(tmp_path, "roomy.png", box=(10, 10, 54, 54))
+
+        assert pixels.frame_flaws(source) == []
 
     def test_a_soft_share_under_the_allowance_passes(self, tmp_path):
         source = self.flawed(tmp_path, "nearly.png", box=(4, 4, 60, 60))
@@ -873,5 +886,113 @@ class TestAFrameIsReadBeforeItIsPaidFor:
             pixels.check_frame(source)
 
         assert "halo" in str(raised.value)
-        assert "image trim" in str(raised.value)
+        assert "image inset" in str(raised.value)
         assert "--as-is" in str(raised.value)
+
+
+class TestInset:
+    """Room for a motion to reach into, which is what `trim` takes away.
+
+    `trim` crops to the subject and is right for an icon. Everything about to be
+    animated wants the opposite: a raised sword reaches past the pose it started from,
+    and a subject against the edge has that cropped in every frame of every direction.
+    """
+
+    def subject(self, tmp_path, name, box, size=(64, 64)):
+        path = tmp_path / name
+        image = Image.new("RGBA", size, (0, 0, 0, 0))
+        image.paste((200, 50, 50, 255), box)
+        image.save(path)
+        return path
+
+    def test_a_subject_against_the_edge_is_given_room(self, tmp_path):
+        source = self.subject(tmp_path, "tight.png", (0, 0, 64, 64))
+
+        invoke(["image", "inset", str(source), "--to", "64"])
+
+        assert pixels.frame_flaws(tmp_path / "tight-inset.png") == []
+
+    def test_a_subject_adrift_is_filled_out(self, tmp_path):
+        source = self.subject(tmp_path, "adrift.png", (28, 28, 36, 36))
+
+        invoke(["image", "inset", str(source), "--to", "64"])
+
+        assert pixels.frame_flaws(tmp_path / "adrift-inset.png") == []
+
+    def test_the_frame_is_the_size_asked_for(self, tmp_path):
+        source = self.subject(tmp_path, "sprite.png", (10, 10, 54, 54))
+
+        invoke(["image", "inset", str(source)])
+
+        assert opened(tmp_path / "sprite-inset.png").size == (256, 256)
+
+    def test_the_subject_keeps_its_aspect(self, tmp_path):
+        source = self.subject(tmp_path, "tall.png", (20, 4, 44, 60))
+
+        invoke(["image", "inset", str(source), "--to", "128"])
+
+        box = opened(tmp_path / "tall-inset.png").getchannel("A").getbbox()
+        width, height = box[2] - box[0], box[3] - box[1]
+        assert abs(width / height - 24 / 56) < 0.05
+
+    def test_the_margin_asked_for_is_what_it_leaves(self, tmp_path):
+        source = self.subject(tmp_path, "sprite.png", (0, 0, 64, 64))
+
+        invoke(["image", "inset", str(source), "--to", "100", "--margin", "25"])
+
+        box = opened(tmp_path / "sprite-inset.png").getchannel("A").getbbox()
+        assert (box[0], box[1]) == (25, 25)
+        assert (box[2], box[3]) == (75, 75)
+
+    def test_a_margin_that_leaves_no_frame_is_refused(self, tmp_path):
+        source = self.subject(tmp_path, "sprite.png", (10, 10, 54, 54))
+
+        result = invoke(["image", "inset", str(source), "--margin", "60"])
+
+        assert result.exit_code == 2
+        assert "under 50%" in result.output
+
+    def test_the_default_margin_is_the_one_the_frame_check_targets(self, tmp_path):
+        """One number, so an edit to the band cannot leave the command behind."""
+        source = self.subject(tmp_path, "sprite.png", (0, 0, 64, 64))
+
+        invoke(["image", "inset", str(source), "--to", "100"])
+
+        box = opened(tmp_path / "sprite-inset.png").getchannel("A").getbbox()
+        assert box[0] == round(100 * pixels.TARGET_MARGIN_SHARE)
+
+    def test_an_empty_image_has_no_subject_to_place(self, tmp_path):
+        path = tmp_path / "empty.png"
+        Image.new("RGBA", (64, 64), (0, 0, 0, 0)).save(path)
+
+        result = invoke(["image", "inset", str(path)])
+
+        assert result.exit_code == 2
+        assert "no subject" in result.output
+
+
+class TestASizeThisMachineCannotHold:
+    """`--to 999999999` allocated until it died. A ceiling turns a `MemoryError` and a
+    traceback into a sentence naming what was asked for and what the limit is.
+
+    `place` and `sheet` have held it since they were written; the single-image
+    operations take the same input and did not.
+    """
+
+    @pytest.mark.parametrize("command", ["resize", "pad", "inset"])
+    def test_a_size_past_the_ceiling_is_refused(self, tmp_path, command):
+        source = write_image(tmp_path / "sprite.png", 16, 16, box=(4, 4, 12, 12))
+
+        result = invoke(["image", command, str(source), "--to", "99999x99999"])
+
+        assert result.exit_code == 2
+        assert "past the" in result.output
+        assert not list(tmp_path.glob("*-*.png"))
+
+    @pytest.mark.parametrize("command", ["resize", "pad", "inset"])
+    def test_a_size_within_it_is_written(self, tmp_path, command):
+        source = write_image(tmp_path / "sprite.png", 16, 16, box=(4, 4, 12, 12))
+
+        result = invoke(["image", command, str(source), "--to", "64"])
+
+        assert result.exit_code == 0
