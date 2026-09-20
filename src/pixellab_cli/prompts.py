@@ -101,3 +101,95 @@ def check_the_motion_is_described(action: str | None, enhance: bool, terse: bool
         f"stands.",
         context={"action": action},
     )
+
+
+# Words that say nothing about which motion a pose is for. Two kinds, and the second
+# is the one that matters: a body part is named by almost every pose and almost every
+# action — "head bowed" and "blade raised behind the head" share a head and nothing
+# else — so matching on one says a pose suits a motion it has no relation to. What
+# identifies a pose is the motion, not the limb. Kept short and literal beyond that:
+# a longer list starts deciding that "slow" and "heavy" are noise, and they are not.
+FILLER = frozenset(
+    {
+        "a",
+        "an",
+        "the",
+        "of",
+        "in",
+        "on",
+        "at",
+        "to",
+        "with",
+        "and",
+        "or",
+        "his",
+        "her",
+        "its",
+        "their",
+        "this",
+        "that",
+        "pose",
+        "posed",
+        "frame",
+        "character",
+        "sprite",
+        "same",
+        "one",
+        "onto",
+        "down",
+        "up",
+        "head",
+        "arm",
+        "arms",
+        "hand",
+        "hands",
+        "leg",
+        "legs",
+        "foot",
+        "feet",
+        "knee",
+        "knees",
+        "torso",
+        "body",
+        "shoulder",
+        "shoulders",
+        "chest",
+        "back",
+        "eyes",
+        "face",
+        "hair",
+    }
+)
+
+
+# A word reduced to the part that survives its endings, so `attack` reaches
+# `attacking` and `run` reaches `running`. Truncating to a fixed prefix was tried and
+# is wrong in both directions: `attack` and `attach` share four letters and are not
+# the same motion, and `run` is shorter than `running` is after truncation, so the
+# two never met. Endings rather than prefixes, and whole words compared.
+def root(word: str) -> str:
+    """One word with its inflection taken off."""
+    for ending in ("ing", "ed"):
+        if word.endswith(ending) and len(word) - len(ending) >= 3:
+            word = word[: -len(ending)]
+            # `running` loses the doubled consonant it grew for the ending.
+            if len(word) > 2 and word[-1] == word[-2]:
+                word = word[:-1]
+            break
+    else:
+        if word.endswith("s") and not word.endswith("ss") and len(word) > 3:
+            word = word[:-1]
+    # `stride` and `striding` meet at `strid`, which is a word in nothing but this
+    # comparison and does not have to be one.
+    return word[:-1] if word.endswith("e") and len(word) > 3 else word
+
+
+def motion_words(text: str) -> set[str]:
+    """The words of a pose or an action that say which motion it is."""
+    cleaned = "".join(character if character.isalnum() else " " for character in text.lower())
+    return {root(word) for word in cleaned.split() if word not in FILLER and len(word) > 2}
+
+
+def suits(pose_text: str, action: str) -> bool:
+    """Whether a pose was made for this motion, as far as the words can say."""
+    return bool(motion_words(pose_text) & motion_words(action))

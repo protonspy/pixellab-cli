@@ -106,6 +106,31 @@ class Subject:
                 return entry
         return None
 
+    def poses_of(self, character_id: str) -> list[tuple[str, str]]:
+        """Every pose made of one character, as (id, what it was asked for).
+
+        The text is the `--edit` the state was created with, which is the only
+        statement anywhere of what that pose *is*. PixelLab stores a character, not a
+        pose: ask it and it will tell you there is a character, not that it is an idle.
+        """
+        entry = self.character(character_id)
+        if entry is None:
+            return []
+        return [
+            (str(state["id"]), str(state.get("pose") or ""))
+            for state in entry["states"]
+            if state.get("id")
+        ]
+
+    def pose_text(self, pose: str) -> str | None:
+        """What one pose was asked for, or None where nothing here knows."""
+        for entry in self.characters:
+            for state in entry["states"]:
+                if state["id"] == pose:
+                    text = state.get("pose")
+                    return str(text) if text else None
+        return None
+
     def owner_of(self, pose: str) -> str | None:
         """The character a pose belongs to — itself, where the pose is a character.
 

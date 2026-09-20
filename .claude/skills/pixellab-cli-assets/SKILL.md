@@ -99,7 +99,8 @@ file rather than the command.
 | They asked for | Skill | Starts with |
 |---|---|---|
 | One sprite, an icon, an item, concept art, a cover, a consistent cast | `pixellab-cli-images` | `pixellab-cli sprite` · `pixellab-cli art` |
-| A character, rotations, states, any animation, a portrait | `pixellab-cli-characters` | `pixellab-cli character new` |
+| A character, its eight rotations, a portrait | `pixellab-cli-characters` | `pixellab-cli character new` |
+| A pose or state, any animation, a walk cycle, an attack, interpolation | `pixellab-cli-animation` | `pixellab-cli character state` |
 | A change to art that exists, a masked redraw, cleanup | `pixellab-cli-editing` | `pixellab-cli edit` · `pixellab-cli inpaint` |
 | Ground, terrain, tiles, props, objects | `pixellab-cli-scenes` | `pixellab-cli tiles` · `pixellab-cli object` |
 | A UI panel, a pixel font | `pixellab-cli-interface` | `pixellab-cli ui` · `pixellab-cli font` |
@@ -244,7 +245,7 @@ all, or with the subject adrift in a large canvas, naming the free command that 
 Fix it and run again. `--as-is` sends it anyway and is almost never the right answer.
 
 `image flip` is how an eight-direction set stops costing eight paid animations — see
-`pixellab-cli-characters`, which owns that workflow.
+`pixellab-cli-animation`, which owns that workflow.
 
 ## What an engine loads
 

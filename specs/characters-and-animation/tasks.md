@@ -56,6 +56,8 @@
   _Reason an animation was paid for from another character's pose_
 - [x] 3.9 (Unit) Refuse a label where a motion belongs — R2.33, R2.34
   _Reason a blocked enrichment left the harness animating the bare tag_
+- [x] 3.10 (Unit) Refuse a pose made for another motion — R2.35, R2.36
+  _Reason an attack was animated from the idle pose and paid for_
 
 ## 4 · Reading
 
