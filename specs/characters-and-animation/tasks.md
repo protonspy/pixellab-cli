@@ -52,6 +52,8 @@
   _Reason a described walk drifted in pose and cost eight times its estimate; delivered in plans/paid-call-defects.md_
 - [x] 3.8 (Unit) Refuse a pose that belongs to another character — R2.32
   _Reason an animation was paid for from another character's pose_
+- [x] 3.9 (Unit) Refuse a label where a motion belongs — R2.33, R2.34
+  _Reason a blocked enrichment left the harness animating the bare tag_
 
 ## 4 · Reading
 

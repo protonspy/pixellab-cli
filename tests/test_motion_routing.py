@@ -8,6 +8,7 @@ sending eight to the second is paying a beta route for what the cheap one does.
 
 import pytest
 
+from pixellab_cli import prompts
 from pixellab_cli.commands.motion import check_pixel_budget, choose_animation_route
 from pixellab_cli.errors import ValidationError
 
@@ -111,3 +112,52 @@ class TestThePixelBudget:
             check_pixel_budget("animate-with-text-v3", 8, 0, 256)
 
         assert "nothing to animate" in str(raised.value)
+
+
+class TestALooseAnimationNeedsAMotionToo:
+    """`pixellab-cli animate` has no enhancer on its path at all, so writing the
+    motion out is the only way to have one."""
+
+    def test_is_thin_catches_a_label(self):
+        assert prompts.is_thin("walking")
+
+    def test_is_thin_catches_the_tag_form(self):
+        assert prompts.is_thin("walking,loop,south")
+
+    def test_is_thin_catches_the_tag_form_with_spaces(self):
+        """Four tags is four words, which is the count the word check lets through."""
+        assert prompts.is_thin("walking, loop, south, once")
+
+    def test_a_sentence_with_commas_in_it_is_not_a_tag_list(self):
+        assert not prompts.is_thin(
+            "a full walk cycle, legs alternating through a stride, arms swinging opposite"
+        )
+
+    def test_a_described_motion_is_not_thin(self):
+        assert not prompts.is_thin("a full walk cycle, legs alternating, arms swinging opposite")
+
+    def test_a_label_is_refused(self):
+        with pytest.raises(ValidationError):
+            prompts.check_the_motion_is_described("walking", enhance=False, terse=False)
+
+    def test_terse_lets_it_through(self):
+        prompts.check_the_motion_is_described("walking", enhance=False, terse=True)
+
+    def test_no_action_at_all_is_somebody_else_s_error(self):
+        prompts.check_the_motion_is_described(None, enhance=False, terse=False)
+
+    def test_the_suggested_command_carries_no_caller_text(self):
+        """An agent reads these messages and runs what they suggest, and `repr` quotes
+        for Python rather than for a shell: an action holding both kinds of quote comes
+        back out in a form bash re-opens, and whatever followed it runs."""
+        hostile = 'it\'s "x"$(touch pwned)'
+
+        with pytest.raises(ValidationError) as raised:
+            prompts.check_the_motion_is_described(hostile, enhance=False, terse=False)
+
+        # The command this offers, and only that: the action is still named in the
+        # sentence around it, which is diagnosis and is how every other refusal here
+        # reads.
+        suggested = raised.value.message.split("`")[1]
+        assert 'enrich -a "<the action>"' in suggested
+        assert "touch pwned" not in suggested

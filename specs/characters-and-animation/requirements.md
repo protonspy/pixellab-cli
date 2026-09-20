@@ -1,9 +1,9 @@
 ---
 autonomy: auto
 ci: wait
-branch: feat/the-subject-manifest
+branch: feat/no-thin-motion-description
 delivery: in-review
-pr: 60
+pr: 61
 ---
 
 # Characters and animation — requirements
@@ -68,6 +68,9 @@ different endpoint family and no skeleton.
 - **R2.29** (ADDED) If an image given to interpolate is outside the size the interpolation route accepts, then the character commands shall refuse the call and name that route's limit, before spending anything.
 - **R2.30** (ADDED) If a frame count is given for an interpolation, then the character commands shall refuse the call and say that the interpolation route decides its own frame count, before spending anything.
 - **R2.31** (ADDED) If the frame count and the frame size together exceed the pixel budget the animation route allows, then the character commands shall refuse the call, name the budget, and say how many frames that size does allow, before spending anything.
+
+- **R2.33** (ADDED) If the action given for an animation is a label rather than a description of the motion, then the character commands shall refuse the call and name the ways to obtain a description, before spending anything, unless the caller asks for it to be animated as it stands.
+- **R2.34** (ADDED) If enrichment cannot be run for want of a pose, then the character commands shall say that the motion is to be written by hand rather than animated as the bare action.
 
 
 ## R3 · Rotating
