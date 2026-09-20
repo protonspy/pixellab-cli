@@ -204,3 +204,16 @@ as the **south** frame, and none of those routes reports a hero pose as an error
 comes back wrong, and paid for.
 
 Use `art anchor`, not `art concept`, whenever the image will be rotated or animated.
+
+**Draw it large, and describe it fully.** A character is only as precise as the
+reference it was rotated from and the description that held the rotation to the
+subject — measured, not reasoned about. `character new` reads its reference best at
+**256x256**, which is also its ceiling, so ask for the detail here where pixels are
+cheap and `pixellab-cli image resize <file> --to 256` it before the character call. A
+smaller sprite afterwards is another free resize. And describe what makes the subject
+itself — what it wears, what it carries, its build, its palette, its silhouette —
+rather than the noun.
+
+**No large image in the right pose is what this command is for.** Reusing whatever
+picture is already on disk is how a character comes back permanently turned or cropped,
+and nothing downstream reports it.

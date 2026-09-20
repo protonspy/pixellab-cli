@@ -200,7 +200,7 @@ class TestCharacterNew:
         create = respx.post(f"{PIXELLAB_BASE_URL}/create-character-v3")
         mock_character()
         reference = tmp_path / "south.png"
-        reference.write_bytes(png_bytes())
+        reference.write_bytes(png_bytes(256, 256))
 
         invoke(
             ["character", "new", "a knight", "--reference", str(reference)],
@@ -2308,7 +2308,7 @@ class TestAReferenceIsReadBeforeItIsPaidFor:
         create = respx.post(f"{PIXELLAB_BASE_URL}/create-character-v3")
         mock_character()
         reference = tmp_path / "anchor.png"
-        reference.write_bytes(png_bytes())
+        reference.write_bytes(png_bytes(256, 256))
 
         result = invoke(
             ["character", "new", "a knight", "--reference", str(reference)], tmp_path, monkeypatch
@@ -2672,3 +2672,88 @@ class TestAnActionIsAMotionNotALabel:
 
         assert result.exit_code == 2
         assert "write the motion yourself" in result.output
+
+
+class TestTheReferenceSizeTheRouteReadsBest:
+    """256x256, measured on real runs and also the route's ceiling.
+
+    Quality rather than correctness, so the refusal names the free command that fixes
+    it and `--as-is` passes. What it stops is the undeliberate case: an anchor left at
+    whatever size it came back at, rotated eight times, and only obviously softer
+    across eight frames already paid for.
+    """
+
+    @respx.mock
+    def test_a_reference_that_is_not_256_is_refused(self, tmp_path, monkeypatch):
+        create = respx.post(f"{PIXELLAB_BASE_URL}/create-character-v3")
+        reference = tmp_path / "anchor.png"
+        reference.write_bytes(png_bytes(128, 128))
+
+        result = invoke(
+            ["character", "new", "a knight", "--reference", str(reference)], tmp_path, monkeypatch
+        )
+
+        assert result.exit_code == 2
+        assert "128x128" in result.output
+        assert "--to 256" in result.output
+        assert not create.calls
+
+    @respx.mock
+    def test_the_suggested_command_carries_no_filename(self, tmp_path, monkeypatch):
+        """An agent runs what these messages suggest, and a filename is not shell-quoted
+        by being printed."""
+        reference = tmp_path / "it's $(touch pwned).png"
+        reference.write_bytes(png_bytes(128, 128))
+
+        result = invoke(
+            ["character", "new", "a knight", "--reference", str(reference)], tmp_path, monkeypatch
+        )
+
+        suggested = result.output.split("`")[1]
+        assert suggested == "pixellab-cli image resize <file> --to 256"
+
+    @respx.mock
+    def test_a_reference_larger_than_the_ceiling_is_refused_too(self, tmp_path, monkeypatch):
+        reference = tmp_path / "anchor.png"
+        reference.write_bytes(png_bytes(512, 512))
+
+        result = invoke(
+            ["character", "new", "a knight", "--reference", str(reference)], tmp_path, monkeypatch
+        )
+
+        assert result.exit_code == 2
+        assert "512x512" in result.output
+
+    @respx.mock
+    def test_as_is_sends_it_at_the_size_it_is(self, tmp_path, monkeypatch):
+        create = respx.post(f"{PIXELLAB_BASE_URL}/create-character-v3")
+        mock_character()
+        reference = tmp_path / "anchor.png"
+        reference.write_bytes(png_bytes(128, 128))
+
+        result = invoke(
+            ["character", "new", "a knight", "--reference", str(reference), "--as-is"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 0
+        assert create.calls
+
+    @respx.mock
+    def test_the_four_direction_route_keeps_its_own_rule(self, tmp_path, monkeypatch):
+        """That route wants the reference at exactly its frame size, not at 256, and it
+        already refuses a mismatch of its own."""
+        create = respx.post(f"{PIXELLAB_BASE_URL}/create-character-with-4-directions")
+        mock_four_direction_character()
+        reference = tmp_path / "south.png"
+        reference.write_bytes(png_bytes(64, 64))
+
+        result = invoke(
+            ["character", "new", "a knight", "--directions", "4", "--reference", str(reference)],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 0
+        assert create.calls

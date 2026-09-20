@@ -15,7 +15,7 @@ Read `pixellab-cli-assets` first for the spending rule and the credentials.
 1  art anchor            the front-facing reference             ~unpriced (fal)
 2  image inspect         read its alpha before paying for it    free
 3  image trim / clean    make it a sprite                       free, or ~0.1
-   ---- ask the two questions, then ----
+   ---- large reference + enriched description; ask about pixel art ----
 4  character new         eight rotations and a character_id     ~3-4 gen
 5  image inspect + clean the rotations                          free or ~0.1
    ---- hand them back, wait for their edits ----
@@ -40,19 +40,41 @@ economy of this pipeline, and no route does it for you. The tool now refuses the
 of it for you — a soft edge, a missing alpha channel, a subject adrift in a big canvas —
 but a refusal is a floor, not the standard.
 
-### The two questions, before step 4
+### What a precise character takes, before step 4
 
-Ask both, together, and wait for the answers. Both decide what is bought and neither
-can be changed afterwards:
+Measured on real runs rather than reasoned about, so do not relitigate it per session:
+**a large reference and an enriched description.** Both, together. A small reference
+gives the model less to read and it invents the difference; a thin description gives it
+nothing to hold the invention to. Either one alone leaves a character that is roughly
+what was asked for.
 
-1. **The full-size image, or a smaller one?** A reference sent at its full size gives a
-   larger character with more detail in every frame; a smaller one is cheaper to animate
-   later and is what most top-down games actually use. `pixellab-cli image resize` is
-   free either way, and the reference ceiling is 256 a side.
-2. **Convert it to pixel art first?** `pixellab-cli sprite --from <file>` or the
-   `image-to-pixelart-pro` step turns a concept into pixel art before the rotations are
-   built on it. Sending the concept straight in works and gives a softer, painterly
-   character; converting first costs about twenty generations and gives a crisp one.
+So, in order:
+
+1. **Send the reference at 256x256.** That is the route's ceiling and the size the
+   result is best at — resize to it before the call, **up as readily as down**:
+
+   ```bash
+   pixellab-cli image resize anchor.png --to 256
+   ```
+
+   Free, and it is not a saving to skip: the route picks the output size itself in
+   reference mode, so a smaller input buys less detail rather than a cheaper call. A
+   smaller sprite afterwards is another free resize. `--directions 4` is the exception
+   — that route wants the reference at exactly its own frame size and refuses a
+   mismatch before spending.
+2. **No large image in the right pose? Make one.** `pixellab-cli art anchor` draws it:
+   one subject, facing the viewer, at rest, transparent. That is the step this pipeline
+   exists to have, and skipping it to reuse whatever picture is at hand is how a
+   character comes back turned or cropped. See `pixellab-cli-images`.
+3. **Describe the character, not the noun.** `"a knight"` and a good reference still
+   makes a generic knight. What it wears, what it carries, its build, its palette, what
+   is distinctive about the silhouette.
+
+One question is left to ask, because it is a real choice and not a settled one:
+**convert the concept to pixel art first?** `pixellab-cli sprite --from <file>` or the
+`image-to-pixelart-pro` step costs about twenty generations and gives a crisp character;
+sending the concept straight in costs nothing extra and gives a softer, painterly one.
+Ask it, and wait.
 
 ### Then stop and let them fix it
 
