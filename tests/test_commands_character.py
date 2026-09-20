@@ -61,6 +61,12 @@ def rotation_urls(directions=DIRECTIONS) -> dict:
     return {name: f"https://assets.pixellab.ai/{name}.png" for name in directions}
 
 
+WALK_CYCLE = (
+    "a full walk cycle, legs alternating through a stride, arms swinging opposite, "
+    "the torso rising and falling with each step"
+)
+
+
 def mock_character(character_id="char-9", directions=DIRECTIONS):
     respx.post(f"{PIXELLAB_BASE_URL}/create-character-v3").respond(
         json={
@@ -1461,6 +1467,9 @@ class TestASubjectGathersTheCommandsOutput:
                 "char-9",
                 "-a",
                 "a full walk cycle, legs alternating through a stride, arms swinging opposite",
+                # This character has no state, and the motion rule refuses that on its
+                # own account. What is under test here is where the output lands.
+                "--any-pose",
             ],
             tmp_path,
             monkeypatch,
@@ -2977,3 +2986,199 @@ class TestThePoseHasToSuitTheAction:
         )
 
         assert "an overhead attack wind-up" in result.output
+
+
+class TestAStateKeepsTheCharactersColours:
+    """R1.15: three states of one character came back in three palettes.
+
+    Each one a Pro call, and none of it visible until the frames are side by side.
+    """
+
+    @respx.mock
+    def test_the_palette_comes_from_the_character_by_default(self, tmp_path, monkeypatch):
+        route = respx.post(f"{PIXELLAB_BASE_URL}/create-character-state")
+        mock_state()
+
+        invoke(["character", "state", "char-9", "-p", "wearing a red cloak"], tmp_path, monkeypatch)
+
+        sent = json.loads(route.calls.last.request.content)
+        assert sent["use_color_palette_from_reference"] is True
+
+    @respx.mock
+    def test_new_colors_lets_the_state_pick_its_own(self, tmp_path, monkeypatch):
+        route = respx.post(f"{PIXELLAB_BASE_URL}/create-character-state")
+        mock_state()
+
+        invoke(
+            ["character", "state", "char-9", "-p", "a gold-plated variant", "--new-colors"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        sent = json.loads(route.calls.last.request.content)
+        assert "use_color_palette_from_reference" not in sent
+
+
+class TestAMotionNeedsTheStateItStartsFrom:
+    """R2.37: the rule only fired where a better pose existed.
+
+    A character with no state at all fell straight through it, which is the case that
+    produced a walk cycle drawn from a standing frame.
+    """
+
+    @respx.mock
+    def test_animating_a_walk_with_no_state_is_refused(self, tmp_path, monkeypatch):
+        mock_character()
+
+        result = invoke(
+            [
+                "--subject",
+                "warrior",
+                "character",
+                "animate",
+                "char-9",
+                "-a",
+                WALK_CYCLE,
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code != 0
+        assert "character state" in result.output
+        assert "no state at all" in result.output
+        assert "Traceback" not in result.output
+
+    @respx.mock
+    def test_any_pose_animates_from_rest_anyway(self, tmp_path, monkeypatch):
+        mock_character()
+        mock_posed_animation()
+
+        result = invoke(
+            [
+                "--subject",
+                "warrior",
+                "character",
+                "animate",
+                "char-9",
+                "-a",
+                WALK_CYCLE,
+                "--any-pose",
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 0
+
+    @respx.mock
+    def test_nothing_is_sent_when_it_refuses(self, tmp_path, monkeypatch):
+        route = respx.post(f"{PIXELLAB_BASE_URL}/characters/animations")
+        mock_character()
+
+        invoke(
+            [
+                "--subject",
+                "warrior",
+                "character",
+                "animate",
+                "char-9",
+                "-a",
+                WALK_CYCLE,
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert not route.calls
+
+
+class TestCheckingBeforePaying:
+    """R2.38: the same rules, asked for nothing.
+
+    A refusal inside the paid route arrives after the pipeline was built around it.
+    """
+
+    MOTION = WALK_CYCLE
+
+    def a_character_with_a_walking_pose(self, tmp_path):
+        home = tmp_path / "out" / "warrior"
+        runs = [
+            (1, {"ids": {"character_id": "char-9"}, "arguments": {"description": "a knight"}}),
+            (
+                2,
+                {
+                    "ids": {"character_id": "pose-walk", "source_character_id": "char-9"},
+                    "links": {
+                        "character_id": "char-9",
+                        "pose": "mid-stride, one leg forward, walking",
+                    },
+                },
+            ),
+        ]
+        for version, payload in runs:
+            directory = home / "rotations" / f"v{version}"
+            directory.mkdir(parents=True, exist_ok=True)
+            run = f"warrior_rotations_v{version}"
+            (directory / f"{run}.manifest.json").write_text(
+                json.dumps(
+                    {
+                        "schema": 1,
+                        "run": run,
+                        "provider": "pixellab",
+                        "route": "create-character-v3",
+                        "cost": {},
+                        "files": [],
+                        "arguments": {},
+                        **payload,
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+    @respx.mock
+    def test_it_refuses_a_motion_with_no_state_behind_it(self, tmp_path, monkeypatch):
+        result = invoke(
+            ["--subject", "warrior", "character", "check", "char-9", "-a", self.MOTION],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code != 0
+        assert "character state" in result.output
+        assert "Traceback" not in result.output
+
+    @respx.mock
+    def test_it_calls_no_provider(self, tmp_path, monkeypatch):
+        route = respx.post(f"{PIXELLAB_BASE_URL}/characters/animations")
+
+        invoke(
+            ["--subject", "warrior", "character", "check", "char-9", "-a", self.MOTION],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert not route.calls
+
+    @respx.mock
+    def test_it_names_the_pose_that_suits_the_motion(self, tmp_path, monkeypatch):
+        self.a_character_with_a_walking_pose(tmp_path)
+
+        result = invoke(
+            ["--subject", "warrior", "--json", "character", "check", "char-9", "-a", self.MOTION],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 0, result.output
+        assert json.loads(result.stdout)["fitting"] == ["pose-walk"]
+
+    @respx.mock
+    def test_it_writes_no_ledger_line(self, tmp_path, monkeypatch):
+        invoke(
+            ["--subject", "warrior", "character", "check", "char-9", "-a", self.MOTION],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert not (tmp_path / "out" / "ledger.jsonl").is_file()

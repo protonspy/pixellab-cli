@@ -150,6 +150,11 @@ from. **Run it before passing an identifier you did not just receive in this ses
 a `--start-pose` from the wrong character is accepted by the route, charged per frame
 per direction, and comes back as a character that turns into somebody else.
 
+`pixellab-cli character check <id> -a "<motion>"` is the other free question, and the
+one to ask before the first paid animation of a character: whether a motion and that
+character's states go together at all. A state keeps the character's colours unless
+`--new-colors` says otherwise, which is for an outfit or a variant meant to differ.
+
 Where the subject's record holds both, the tool refuses that call itself and names both
 characters. Where the pose was made somewhere else, the record has never seen it and
 nothing can refuse it for you.

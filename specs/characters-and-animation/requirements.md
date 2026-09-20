@@ -35,6 +35,7 @@ different endpoint family and no skeleton.
 - **R1.13** (ADDED) If a reference given for eight rotations is not the size that route reads best, then the character commands shall refuse the call and name the free command that resizes it, before spending anything, unless the caller asks for it to be sent as it stands.
 
 - **R1.14** (ADDED) If the subject of an image given to a route that animates it reaches the edge of the frame, then the character commands shall refuse the call and say that a motion has no room to reach into, before spending anything, unless the caller asks for it to be sent as it stands.
+- **R1.15** (ADDED) When asked for a state of an existing character, the character commands shall take the colours from that character, unless the caller asks for colours of its own.
 
 ## R2 · Animating
 
@@ -78,6 +79,8 @@ different endpoint family and no skeleton.
 
 - **R2.35** (ADDED) If the subject's record holds a pose made for the motion being animated and the pose given was made for another, then the character commands shall refuse the call and name the pose that suits it, before spending anything, unless the caller asks for the pose named.
 - **R2.36** (ADDED) Where the subject's record knows what a pose was made for, the character commands shall say so when reading that pose, rather than naming its identifier alone.
+- **R2.37** (ADDED) If no start pose is given and the subject's record holds no pose of that character made for the motion being animated, then the character commands shall refuse the call and say that the state the motion starts from is made first, before spending anything, unless the caller asks to animate from the character's rest frame.
+- **R2.38** (ADDED) The character commands shall offer a check that reports whether a motion and a character's poses go together, and shall complete it without calling a provider.
 
 
 ## R3 · Rotating
