@@ -1,9 +1,9 @@
 ---
 autonomy: auto
 ci: wait
-branch: feat/image-flip
-delivery: merged
-pr: 35
+branch: fix/inspect-alpha-ceiling
+delivery: in-review
+pr: 57
 ---
 
 # Image utilities — requirements
@@ -45,3 +45,6 @@ and reading an alpha histogram to settle whether a background was transparent.
 
 - **R3.1** While an image carries partial alpha, the inspect operation shall report how many pixels are partial, because a rotation route reads a soft edge as a halo and that is only visible after it has been paid for.
 - **R3.2** Where an operation adds area to an image, the image utilities shall leave the added area fully transparent rather than a colour.
+
+- **R3.3** (ADDED) When asked to inspect, the image utilities shall split the partial pixels into those within a tolerance of fully transparent, those within a tolerance of fully opaque, and the soft ones between them, because a provider that returns a solid subject a few steps below 255 is otherwise reported as a halo over the whole image.
+- **R3.4** (ADDED) When asked to inspect, the image utilities shall report the highest alpha value present, and where that is below fully opaque shall say the image sits below full opacity rather than presenting it as a soft edge.

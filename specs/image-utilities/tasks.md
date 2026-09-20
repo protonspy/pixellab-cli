@@ -10,6 +10,8 @@ ci: wait
 - [x] 1.1 (Unit) Add the `image` command group, writing beside the input under a name that is never already taken — R1.1, R1.2
 - [x] 1.2 (Unit) Refuse a file that is not a readable image, naming it, before anything is written — R1.3
   _Depends 1.1_
+- [x] 1.3 (Unit) Refuse a file inspect cannot read, as the group promises — R1.3
+  _Reason inspect read the mode with its own Image.open and reached the operator as a traceback_
 
 ## 2 · Geometry
 
@@ -37,6 +39,8 @@ ci: wait
 
 - [x] 4.1 (Unit) Report size, mode, and the alpha split between transparent, partial and opaque — R2.9, R3.1
   _Depends 1.1_
+- [x] 4.2 (Unit) Split the partial bucket and report the highest alpha — R3.3, R3.4
+  _Reason gpt-image-2.5 returns a solid subject at alpha 250-252, so every image read as a halo_
 
 ## 5 · Mirroring
 - [x] 5.1 (Unit) Add `image flip` — R2.10, R2.12
