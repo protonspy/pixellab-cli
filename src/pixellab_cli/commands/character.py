@@ -319,14 +319,6 @@ def check_pose_belongs(
     )
 
 
-def _frame_default(route) -> int:
-    """How many frames the route draws when nobody says. The estimate depends on it."""
-    for param in route.params:
-        if param.name == "frame_count":
-            return int(param.default or 8)
-    return 8
-
-
 def known_templates() -> set[str]:
     catalogue = load_templates()
     return {name for ids in catalogue.get("families", {}).values() for name in ids}
@@ -1046,7 +1038,7 @@ def _animate(
     # template drives the skeleton instead, and stays on the route's tier.
     per_direction = route.estimated_generations
     if not template:
-        per_direction = float(frames or _frame_default(route))
+        per_direction = float(frames or catalog.frame_default(route))
     estimate = Cost(generations=per_direction * len(wanted))
     output.stderr(
         f"{len(wanted)} direction(s), one job each — about "
@@ -1058,7 +1050,7 @@ def _animate(
     # n-0023). Said before the call because the difference is otherwise discovered in
     # the file names, and a frame count is usually chosen to fit a loop.
     if not template:
-        generated = int(frames or _frame_default(route))
+        generated = int(frames or catalog.frame_default(route))
         stored = generated if drop_first_frame else generated + 1
         output.stderr(
             f"{generated} frame(s) generated per direction, {stored} held"

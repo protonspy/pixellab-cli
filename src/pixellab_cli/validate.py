@@ -112,6 +112,12 @@ def _require(condition: bool, route: Route, param: Param, value: Any, expected: 
 
 
 def _check_choice(route: Route, param: Param, value: Any) -> None:
+    # A list parameter enumerates what each of its items may be, not what the list as
+    # a whole may be: `directions=["north"]` is eight allowed values, one at a time.
+    if isinstance(value, (list, tuple)):
+        for item in value:
+            _check_choice(route, param, item)
+        return
     if value in (param.choices or ()):
         return
     allowed = ", ".join(repr(choice) for choice in param.choices or ())

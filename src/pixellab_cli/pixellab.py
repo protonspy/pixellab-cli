@@ -340,6 +340,7 @@ class PixelLabClient:
         that collected a job by id dropped the identifiers the other kept, and said
         nothing about the call having been charged.
         """
+        _refuse_a_path_of_its_own("job", job_id, subject)
         path = poll_path.replace("{id}", job_id)
         waited = 0.0
         while True:
@@ -450,7 +451,14 @@ def _poll_id(route: Route, payload: dict[str, Any]) -> str | None:
     # `characters/animations` returns one job per direction; the first is the one to
     # follow, and the rest are recorded in the raw payload.
     if isinstance(value, list) and value:
-        return str(value[0])
+        first = value[0]
+        # `objects/{id}/animations` reports the same thing one layer in: `submissions`
+        # holds an object per direction, each with its own job. Which identifier is
+        # followed is this module's rule, not the route's shape, so it is one rule.
+        if isinstance(first, dict):
+            nested = first.get("background_job_id")
+            return str(nested) if isinstance(nested, str) else None
+        return str(first)
     return None
 
 
@@ -462,6 +470,22 @@ def _poll_id(route: Route, payload: dict[str, Any]) -> str | None:
 PATH_SEPARATORS = ("/", "\\")
 
 
+def _refuse_a_path_of_its_own(name: str, value: str, route: str) -> None:
+    """Refuse a value that would take the URL somewhere the route did not name.
+
+    Used for both halves of the same problem: a path parameter the caller supplied,
+    and the job identifier the *provider* supplied, which is interpolated into the
+    poll path by the very next request — and that request carries the bearer token.
+    A response is not more trustworthy than an argument here; it is the same URL.
+    """
+    if any(mark in value for mark in PATH_SEPARATORS) or ".." in value:
+        raise ValidationError(
+            f"{name} is part of the address this is sent to, so it carries no path "
+            f"of its own: {value!r}",
+            context={"route": route, name: value},
+        )
+
+
 def _split_path(route: Route, body: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     """Move the path parameters out of the body and into the URL."""
     if not route.path_params:
@@ -469,13 +493,7 @@ def _split_path(route: Route, body: dict[str, Any]) -> tuple[str, dict[str, Any]
     remaining = dict(body)
     values = {name: remaining.pop(name, "") for name in route.path_params}
     for name, value in values.items():
-        text = str(value)
-        if any(mark in text for mark in PATH_SEPARATORS) or ".." in text:
-            raise ValidationError(
-                f"{name} is part of the address this is sent to, so it carries no "
-                f"path of its own: {value!r}",
-                context={"route": route.name, name: value},
-            )
+        _refuse_a_path_of_its_own(name, str(value), route.name)
     return route.path.format(**values), remaining
 
 
