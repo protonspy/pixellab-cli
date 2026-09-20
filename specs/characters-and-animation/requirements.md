@@ -2,7 +2,7 @@
 autonomy: auto
 ci: wait
 branch: feat/the-pose-must-suit-the-action
-delivery: in-review
+delivery: merged
 pr: 66
 ---
 
