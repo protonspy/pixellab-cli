@@ -105,7 +105,9 @@ def inset(
     file: Path = typer.Argument(..., help="The image to re-centre."),
     to: str = typer.Option("256", "--to", help="The frame to place it in. 256, or 96x64."),
     margin: int = typer.Option(
-        15, "--margin", help="Percent of each side left empty around the subject."
+        round(pixels.TARGET_MARGIN_SHARE * 100),
+        "--margin",
+        help="Percent of each side left empty around the subject.",
     ),
     out: Path = typer.Option(None, "--out", help="Where to write it. Default: beside the input."),
 ) -> None:

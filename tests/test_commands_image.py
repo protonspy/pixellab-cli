@@ -952,6 +952,15 @@ class TestInset:
         assert result.exit_code == 2
         assert "under 50%" in result.output
 
+    def test_the_default_margin_is_the_one_the_frame_check_targets(self, tmp_path):
+        """One number, so an edit to the band cannot leave the command behind."""
+        source = self.subject(tmp_path, "sprite.png", (0, 0, 64, 64))
+
+        invoke(["image", "inset", str(source), "--to", "100"])
+
+        box = opened(tmp_path / "sprite-inset.png").getchannel("A").getbbox()
+        assert box[0] == round(100 * pixels.TARGET_MARGIN_SHARE)
+
     def test_an_empty_image_has_no_subject_to_place(self, tmp_path):
         path = tmp_path / "empty.png"
         Image.new("RGBA", (64, 64), (0, 0, 0, 0)).save(path)
@@ -960,3 +969,30 @@ class TestInset:
 
         assert result.exit_code == 2
         assert "no subject" in result.output
+
+
+class TestASizeThisMachineCannotHold:
+    """`--to 999999999` allocated until it died. A ceiling turns a `MemoryError` and a
+    traceback into a sentence naming what was asked for and what the limit is.
+
+    `place` and `sheet` have held it since they were written; the single-image
+    operations take the same input and did not.
+    """
+
+    @pytest.mark.parametrize("command", ["resize", "pad", "inset"])
+    def test_a_size_past_the_ceiling_is_refused(self, tmp_path, command):
+        source = write_image(tmp_path / "sprite.png", 16, 16, box=(4, 4, 12, 12))
+
+        result = invoke(["image", command, str(source), "--to", "99999x99999"])
+
+        assert result.exit_code == 2
+        assert "past the" in result.output
+        assert not list(tmp_path.glob("*-*.png"))
+
+    @pytest.mark.parametrize("command", ["resize", "pad", "inset"])
+    def test_a_size_within_it_is_written(self, tmp_path, command):
+        source = write_image(tmp_path / "sprite.png", 16, 16, box=(4, 4, 12, 12))
+
+        result = invoke(["image", command, str(source), "--to", "64"])
+
+        assert result.exit_code == 0

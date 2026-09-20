@@ -171,19 +171,37 @@ def crop(image: Image.Image, box: tuple[int, int, int, int]) -> Image.Image:
     return image.crop(box)
 
 
-def resize(image: Image.Image, size: tuple[int, int]) -> Image.Image:
-    """Any target size, resampled. This does not preserve a pixel grid — `scale` does."""
+def check_size(size: tuple[int, int]) -> tuple[int, int]:
+    """A size that can be asked for, and that this machine can hold.
+
+    Both ends of the same question. `place` and `sheet` have held the ceiling since
+    they were written, because they are the ones that obviously compose something
+    large — but `--to 999999999` on a single image allocates just as much, and without
+    the ceiling it arrives as a `MemoryError` and a traceback rather than a sentence
+    naming what was asked for and what the limit is.
+    """
     width, height = size
     if width < 1 or height < 1:
         raise ValidationError(
             f"{width}x{height} is not a size", context={"size": f"{width}x{height}"}
         )
-    return image.resize((width, height), Image.LANCZOS)
+    if width * height > MAX_COMPOSED_PIXELS:
+        raise ValidationError(
+            f"{width}x{height} is {width * height} pixels, past the "
+            f"{MAX_COMPOSED_PIXELS} this holds at once",
+            context={"size": f"{width}x{height}", "limit": MAX_COMPOSED_PIXELS},
+        )
+    return width, height
+
+
+def resize(image: Image.Image, size: tuple[int, int]) -> Image.Image:
+    """Any target size, resampled. This does not preserve a pixel grid — `scale` does."""
+    return image.resize(check_size(size), Image.LANCZOS)
 
 
 def pad(image: Image.Image, size: tuple[int, int]) -> Image.Image:
     """Centre the image inside `size`, the added area fully transparent."""
-    width, height = size
+    width, height = check_size(size)
     if width < image.width or height < image.height:
         raise ValidationError(
             f"{width}x{height} is smaller than the image at {image.width}x{image.height}; "
@@ -369,11 +387,7 @@ def inset(image: Image.Image, size: tuple[int, int], margin: float) -> Image.Ima
     scaled to whatever the room allows, which is what makes this safe to run on art
     that is already finished.
     """
-    width, height = size
-    if width < 1 or height < 1:
-        raise ValidationError(
-            f"{width}x{height} is not a size", context={"size": f"{width}x{height}"}
-        )
+    width, height = check_size(size)
     if not 0.0 <= margin < 0.5:
         raise ValidationError(
             f"a margin of {margin:.0%} leaves no frame; it is a share of each side and "
