@@ -28,6 +28,11 @@
   _Depends 1.1_
 - [x] 2.2 (Unit) Upload a mask where one is given, and check every file exists before the first upload — R2.2, R2.3
   _Depends 2.1_
+- [x] 2.3 (Unit) Refuse the background form without fal rather than fall back — R6.1,
+      R6.3
+  _Reason the fallback is the defect this closes; see adr:0011_
+- [x] 2.4 (Unit) Add the background form, transparent, on the edit model — R7.1, R7.2
+  _Reason the pixel-art route redrew a composed image somebody paid for_
 
 ## 3 · Recording
 

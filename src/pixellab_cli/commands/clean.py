@@ -21,6 +21,7 @@ from pixellab_cli.context import AppContext
 from pixellab_cli.errors import PixellabCliError, ValidationError
 from pixellab_cli.images import EncodedImage
 from pixellab_cli.ledger import Cost
+from pixellab_cli.provenance import check_not_composed
 from pixellab_cli.routing import parse_size
 from pixellab_cli.run import from_pixellab
 from pixellab_cli.validate import build_request
@@ -127,6 +128,12 @@ def background(
 @_guard
 def _background(context, files, complex_edges, hint) -> None:
     app_context: AppContext = context.obj
+    check_not_composed(
+        app_context.ledger,
+        app_context.workspace.root,
+        files,
+        instead="pixellab-cli art background",
+    )
     for path in files:
         image = _load(path)
         _execute(

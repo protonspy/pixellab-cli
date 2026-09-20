@@ -292,6 +292,10 @@ is accepted by the route, charged per frame per direction, and comes back wrong.
   what was submitted and never collected.
 - **Never read, print or echo a credential.** `pixellab-cli config show` says which are
   set and where they came from, never their values.
+- **`clean` is pixel art's; `art` is the composed image's.** `clean background` redraws
+  what it is given on a pixel grid, so pointing it at a concept image, an anchor or box
+  art hands back a pixelated copy of it, charged. `art background` and `art edit` are the
+  ones for those, and `art background` is the one command that does not fall back.
 - Start a character from `pixellab-cli art anchor`, not `art concept`: the rotation and
   animation routes read the image they are given as the south frame.
 - Do not name a provider route, and do not guess enum spellings or size limits. The tool

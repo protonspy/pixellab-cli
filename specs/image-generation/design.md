@@ -165,3 +165,21 @@ a dry run that skipped validation would approve requests that then fail.
 
 Nothing is written and no ledger entry is made — an intent line for a call that was
 never going to happen would be a lie in the one file that has to be trusted.
+
+## What the ledger already knows about a file
+
+`clean background` calls PixelLab's `remove-background`, which redraws its input on a
+pixel grid. Given a sprite that is the job. Given a concept image, an anchor or a box
+cover it hands back a pixelated copy of artwork somebody paid for, charged, with nothing
+in the command's name to warn them (`adr:0011-a-route-that-would-return-the-wrong-kind-refuses`).
+
+The guard needs no new record, because the ledger is already one. Every outcome line
+carries the files that call wrote and every intent line carries its provider, so a path
+resolves back to what made it: a file whose run was `fal` is a composed image. Handed to
+background removal, it is refused before anything is spent, naming `art background`
+(R2.4).
+
+The lookup is local, free, and exact where it answers at all. A file with no ledger line
+— generated before this existed, renamed, copied in from outside — resolves to nothing
+and is accepted exactly as it was. That is the limit rather than an oversight: this
+closes the case the tool has a record of, and the documented route covers the rest.

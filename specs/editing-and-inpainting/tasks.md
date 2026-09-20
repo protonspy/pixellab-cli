@@ -23,3 +23,5 @@
   _Depends 1.2_
 - [x] 3.2 (TDD) Refuse a frame set outside two to sixteen — R1.5
   _Reason outfit transfer asked for after delivery_
+- [x] 3.3 (Unit) Refuse a fal-made file at the pixel-art edit — R3.3
+  _Reason the same redraw, reached through edit instead_

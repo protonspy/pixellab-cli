@@ -52,10 +52,15 @@ going to be pixel art at all — a box cover, a store banner, a title screen.
 
 ## R6 · When fal is not there
 
-- **R6.1** (ADDED) Where no fal credential is configured, the concept art commands shall generate on PixelLab rather than refuse, and shall name the route they used.
+- **R6.1** (MODIFIED) Where no fal credential is configured, the concept art commands shall generate on PixelLab rather than refuse, and shall name the route they used, except the background form, which shall refuse.
 - **R6.2** (ADDED) Where the PixelLab fallback produces a different kind of image than the command asked for, the concept art commands shall say so before calling.
-- **R6.3** (ADDED) If a fal call fails, then the concept art commands shall fall back to PixelLab and shall record both the failed attempt and the fallback.
+- **R6.3** (MODIFIED) If a fal call fails, then the concept art commands shall fall back to PixelLab and shall record both the failed attempt and the fallback, except the background form, which shall record the failed attempt and stop.
 - **R6.4** (ADDED) Where a fal image would only have been converted to pixel art, the concept art commands shall generate the pixel art directly rather than convert.
+
+## R7 · Taking a background off
+
+- **R7.1** (ADDED) The concept art commands shall offer a background form that removes the background from each image given and writes the result with a transparent background.
+- **R7.2** (ADDED) The concept art commands shall state, wherever the background form is described, that it is the route for a composed image and that the pixel-art route redraws one.
 
 ## Out of scope
 

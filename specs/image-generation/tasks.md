@@ -45,3 +45,7 @@
   _Depends 3.1_
 - [x] 3.3 (Unit) Resize one image to a named target size — R2.1
   _Depends 3.1_
+- [x] 3.4 (Unit) Refuse a fal-made file at background removal — R2.4
+  _Reason the pixel-art route redraws a composed image; see adr:0011_
+- [x] 3.5 (Unit) Record and read one spelling of a file's path in the ledger — R2.4
+  _Reason code review found the guard never firing on Windows, where the ledger holds backslashes_

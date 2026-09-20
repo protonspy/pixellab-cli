@@ -111,3 +111,22 @@ PixelLab call that replaced it. Two ledger lines for one command is the honest s
 one line would either hide a charge or invent a story about which provider produced the
 file. `docs/wiki/pages/generation-record.md` already holds that a failed call is
 recorded; this is that rule applied to a call that was retried somewhere else.
+
+## Taking a background off a composed image
+
+`art background` is the edit model with the instruction fixed and `background` set to
+`transparent`: the same call `art edit` makes, with the one thing being asked for
+supplied rather than typed. It exists because the tool had no route for it at all, and
+the route somebody reached for instead — `clean background`, on PixelLab — redraws what
+it is given on a pixel grid (R7.1).
+
+It is the one fal command that does not degrade to PixelLab. Every other one falls back
+because the fallback makes a lesser version of what was asked for; here the fallback
+*is* the defect — `adr:0011-a-route-that-would-return-the-wrong-kind-refuses` — so a
+missing `FAL_KEY` or a failed call is reported and the command stops, with the failed
+attempt still recorded (R6.1, R6.3). That is a deliberate hole in
+`adr:0010-fal-is-optional-and-pixellab-is-the-fallback`, and the ADR says why.
+
+Its help says what it is for, against what `clean background` is for (R7.2). Two
+commands whose names both read as "remove the background" is exactly the confusion that
+produced this, and the only thing separating them for a reader is what each one says.

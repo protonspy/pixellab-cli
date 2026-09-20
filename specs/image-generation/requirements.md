@@ -38,6 +38,7 @@ settled — a description in, a file and a manifest out, a cost printed.
 - **R2.1** The image generation commands shall expose background removal, unzooming, palette reduction, pixel-art correction and resizing, each over one or more local files.
 - **R2.2** When several frames are given to palette reduction or pixel-art correction, the image generation commands shall send them in one call so that they share one palette.
 - **R2.3** If the frames given are not all the same size, then the image generation commands shall say so before spending anything, because the routes that take several frames require it.
+- **R2.4** (ADDED) If a file given to background removal was generated on fal according to the ledger, then the image generation commands shall refuse before spending anything and shall name the command that takes a background off a composed image.
 
 ## R3 · Cost and consent
 

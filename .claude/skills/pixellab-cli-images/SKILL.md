@@ -172,6 +172,11 @@ What that means depends on the form, and the difference is worth relaying to the
   edited. It also takes one file where fal takes several, and refuses more rather than
   editing some.
 
+- **`art background` does not fall back at all.** It is the one command here that stops:
+  the PixelLab route it would fall back to is exactly the redraw it exists to avoid, so
+  a missing `FAL_KEY` or a failed call is reported and nothing is substituted
+  (`adr:0011`).
+
 A fal call that *fails* falls back the same way, and both the failed attempt and the
 PixelLab call land in the ledger. fal publishes no price, so the attempt may have been
 billed on an account this tool cannot read — two lines is what makes that visible.
@@ -184,6 +189,7 @@ billed on an account this tool cannot read — two lines is what makes that visi
 pixellab-cli art concept <prompt> --variant --quality --size --transparent --count --name
 pixellab-cli art boxart <prompt> --variant --quality --size --count --name
 pixellab-cli art edit <files> --prompt/-p --mask --variant --quality --size --transparent --name
+pixellab-cli art background <files> --variant --quality --name
 ```
 
 Not pixel art. A composed, high-resolution image for a cover, a splash screen, a mood
@@ -193,6 +199,13 @@ these as unknown rather than as a number nobody checked.
 `art edit` edits a concept image on fal. **`pixellab-cli edit` is the one that edits pixel
 art and keeps the grid** — round-tripping a finished sprite through a general image model
 loses the grid and costs a cleanup pass to recover.
+
+`art background` takes the background off one. **`pixellab-cli clean background` is pixel
+art's**, and pointing it at a concept image, an anchor or a box cover hands back a
+pixelated copy of it — charged, with the reference gone. The pair reads like one command
+with two spellings and is not: each destroys what the other is for. The tool refuses the
+mix-up where its own ledger recorded the file; a file somebody brought in themselves it
+cannot recognise.
 
 ## The anchor
 
