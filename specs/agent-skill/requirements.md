@@ -1,9 +1,9 @@
 ---
 autonomy: auto
 ci: wait
-branch: feat/guard-the-character-flow
-delivery: merged
-pr: 59
+branch: feat/the-pose-must-suit-the-action
+delivery: in-review
+pr: 66
 ---
 
 # Agent skill — requirements

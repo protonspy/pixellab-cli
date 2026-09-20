@@ -1,9 +1,9 @@
 ---
 autonomy: auto
 ci: wait
-branch: feat/no-thin-motion-description
-delivery: abandoned
-pr: 61
+branch: feat/the-pose-must-suit-the-action
+delivery: in-review
+pr: 66
 ---
 
 # Characters and animation — requirements
