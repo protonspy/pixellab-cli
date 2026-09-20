@@ -107,7 +107,7 @@ def _settle(app_context: AppContext, job_id: str, written: list[Path], result) -
             seconds=result.usage.seconds,
         ),
         ids=dict(result.ids),
-        files=[str(path.relative_to(app_context.workspace.root)) for path in written],
+        files=[path.relative_to(app_context.workspace.root).as_posix() for path in written],
         job_id=job_id,
         secrets=app_context.credentials.secrets,
     )

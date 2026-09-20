@@ -311,7 +311,10 @@ class Runner:
             "ok",
             cost=produced.cost,
             ids=produced.ids,
-            files=[str(path.relative_to(self.workspace.root)) for path in files],
+            # `as_posix`, not `str`: a ledger line is read back on whatever platform
+            # opens it, and a path written with backslashes matches nothing on
+            # the other.
+            files=[path.relative_to(self.workspace.root).as_posix() for path in files],
             job_id=produced.job_id,
             secrets=self.secrets,
         )

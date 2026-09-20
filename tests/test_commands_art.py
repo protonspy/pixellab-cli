@@ -877,3 +877,117 @@ class TestEditingWithoutFal:
 
         assert result.exit_code != 0
         assert "one image at a time" in result.stderr
+
+
+class TestTakingABackgroundOffAComposedImage:
+    """adr:0011 — the one fal route with nowhere to fall back to.
+
+    `clean background` is PixelLab's, and it redraws what it is given on a pixel grid.
+    Substituting it here would be the tool performing the defect on purpose.
+    """
+
+    def _image(self, tmp_path):
+        path = tmp_path / "castle.png"
+        path.write_bytes(png_bytes())
+        return path
+
+    @respx.mock
+    def test_it_edits_with_a_transparent_background(self, tmp_path, monkeypatch, calls):
+        respx.get(CONCEPT_URL).respond(content=png_bytes())
+
+        result = invoke(["art", "background", str(self._image(tmp_path))], tmp_path, monkeypatch)
+
+        assert result.exit_code == 0
+        application, arguments = calls["subscribe"][0]
+        assert application.endswith("/edit")
+        assert arguments["background"] == "transparent"
+        assert arguments["image_urls"] == [UPLOADED_URL]
+
+    @respx.mock
+    def test_the_instruction_says_to_change_nothing_else(self, tmp_path, monkeypatch, calls):
+        respx.get(CONCEPT_URL).respond(content=png_bytes())
+
+        invoke(["art", "background", str(self._image(tmp_path))], tmp_path, monkeypatch)
+
+        _, arguments = calls["subscribe"][0]
+        assert "fully transparent" in arguments["prompt"]
+        assert "nothing redrawn" in arguments["prompt"]
+
+    def test_without_fal_it_refuses_rather_than_redraw_the_image(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("PIXELLAB_SECRET", "pl-test-token")
+
+        result = invoke(
+            ["art", "background", str(self._image(tmp_path))], tmp_path, monkeypatch, key=None
+        )
+
+        assert result.exit_code != 0
+        assert FAL_KEY_VAR in result.output
+        assert "does not fall back" in result.output
+        assert "Traceback" not in result.output
+
+    def test_nothing_is_written_when_it_refuses(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("PIXELLAB_SECRET", "pl-test-token")
+
+        invoke(["art", "background", str(self._image(tmp_path))], tmp_path, monkeypatch, key=None)
+
+        assert not list((tmp_path / "out").glob("*/*.png"))
+
+    def test_a_fal_failure_does_not_fall_back(self, tmp_path, monkeypatch):
+        def failing(application, *, arguments):
+            raise RuntimeError("fal is having a bad day")
+
+        monkeypatch.setattr(fal, "_subscribing_with", lambda key: failing)
+        monkeypatch.setattr(fal, "_uploading_with", lambda key: lambda path: UPLOADED_URL)
+        monkeypatch.setenv("PIXELLAB_SECRET", "pl-test-token")
+
+        result = invoke(["art", "background", str(self._image(tmp_path))], tmp_path, monkeypatch)
+
+        assert result.exit_code != 0
+        assert not list((tmp_path / "out").glob("*/*.png"))
+
+    def test_the_failed_attempt_is_still_recorded(self, tmp_path, monkeypatch):
+        def failing(application, *, arguments):
+            raise RuntimeError("fal is having a bad day")
+
+        monkeypatch.setattr(fal, "_subscribing_with", lambda key: failing)
+        monkeypatch.setattr(fal, "_uploading_with", lambda key: lambda path: UPLOADED_URL)
+        monkeypatch.setenv("PIXELLAB_SECRET", "pl-test-token")
+
+        invoke(["art", "background", str(self._image(tmp_path))], tmp_path, monkeypatch)
+
+        lines = (tmp_path / "out" / "ledger.jsonl").read_text(encoding="utf-8").splitlines()
+        assert any(json.loads(line).get("provider") == "fal" for line in lines)
+
+
+class TestTheGuardSeesWhatThisToolActuallyWrote:
+    """The ledger is written by the runner, and read back by the guard.
+
+    A synthetic ledger proves the lookup and nothing about the spelling it is given.
+    This goes through the real write path, which is where the separator is decided.
+    """
+
+    @respx.mock
+    def test_a_file_this_tool_generated_on_fal_resolves_to_fal(self, tmp_path, monkeypatch, calls):
+        from pixellab_cli.ledger import Ledger
+        from pixellab_cli.provenance import made_on
+
+        respx.get(CONCEPT_URL).respond(content=png_bytes())
+
+        result = invoke(["art", "concept", "a castle"], tmp_path, monkeypatch)
+
+        assert result.exit_code == 0
+        root = tmp_path / "out"
+        written = next(iter(root.glob("*/*.png")))
+        assert made_on(Ledger(path=root / "ledger.jsonl"), root, written) == "fal"
+
+    @respx.mock
+    def test_clean_background_refuses_that_same_file(self, tmp_path, monkeypatch, calls):
+        respx.get(CONCEPT_URL).respond(content=png_bytes())
+        monkeypatch.setenv("PIXELLAB_SECRET", "pl-test-token")
+
+        invoke(["art", "concept", "a castle"], tmp_path, monkeypatch)
+        written = next(iter((tmp_path / "out").glob("*/*.png")))
+        result = invoke(["clean", "background", str(written)], tmp_path, monkeypatch)
+
+        assert result.exit_code != 0
+        assert "pixellab-cli art background" in result.output

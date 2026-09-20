@@ -78,6 +78,14 @@ whole number with the grid intact. Reach for the free ones first. `clean backgro
 the one worth paying for, because removing a background is a model's judgement rather
 than geometry.
 
+**`clean` is pixel art's, all of it.** Every route here redraws what it is given on a
+pixel grid, which is the job on a sprite and the destruction of a concept image, an
+anchor or a box cover — it hands back a pixelated copy of the reference somebody paid
+for, and charges for it. Taking a background off a composed image is
+`pixellab-cli art background`; editing one is `pixellab-cli art edit`. The tool refuses
+the mix-up where its own ledger recorded the file, and cannot where somebody brought the
+file in themselves, so the file's origin is yours to know.
+
 ## Clean between the paid steps
 
 Error does not accumulate down a character pipeline, it multiplies: a flaw in the

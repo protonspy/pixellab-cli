@@ -230,8 +230,20 @@ def _execute(
     arguments: dict[str, Any],
     name: str | None,
     same_kind: bool = False,
+    fallback: bool = True,
 ) -> None:
     if not _fal_available(app_context):
+        if not fallback:
+            # The only fal route with nowhere to go. Falling back here would run the
+            # PixelLab route that redraws the caller's image on a pixel grid, which is
+            # the defect this command exists to avoid —
+            # adr:0011-a-route-that-would-return-the-wrong-kind-refuses.
+            raise ValidationError(
+                f"{FAL_KEY_VAR} is not set, and this is the one command that does not "
+                f"fall back to PixelLab: the PixelLab route would redraw the image as "
+                f"pixel art rather than take its background off. Set the credential "
+                f"with `pixellab-cli setup`."
+            )
         _fallback(
             app_context,
             kind=kind,
@@ -270,6 +282,11 @@ def _execute(
             name=name,
         )
     except PixellabCliError as failure:
+        if not fallback:
+            # The runner has already recorded the attempt, so nothing is hidden. What
+            # must not happen is the second call — to the route that would hand back
+            # the wrong kind of image.
+            raise
         # `PixellabCliError` and no wider: the runner writes a failed outcome only for
         # that type, so anything else would be a paid call with no ledger line, and
         # falling back from it would bill PixelLab on top of a charge nobody recorded.
@@ -373,6 +390,74 @@ def _boxart(context, prompt, variant, quality, size, count, reference, name) -> 
             "image_size": _size_argument(size),
             "num_images": count,
         },
+    )
+
+
+BACKGROUND_PROMPT = (
+    "Remove the background completely and leave it fully transparent. Keep the subject "
+    "exactly as it is — same pose, same colours, same edges, nothing redrawn, nothing "
+    "added, nothing cropped."
+)
+
+
+@app.command("background")
+def background(
+    context: typer.Context,
+    files: list[Path] = typer.Argument(..., help="The composed images to make transparent."),
+    variant: str = typer.Option("sunburst", "--variant", help="sunburst or flare."),
+    quality: str = typer.Option(None, "--quality", help=QUALITY_HELP),
+    name: str = typer.Option(None, "--name", help="What to call the files."),
+) -> None:
+    """Take the background off a composed image — a concept image, an anchor, box art.
+
+    For pixel art use `pixellab-cli clean background`: these two are not substitutes,
+    because each redraws what the other is for. This one does not fall back to PixelLab
+    when fal is unavailable; it says so and stops.
+    """
+    try:
+        _art_background(context, files, variant, quality, name)
+    except PixellabCliError as failure:
+        output.handle(failure)
+
+
+def _art_background(context, files, variant, quality, name) -> None:
+    app_context: AppContext = context.obj
+
+    _checked(files, _variant_model(variant, edit=True))
+
+    arguments: dict[str, Any] = {
+        "prompt": BACKGROUND_PROMPT,
+        "quality": fal.quality_to_send(quality),
+        "background": "transparent",
+        "output_format": "png",
+    }
+    if app_context.dry_run:
+        arguments["image_urls"] = [str(path) for path in files]
+    else:
+        # Uploaded after the credential is checked rather than before: `client.upload`
+        # would raise on its own, and the refusal this command owes is the one that
+        # says why there is no fallback.
+        if not _fal_available(app_context):
+            _execute(
+                app_context,
+                kind="concept",
+                model_name=_variant_model(variant, edit=True),
+                description="background removed",
+                name=name,
+                arguments=arguments,
+                fallback=False,
+            )
+            return
+        arguments["image_urls"] = [app_context.fal().upload(path) for path in files]
+
+    _execute(
+        app_context,
+        kind="concept",
+        model_name=_variant_model(variant, edit=True),
+        description="background removed",
+        name=name,
+        arguments=arguments,
+        fallback=False,
     )
 
 

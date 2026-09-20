@@ -34,6 +34,7 @@ one is not.
 
 - **R3.1** If a file given does not exist or is not an image, then the editing commands shall say so before any call.
 - **R3.2** While a dry run is asked for, the editing commands shall report the route and the arguments and shall send nothing.
+- **R3.3** (ADDED) If a file given was generated on fal according to the ledger, then the editing commands shall refuse before any call and shall name the command that edits a composed image.
 
 ## Out of scope
 

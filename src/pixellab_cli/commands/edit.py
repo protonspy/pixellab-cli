@@ -22,6 +22,7 @@ from pixellab_cli.context import AppContext
 from pixellab_cli.errors import PixellabCliError, ValidationError
 from pixellab_cli.images import EncodedImage
 from pixellab_cli.ledger import Cost
+from pixellab_cli.provenance import check_not_composed
 from pixellab_cli.routing import parse_size
 from pixellab_cli.run import from_pixellab
 from pixellab_cli.validate import build_request
@@ -124,6 +125,12 @@ def edit(
 
 def _edit(context, files, prompt, match, size, transparent, name, seed) -> None:
     app_context: AppContext = context.obj
+    check_not_composed(
+        app_context.ledger,
+        app_context.workspace.root,
+        [*files, *([match] if match else [])],
+        instead="pixellab-cli art edit",
+    )
     loaded = [_load(path) for path in files]
     reference = _load(match) if match else None
 

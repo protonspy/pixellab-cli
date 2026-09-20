@@ -147,6 +147,33 @@ class RouteSummary:
     unknown_cost_calls: int = 0
 
 
+def provider_of(entries: list[dict[str, object]], file: str) -> str | None:
+    """Which provider wrote `file`, according to these entries.
+
+    The outcome line carries the files a call produced and the intent line carries the
+    provider, joined by the run id. The latest call to have written the path wins: a
+    file overwritten by a second route came from that one.
+
+    `file` is a workspace-relative path spelled with forward slashes. Entries written
+    before that was settled carry the separator of the platform that wrote them, and an
+    entry is never rewritten, so both are read.
+    """
+    runs = {
+        entry["run"]
+        for entry in entries
+        if entry.get("kind") == "outcome"
+        # A list, checked rather than assumed: `in` against a string is a substring
+        # search, so one malformed line would match paths it never named.
+        and isinstance(entry.get("files"), list)
+        and file in [name.replace("\\", "/") for name in entry["files"] if isinstance(name, str)]
+    }
+    for entry in reversed(entries):
+        if entry.get("kind") == "intent" and entry.get("run") in runs:
+            provider = entry.get("provider")
+            return provider if isinstance(provider, str) else None
+    return None
+
+
 def summarise(
     entries: Iterable[dict[str, Any]], *, since: datetime | None = None
 ) -> list[RouteSummary]:

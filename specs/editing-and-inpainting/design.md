@@ -51,3 +51,12 @@ v2 and says the tier out loud before calling. The same shape as
 the model may draw. Both are checked and stated locally: the size from the file
 headers before anything is sent (R2.3), and the convention in the help text, because
 a mask drawn the wrong way round produces a confident, wrong, paid result.
+
+## A composed image is refused here too
+
+`edit` preserves a pixel grid, which is the wrong tool for a composed image and is the
+same failure `clean background` had. It takes the same guard: a file the ledger says was
+generated on fal is refused before any call, naming `art edit` (R3.3). The mechanism —
+resolving a path back through the ledger's outcome and intent lines — is described once,
+in `specs/image-generation/`, and cited rather than repeated, because two descriptions of
+one lookup drift.
