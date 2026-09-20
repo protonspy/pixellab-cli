@@ -412,7 +412,20 @@ class TestClaudeAlsoGetsTheRulesItAlwaysReads:
         install(Harness.CLAUDE, tmp_path)
 
         body = (tmp_path / "CLAUDE.md").read_text(encoding="utf-8")
-        assert ".claude/skills/pixellab-cli-assets/SKILL.md" in body
+        assert "pixellab-cli-assets" in body
+
+    def test_the_block_points_at_the_skill_by_name_and_not_at_a_file(self, tmp_path):
+        """Claude Code loads a skill by name, on demand.
+
+        Given a path it reads that one file instead, which is the skill's text without
+        the loading and without what the loader would have brought in with it.
+        """
+        install(Harness.CLAUDE, tmp_path)
+
+        body = (tmp_path / "CLAUDE.md").read_text(encoding="utf-8")
+        assert ".claude/skills/" not in body
+        assert "SKILL.md" not in body
+        assert "loaded on" in body and "demand" in body
 
     def test_the_block_carries_the_rules_that_cost_money_if_missed(self, tmp_path):
         install(Harness.CLAUDE, tmp_path)

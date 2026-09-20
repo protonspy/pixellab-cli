@@ -17,6 +17,12 @@ It is the only one of the three with a skill format, which is why this project's
 is written in it and the other two get a translation. See [[the-command-surface]] for
 what the skill teaches.
 
+A skill is loaded **by name, on demand** — the loader reads it and what it points at.
+Pointing an agent at `.claude/skills/<name>/SKILL.md` instead gets a file read: the
+same opening text, none of the loading, and nothing the skill would have brought with
+it. So instructions written for Claude Code name the skill; a path there is the thing
+that stops it being loaded.
+
 ## Codex
 
 No skill concept. Instructions come from `AGENTS.md`, which may sit anywhere in a

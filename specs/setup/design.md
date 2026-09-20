@@ -62,6 +62,22 @@ points at `.pixellab/skill/` beside it for the rest. The full command list is
 reference material, and a harness that inlines every instruction into every prompt
 should not be carrying it.
 
+## Claude Code gets the block too, and it names the skill
+
+Installing the skills is not the same as the rules being read: a skill is loaded when
+the agent judges it relevant, and the failure that closes is an agent that judged
+wrong — the skills on disk, nothing loading them, a character generated and paid for
+without any of it. So the same block is written into `CLAUDE.md`, which is read
+whether or not anything is judged relevant.
+
+What differs is how that block points at the entry skill. Codex and opencode have no
+skill loader and can only be given a path. Claude Code loads a skill **by name, on
+demand**, and a path is what stops that: given one, the agent reads that single file —
+the skill's text without the loading, and without the references the loader would have
+brought in with it. The Claude block therefore names `pixellab-cli-assets` and carries
+no file path at all, and `block_body` takes `None` in place of a references directory
+to say so.
+
 ## Writing where somebody else can choose the path
 
 `AGENTS.md` in a repository that was cloned is a path an attacker picks, and so is
