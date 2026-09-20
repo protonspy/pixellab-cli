@@ -906,7 +906,9 @@ def _with_catalogue(failure: ProviderError) -> ProviderError:
 @app.command("enrich")
 def enrich(
     context: typer.Context,
-    action: str = typer.Option(..., "--action", "-a", help="'walking,loop,south'."),
+    action: str = typer.Option(
+        ..., "--action", "-a", help="'walking,loop'. No direction: -d says which to read."
+    ),
     pose: str = typer.Option(
         None, "--pose", help="A state's id, or a file. The frame the motion is written from."
     ),
