@@ -2,8 +2,8 @@
 autonomy: auto
 ci: wait
 branch: fix/inspect-alpha-ceiling
-delivery: in-progress
-pr: 35
+delivery: in-review
+pr: 57
 ---
 
 # Image utilities — requirements
