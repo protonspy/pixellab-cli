@@ -97,10 +97,12 @@ def _lines(subject: subjects.Subject) -> list[str]:
                 f"  animation  {animation.get('name') or animation.get('action') or '?'}"
                 f"  {directions}  {len(animation['files'])} frame(s)"
             )
-            lines.append(
-                f"             {animation['directory']}"
-                + (f"  from pose {animation['start_pose']}" if animation.get("start_pose") else "")
-            )
+            pose = f"  from pose {animation['start_pose']}" if animation.get("start_pose") else ""
+            # One motion animated over several calls has a directory per call: the
+            # frames are one animation and they are not in one place, and a line
+            # naming only the first would send the reader to a fraction of them.
+            for run in animation["runs"]:
+                lines.append(f"             {run['directory']}{pose}")
     if subject.loose:
         lines.append("")
         lines.append(f"{len(subject.loose)} run(s) belonging to no character:")

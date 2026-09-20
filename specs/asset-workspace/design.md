@@ -99,3 +99,13 @@ together, a table of prices copied from a pricing page can never be corrected.
 Both injected. A run id derived from `datetime.now()` makes a test that asserts a
 directory name unwritable, and this is a feature whose entire behaviour is about what
 gets written where.
+
+## An animation made over two calls is one animation
+
+PixelLab starts a new animation for every call, so a character animated south today and
+east tomorrow holds two animations of one motion — the reasoning is in
+`specs/characters-and-animation/design.md`. The record does not repeat that split: runs
+of one character are gathered by the motion they animate, which is the name the run
+carried or the action it was made from, and the gathered animation holds every
+direction they covered and every file they wrote. An atlas built from one animation is
+then built from every direction of it, which is what `export atlas` is given.

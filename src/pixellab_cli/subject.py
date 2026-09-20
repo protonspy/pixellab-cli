@@ -285,7 +285,41 @@ def _animation(run: Run) -> dict[str, Any]:
         "run": run.run,
         "directory": run.directory,
         "files": run.files,
+        # Every run that fed this animation, because one motion can be several and
+        # the directory each wrote to is where its frames are.
+        "runs": [{"run": run.run, "directory": run.directory, "files": run.files}],
     }
+
+
+def _motion(animation: dict[str, Any]) -> str:
+    """What an animation run was made for, which is how two of them are one.
+
+    The name given to the call when there was one, the action otherwise. Empty for
+    neither, and an empty key joins nothing: two animations nobody named are two
+    animations, not one.
+    """
+    return str(animation.get("name") or animation.get("action") or "")
+
+
+def _join(animations: list[dict[str, Any]], animation: dict[str, Any]) -> None:
+    """Add one animation run to a character's animations, joining its motion.
+
+    PixelLab starts a new animation for every call — see
+    `specs/characters-and-animation/design.md` — so a walk generated south on Monday
+    and east on Tuesday arrives here as two runs of one motion. They are one
+    animation in the record, over every direction they covered and every file they
+    wrote, which is what an atlas built from it is then built from.
+    """
+    motion = _motion(animation)
+    held = next((e for e in animations if motion and _motion(e) == motion), None)
+    if held is None:
+        animations.append(animation)
+        return
+    held["directions"] = list(held["directions"] or []) + [
+        name for name in animation["directions"] or [] if name not in (held["directions"] or [])
+    ]
+    held["files"] = held["files"] + animation["files"]
+    held["runs"] = held["runs"] + animation["runs"]
 
 
 def build(name: str, workspace: Workspace) -> Subject:
@@ -324,7 +358,7 @@ def build(name: str, workspace: Workspace) -> Subject:
             animation = _animation(run)
             owner = subject.character(str(animation["of"])) if animation["of"] else None
             if owner is not None:
-                owner["animations"].append(animation)
+                _join(owner["animations"], animation)
                 continue
         subject.loose.append(
             {

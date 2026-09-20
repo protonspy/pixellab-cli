@@ -68,6 +68,7 @@ A file nobody can account for is worth less than the same file with a manifest.
 - **R7.2** The asset workspace shall derive the subject's manifest from the run manifests every time it writes it, so that it cannot disagree with what was paid for.
 - **R7.3** Where a call is made from an identifier an earlier call produced, the asset workspace shall record that identifier beside the request, because a request carrying a frame does not say which pose the frame came from.
 - **R7.4** When asked to describe a subject, the asset workspace shall report it without calling a provider, and shall report the subjects it holds where none is named.
+- **R7.5** (ADDED) The asset workspace shall gather the animation runs of one character made for one motion into a single animation holding every direction they cover and every file they wrote.
 
 ## Out of scope
 

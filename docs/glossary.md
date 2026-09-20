@@ -26,6 +26,7 @@ findings.
 - **object** — a PixelLab-managed prop with a stable `object_id`, generated in one direction or eight. Avoid: item sprite
 - **rotation** — one directional view of a character or object. Avoid: facing direction
 - **animation** — an ordered frame sequence belonging to one character or object and one direction. Avoid: anim, clip
+- **animation group** — the directions PixelLab holds together as one animation of a character or object, identified by an `animation_group_id` that `GET /v2/characters/{character_id}` reports. One per call: a motion animated over two calls has two, and only an object's routes accept the id to extend one. Avoid: animation set
 - **spritesheet** — one uniform-grid image holding a character's rotations and animation frames, plus the layout JSON that says which cell is which. Avoid: sprite atlas
 - **tileset** — a set of seamlessly connecting terrain tiles generated in one PixelLab call. Avoid: terrain set
 - **concept image** — a non-pixel-art image generated on fal, used as a reference for a PixelLab route or delivered as box art. Avoid: concept art

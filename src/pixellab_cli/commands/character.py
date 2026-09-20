@@ -72,16 +72,125 @@ def load_templates() -> dict[str, Any]:
     return json.loads(TEMPLATES_PATH.read_text(encoding="utf-8"))
 
 
-def _require_character(app_context, character_id: str) -> None:
-    """Refuse an animation for a character this account does not have.
+def _require_character(app_context, character_id: str) -> dict[str, Any]:
+    """Refuse an animation for a character this account does not have, and hand it back.
 
     Free, and it turns a provider rejection mid-run into a refusal that names the
     identifier — including under a dry run, where the preview would otherwise
     describe a call that could never have been made.
+
+    The payload is returned rather than dropped because it already names every
+    animation the character holds and every direction each covers, which is what
+    R2.39 refuses on: fetching it twice would be a second call for something
+    already in hand.
     """
     payload = app_context.pixellab().call("character", character_id=character_id).raw
     if not payload:
         raise ValidationError(f"no character {character_id!r} on this account")
+    return payload
+
+
+# PixelLab derives an animation's `animation_type` from the action it was made from:
+# `custom-` and the first thirty characters of the description, which is how a motion
+# asked for here is matched against one the character already holds.
+MOTION_PREFIX = "custom-"
+MOTION_NAME_LIMIT = 30
+
+
+def motion_asked_for(animation_name: str | None, action: str | None, template: str | None) -> str:
+    """The name the call about to be made will be known by on the character."""
+    if animation_name:
+        return animation_name
+    if template:
+        return template
+    # Truncation lands mid-word as readily as on a space, and a name ending in a
+    # space is a name nobody can see the end of: both sides of the comparison are
+    # trimmed rather than one.
+    return f"{MOTION_PREFIX}{(action or '')[:MOTION_NAME_LIMIT].rstrip()}"
+
+
+def motion_of(animation: dict[str, Any]) -> str:
+    """What one animation the provider holds was made for.
+
+    `.get(key, default)` does not reach the default when the key is there holding
+    None, which is what an animation with no display name carries.
+
+    The name is whatever was last typed into it, on the account or in the web app,
+    and it now reaches a refusal message and the terminal. Control characters come
+    out of it the same way the subject's record takes them out of a manifest: a name
+    carrying an escape sequence would rewrite what the operator sees, on a line whose
+    whole job is to say what has already been paid for.
+    """
+    return (
+        str(animation.get("display_name") or animation.get("animation_type") or "unnamed")
+        .translate(subjects.CONTROL)
+        .rstrip()
+    )
+
+
+def check_the_directions_are_new(
+    payload: dict[str, Any], motion: str, wanted: list[str], again: bool
+) -> dict[str, Any] | None:
+    """Refuse a direction this character already has for this motion.
+
+    The whole reason a second call happens at all is to reach the directions the
+    first one did not cover, so covering one twice is money spent on a copy. What it
+    cannot do is join them: `animation_group_id` is refused on the way in, so the
+    directions of one motion arrive as separate animations however they are asked
+    for — and the refusal says so, because the obvious reading of a second call is
+    that it extends the first.
+    """
+    held = next((entry for entry in gather_animations(payload) if entry["motion"] == motion), None)
+    if held is None:
+        return None
+
+    repeated = [name for name in wanted if name in held["directions"]]
+    if repeated and not again:
+        rotations = [name for name, _ in ordered_rotations(payload.get("rotation_urls") or {})]
+        missing = [name for name in rotations if name not in held["directions"]]
+        raise ValidationError(
+            f"{', '.join(repeated)} is already animated for {motion!r}, which holds "
+            f"{', '.join(held['directions'])}. PixelLab starts a new animation rather "
+            "than adding a direction to one, so this would pay for a second copy. "
+            + (
+                f"Animate what it lacks — {', '.join(missing)} — or pass --again to "
+                "generate it a second time."
+                if missing
+                else "Pass --again to generate it a second time."
+                if not rotations
+                else "It covers every rotation this character has; pass --again to "
+                "generate it a second time."
+            ),
+            context={"motion": motion, "held": held["directions"], "repeated": repeated},
+        )
+    return held
+
+
+def gather_animations(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    """One entry per motion, over every direction the character holds for it.
+
+    PixelLab starts a new animation group for every call — `animation_group_id` is
+    refused on the way in, and animating south today and east tomorrow leaves two
+    animations of one walk. They are one animation everywhere this tool can say so,
+    and `groups` is how many the provider holds behind it.
+    """
+    gathered: dict[str, dict[str, Any]] = {}
+    for animation in payload.get("animations") or []:
+        if not isinstance(animation, dict):
+            continue
+        # `directions` holds an object per direction — the name, how many frames it
+        # has, and their URLs — not a list of names.
+        covered = [
+            str(entry.get("direction", "?")).translate(subjects.CONTROL)
+            for entry in animation.get("directions") or []
+            if isinstance(entry, dict)
+        ]
+        entry = gathered.setdefault(
+            motion_of(animation), {"motion": motion_of(animation), "directions": [], "groups": 0}
+        )
+        entry["groups"] += 1
+        entry["directions"].extend(name for name in covered if name not in entry["directions"])
+    return list(gathered.values())
 
 
 def read_subject(app_context) -> subjects.Subject | None:
@@ -770,6 +879,9 @@ def animate(
     any_pose: bool = typer.Option(
         False, "--any-pose", help="Start from the pose named, even if another suits the action."
     ),
+    again: bool = typer.Option(
+        False, "--again", help="Animate a direction this motion already has, a second time."
+    ),
     seed: int = typer.Option(None, "--seed", help="Repeat a previous generation."),
 ) -> None:
     """Animate a character. Every direction is a separate job and a separate charge."""
@@ -788,6 +900,7 @@ def animate(
             drop_first_frame,
             terse,
             any_pose,
+            again,
             seed,
         )
     except PixellabCliError as failure:
@@ -808,6 +921,7 @@ def _animate(
     drop_first_frame,
     terse,
     any_pose,
+    again,
     seed,
 ) -> None:
     app_context: AppContext = context.obj
@@ -863,7 +977,15 @@ def _animate(
             context={"directions": wanted},
         )
 
-    _require_character(app_context, character_id)
+    character = _require_character(app_context, character_id)
+    motion = motion_asked_for(animation_name, action, template)
+    held = check_the_directions_are_new(character, motion, wanted, again)
+    if held:
+        output.stderr(
+            f"{motion!r} is already animated over {', '.join(held['directions'])}. These "
+            "frames join it here and in what an engine loads; PixelLab holds them as an "
+            "animation of their own."
+        )
     subject = read_subject(app_context)
     check_pose_belongs(subject, character_id, start_pose, "--start-pose")
     check_pose_belongs(subject, character_id, end_pose, "--end-pose")
@@ -937,9 +1059,9 @@ def _animate(
     # the file names, and a frame count is usually chosen to fit a loop.
     if not template:
         generated = int(frames or _frame_default(route))
-        held = generated if drop_first_frame else generated + 1
+        stored = generated if drop_first_frame else generated + 1
         output.stderr(
-            f"{generated} frame(s) generated per direction, {held} held"
+            f"{generated} frame(s) generated per direction, {stored} held"
             + ("" if drop_first_frame else " — the frame it starts on is kept as frame 0")
             + "."
         )
@@ -1179,25 +1301,21 @@ def _show(context, character_id) -> None:
         raise ValidationError(f"no character {character_id!r} on this account")
 
     rotations = ordered_rotations(payload.get("rotation_urls") or {})
-    animations = payload.get("animations") or []
+    # One line per motion rather than per group: a walk generated south first and
+    # east later is two animations on the account and one animation to work with, and
+    # the count the provider holds is said rather than hidden.
+    gathered = gather_animations(payload)
+    groups = sum(entry["groups"] for entry in gathered)
+    counted = f"{len(gathered)}" + (f" ({groups} on PixelLab)" if groups != len(gathered) else "")
     lines = [
         f"{payload.get('name', character_id)}  ({character_id})",
         f"status: {payload.get('status', 'unknown')}",
         f"rotations: {', '.join(name for name, _ in rotations) or 'none'}",
-        f"animations: {len(animations)}",
+        f"animations: {counted}",
     ]
-    for animation in animations:
-        # `directions` holds an object per direction — the name, how many frames it
-        # has, and their URLs — not a list of names.
-        covered = [
-            entry.get("direction", "?")
-            for entry in animation.get("directions") or []
-            if isinstance(entry, dict)
-        ]
-        # `.get(key, default)` does not reach the default when the key is there
-        # holding None, which is what an animation with no display name carries.
-        name = animation.get("display_name") or animation.get("animation_type") or "unnamed"
-        lines.append(f"  {name}  {', '.join(covered) or 'none'}")
+    for entry in gathered:
+        held = f" [{entry['groups']} animations]" if entry["groups"] > 1 else ""
+        lines.append(f"  {entry['motion']}  {', '.join(entry['directions']) or 'none'}{held}")
     output.emit(payload, lines, as_json=app_context.as_json)
 
 

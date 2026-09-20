@@ -130,16 +130,30 @@ nothing else to offer and nothing to refuse against.
 pixellab-cli character animate <character_id> --action/-a --template --direction/-d --frames
                                               --start-pose --end-pose --enhance
                                               --drop-first-frame --terse --any-pose
-                                              --name --seed
+                                              --name --seed --again
 ```
 
 **Every direction is a separate job and a separate charge**, at one generation per frame
 per direction. It defaults to south alone. Frames times directions is the bill.
 
-Three things are refused before anything is sent, and each has an escape for the
+**Name every direction in one call where you can.** PixelLab starts a new animation for
+each call and will not add a direction to one that exists — `animation_group_id` is
+refused on the way in, and repeating the name or the template makes a second animation
+rather than extending the first. So `-d south -d east -d north` is one animation over
+three directions, and three calls are three animations of one motion.
+
+That split is real on the account and not here: `character show` reads the groups of one
+motion as one animation and says how many PixelLab holds, `inspect` gathers the runs the
+same way, and an atlas built from that animation is built from every direction of it. So
+coming back later to animate the directions you skipped is fine and is what `--again`
+guards: a direction the motion already has is refused before anything is sent, because a
+second take of one it holds is a copy nobody asked for. `--again` buys it anyway.
+
+Four things are refused before anything is sent, and each has an escape for the
 person who means it: a pose belonging to another character, a pose the record says was
-made for a different motion (`--any-pose`), and an action that is a label rather than a
-motion (`--terse`). None of them fires on something the record has not seen.
+made for a different motion (`--any-pose`), an action that is a label rather than a
+motion (`--terse`), and a direction this motion already holds (`--again`). None of them
+fires on something the record has not seen.
 
 `--start-pose` takes a state's id or a file and is the frame the motion starts on.
 Without it the animation starts from the neutral rotation and has to invent the pose and

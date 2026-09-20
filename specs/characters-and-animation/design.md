@@ -328,3 +328,50 @@ The matcher underneath is word overlap between the state's `--edit` text and the
 stores a character, not an idle. That is a real ceiling: a state described in words the
 motion does not reuse reads as unrelated. It fails towards the refusal rather than away
 from it, and `--any-pose` is the way past.
+
+## One animation, many directions — and why the provider will not extend one
+
+A character animation is one group with a direction each, and PixelLab returns its
+`animation_group_id` from `GET /characters/{character_id}`. Extending that group is
+what `AnimateObjectRequest` documents for objects — *"pass the animation_group_id of an
+existing animation on this object to add more directions to it"* — and what
+`CreateCharacterAnimationRequest` does not offer. Sent anyway, the route answers:
+
+```json
+{"type": "extra_forbidden", "loc": ["body", "animation_group_id"],
+ "msg": "Extra inputs are not permitted"}
+```
+
+The body is `extra="forbid"`, confirmed by sending an invented field alongside it and
+reading the same error back. Nor does the provider join by name or by template: the
+account this was checked against holds `walk`, `jump` and `run` twice each on one
+character as separate groups, and a `spell` over six directions beside a `spell 2` over
+the remaining two. **Every POST to `/characters/animations` starts a new group.** One
+group over eight directions comes from one call naming eight directions, which
+`character animate -d south -d east …` already sends.
+
+PixelLab's own site does extend a group, over an endpoint that is not in the v2 schema
+and not reachable with an API key:
+`POST https://api.pixellab.ai/animate-with-text-v3/character/background`, unprefixed,
+taking `direction` in the singular beside `animation_group_id`. It answers
+`403 {"detail":"Invalid token"}` to the bearer token this tool holds, and
+`https://api.pixellab.ai/openapi.json` is `404`. Reaching for it would mean a second
+credential, taken out of a browser session, for an endpoint nobody documented and
+nothing obliges PixelLab to keep. Not adopted, and this paragraph is why.
+
+So the seam moves to this side of the wire. R2.39 spends nothing to prevent the waste:
+the character payload `_require_character` already fetches names every animation and
+every direction it covers, so a direction asked for twice is a refusal that names the
+animation holding it, with `--again` for the case where a second take is the point.
+Matching a motion to a group is by the name the call would carry — `--name` when given,
+otherwise `custom-` and the first thirty characters of the action, which is how the
+provider derives `animation_type` for a v3 animation, or the template id for a
+template.
+
+R4.5, and the record requirement added to `specs/asset-workspace/` beside it, then read
+several groups as one animation:
+`character show` folds the account's groups by that name and says how many the provider
+holds behind it, and the subject record folds the runs the same way, so an animation
+built over two calls reaches `inspect` — and the atlas built from it — as one animation
+over every direction it covers. The grouping the provider refuses is real everywhere a
+game engine can see it.
