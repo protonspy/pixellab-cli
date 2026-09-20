@@ -2,8 +2,8 @@
 autonomy: auto
 ci: wait
 branch: feat/the-subject-manifest
-delivery: in-progress
-pr: 59
+delivery: in-review
+pr: 60
 ---
 
 # Characters and animation — requirements
