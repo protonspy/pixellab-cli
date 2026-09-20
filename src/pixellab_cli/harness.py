@@ -197,19 +197,37 @@ def copy_skill(destination: Path, source: Path = PACKAGED_SKILL) -> tuple[Path, 
     return tuple(written)
 
 
-def block_body(references: Path) -> str:
+def block_body(references: Path | None) -> str:
     """The instructions for a harness that inlines them into every prompt.
 
     Short on purpose: what an agent has to know before it spends money, and a pointer
-    to the reference files for everything else. A harness that carries this in every
-    prompt should not be carrying the full command list.
+    to the skill for everything else. A harness that carries this in every prompt
+    should not be carrying the full command list.
+
+    `references` is where the skill files landed, for a harness with no skill loader,
+    which can only be given a path. `None` is a harness that loads a skill by name, on
+    demand — Claude Code — where a path is the thing that stops it loading: the agent
+    reads the one file it was pointed at, which is the skill's opening text without
+    the loading and without anything that skill would have pulled in with it.
     """
-    entry = f"{references.as_posix()}/{ENTRY_SKILL}/SKILL.md"
+    if references is None:
+        opening = (
+            f"load the `{ENTRY_SKILL}` skill, by name. A skill is loaded on\n"
+            f"demand, and reading its file is not loading it; it routes to the skill that owns\n"
+            f"the kind of asset being asked for."
+        )
+        full = f"the `{ENTRY_SKILL}` skill, loaded by name"
+    else:
+        entry = f"{references.as_posix()}/{ENTRY_SKILL}/SKILL.md"
+        opening = (
+            f"read `{entry}`. It routes to the skill\nthat owns the kind of asset being asked for."
+        )
+        full = f"`{entry}`"
     return f"""## Generating game art with `pixellab-cli`
 
 `pixellab-cli` generates 2D game assets and **spends the person's real money on every
-call**. Read `{entry}` before the first one; it routes to the skill that owns the kind
-of asset being asked for. Do not generate anything from memory of this block alone.
+call**. Do not generate anything from memory of this block alone: before the first
+call, {opening}
 
 **Nothing paid runs without `--yes`.** Every paid route refuses without it and prints
 the route, the arguments and the estimate instead of calling. That print-out is what
@@ -255,19 +273,15 @@ is accepted by the route, charged per frame per direction, and comes back wrong.
 - Do not name a provider route, and do not guess enum spellings or size limits. The tool
   chooses, validates before spending, and its errors name what would have worked.
 
-Full instructions: `{entry}`, which routes to the category skill beside it —
-`pixellab-cli-images`, `pixellab-cli-characters`, `pixellab-cli-animation`,
-`pixellab-cli-editing`, `pixellab-cli-scenes`, `pixellab-cli-interface` — and
-`{ENTRY_SKILL}/references/costs.md`
-for what each command costs."""
+Full instructions: {full}.
+It routes to the category skill beside it — `pixellab-cli-images`,
+`pixellab-cli-characters`, `pixellab-cli-animation`, `pixellab-cli-editing`,
+`pixellab-cli-scenes`, `pixellab-cli-interface` — and carries `references/costs.md`,
+which is what each command costs."""
 
 
 def claude_skill_dir(root: Path, name: str = ENTRY_SKILL) -> Path:
     return root / ".claude" / "skills" / name
-
-
-# Where Claude Code's skills land, as the memory file has to spell it.
-CLAUDE_SKILLS = Path(".claude") / "skills"
 
 
 def claude_memory(root: Path, *, global_install: bool) -> Path:
@@ -357,7 +371,7 @@ def install(harness: Harness, root: Path, *, global_install: bool = False) -> Wr
                 changed = not skill_matches(skill, source) or changed
                 paths.extend(copy_skill(skill, source))
             memory = claude_memory(root, global_install=global_install)
-            changed = write_block(memory, block_body(CLAUDE_SKILLS)) or changed
+            changed = write_block(memory, block_body(None)) or changed
             paths.append(memory)
             return Written(harness, tuple(paths), changed=changed, retired=stale)
 
