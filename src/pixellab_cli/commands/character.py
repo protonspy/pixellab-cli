@@ -84,7 +84,21 @@ def _require_character(app_context, character_id: str) -> None:
         raise ValidationError(f"no character {character_id!r} on this account")
 
 
-def check_pose_suits(app_context, character_id: str, pose: str | None, action: str | None) -> None:
+def read_subject(app_context) -> subjects.Subject | None:
+    """The subject's record, once per command rather than once per question.
+
+    Building it is a directory walk — `subject.load` says so — and a posed animation
+    asks four questions of it: does the start pose belong here, does it suit the
+    action, and what is each of the two poses. Loaded once and handed round.
+    """
+    if not app_context.subject:
+        return None
+    return subjects.load(app_context.workspace, slugify(app_context.subject))
+
+
+def check_pose_suits(
+    subject: subjects.Subject | None, character_id: str, pose: str | None, action: str | None
+) -> None:
     """Refuse an attack animated from the idle pose, where the record can see it.
 
     The pose the motion starts on is half the result: a walk described from a standing
@@ -101,9 +115,8 @@ def check_pose_suits(app_context, character_id: str, pose: str | None, action: s
     outrun its pose. It is "another pose of this character matches and this one does
     not", which is a statement about a choice that was available and not taken.
     """
-    if not pose or not action or not app_context.subject:
+    if not pose or not action or subject is None:
         return
-    subject = subjects.load(app_context.workspace, slugify(app_context.subject))
     if subject.owner_of(pose) != character_id:
         # Either not this character's, which `check_pose_belongs` refuses on its own,
         # or unknown here, and an unknown pose has no text to judge.
@@ -129,7 +142,9 @@ def check_pose_suits(app_context, character_id: str, pose: str | None, action: s
     )
 
 
-def check_pose_belongs(app_context, character_id: str, pose: str | None, flag: str) -> None:
+def check_pose_belongs(
+    subject: subjects.Subject | None, character_id: str, pose: str | None, flag: str
+) -> None:
     """Refuse a pose the subject's own record says belongs to another character.
 
     The failure this catches is silent and expensive: animating a knight from an
@@ -141,15 +156,17 @@ def check_pose_belongs(app_context, character_id: str, pose: str | None, flag: s
     subject, or before any of this was written down — is unknown rather than wrong,
     and refusing on unknown would refuse correct work while teaching nobody anything.
     """
-    if not pose or not app_context.subject:
+    if not pose or subject is None:
         return
-    known = subjects.load(app_context.workspace, slugify(app_context.subject)).owner_of(pose)
+    known = subject.owner_of(pose)
     if known is None or known == character_id:
         return
     raise ValidationError(
         f"{flag} {pose} is a pose of character {known}, and this animates {character_id}. "
         f"Animating one character from another's frame is charged per frame per direction "
-        f"and comes back wrong. `pixellab-cli inspect {app_context.subject}` lists the poses "
+        # The subject's name is safe in a suggested command where a path or a free-text
+        # action is not: `slugify` has already reduced it to letters, digits and hyphens.
+        f"and comes back wrong. `pixellab-cli inspect {subject.name}` lists the poses "
         f"each character has.",
         context={"pose": pose, "belongs_to": known, "animating": character_id},
     )
@@ -571,7 +588,7 @@ def _is_identifier(value: str) -> bool:
     return True
 
 
-def pose_frame(app_context, pose: str, direction: str):
+def pose_frame(app_context, pose: str, direction: str, subject: subjects.Subject | None = None):
     """The frame a posed animation starts on — a file on disk, or a character's rotation.
 
     PixelLab's own advice is to pose the character first and animate from the pose: a
@@ -605,10 +622,8 @@ def pose_frame(app_context, pose: str, direction: str):
 
     # Named with what it was made for, where the record knows: `char-12` says nothing
     # about whether it is the idle or the wind-up, and that is the whole question.
-    described = ""
-    if app_context.subject:
-        text = subjects.load(app_context.workspace, slugify(app_context.subject)).pose_text(pose)
-        described = f" — {text}" if text else ""
+    text = subject.pose_text(pose) if subject is not None else None
+    described = f" — {text}" if text else ""
     output.stderr(f"pose: reading the {direction} rotation of character {pose}{described}")
     client = app_context.pixellab()
     detail = client.call("character", character_id=pose).raw
@@ -752,14 +767,15 @@ def _animate(
         )
 
     _require_character(app_context, character_id)
-    check_pose_belongs(app_context, character_id, start_pose, "--start-pose")
-    check_pose_belongs(app_context, character_id, end_pose, "--end-pose")
+    subject = read_subject(app_context)
+    check_pose_belongs(subject, character_id, start_pose, "--start-pose")
+    check_pose_belongs(subject, character_id, end_pose, "--end-pose")
     if not any_pose:
-        check_pose_suits(app_context, character_id, start_pose, action)
+        check_pose_suits(subject, character_id, start_pose, action)
 
     direction = wanted[0]
-    start_frame = pose_frame(app_context, start_pose, direction) if start_pose else None
-    end_frame = pose_frame(app_context, end_pose, direction) if end_pose else None
+    start_frame = pose_frame(app_context, start_pose, direction, subject) if start_pose else None
+    end_frame = pose_frame(app_context, end_pose, direction, subject) if end_pose else None
     if end_frame is not None:
         output.stderr(
             "an end pose interpolates: the motion runs from the start pose toward it "
@@ -937,8 +953,9 @@ def _enrich(context, action, pose, direction, end_pose, frames, engine) -> None:
             f"not a direction: {direction}. The directions are: {', '.join(DIRECTION)}"
         )
 
-    first_frame = pose_frame(app_context, pose, direction)
-    last_frame = pose_frame(app_context, end_pose, direction) if end_pose else None
+    subject = read_subject(app_context)
+    first_frame = pose_frame(app_context, pose, direction, subject)
+    last_frame = pose_frame(app_context, end_pose, direction, subject) if end_pose else None
 
     arguments: dict[str, Any] = {
         "first_frame": first_frame,

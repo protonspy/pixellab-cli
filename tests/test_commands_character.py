@@ -2907,6 +2907,65 @@ class TestThePoseHasToSuitTheAction:
         assert result.exit_code == 0
 
     @respx.mock
+    def test_no_subject_means_no_record_and_no_refusal(self, tmp_path, monkeypatch):
+        """The record is what makes the judgement possible; without one there is none
+        to make, and refusing on absence would refuse correct work."""
+        mock_character()
+        self.mock_poses()
+        self.a_character_with_two_poses(tmp_path)
+
+        result = invoke(
+            [
+                "character",
+                "animate",
+                "char-9",
+                "-a",
+                "attacking overhead with a sword, blade falling",
+                "--start-pose",
+                "pose-idle",
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 0
+
+    @respx.mock
+    def test_a_pose_given_as_a_file_is_not_judged(self, tmp_path, monkeypatch):
+        mock_character()
+        self.mock_poses()
+        self.a_character_with_two_poses(tmp_path)
+        frame = tmp_path / "drawn-by-hand.png"
+        frame.write_bytes(png_bytes(64, 64))
+
+        result = self.animate(
+            tmp_path,
+            monkeypatch,
+            str(frame),
+            "attacking overhead with a sword, blade falling",
+        )
+
+        assert result.exit_code == 0
+
+    @respx.mock
+    def test_a_pose_the_record_never_saw_is_not_judged(self, tmp_path, monkeypatch):
+        mock_character()
+        respx.get(f"{PIXELLAB_BASE_URL}/characters/pose-elsewhere").respond(
+            json={"id": "pose-elsewhere", "rotation_urls": rotation_urls(["south"])}
+        )
+        self.mock_poses()
+        self.a_character_with_two_poses(tmp_path)
+
+        result = self.animate(
+            tmp_path,
+            monkeypatch,
+            "pose-elsewhere",
+            "attacking overhead with a sword, blade falling",
+        )
+
+        assert result.exit_code == 0
+
+    @respx.mock
     def test_the_pose_is_named_by_what_it_was_made_for(self, tmp_path, monkeypatch):
         """`char-12` says nothing about whether it is the idle or the wind-up."""
         mock_character()

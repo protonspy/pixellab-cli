@@ -161,15 +161,33 @@ FILLER = frozenset(
     }
 )
 
-# How much of a word has to agree. Four letters takes `attack` to `attacking` and
-# `walk` to `walking` without taking `attack` to `attach`.
-STEM = 4
+
+# A word reduced to the part that survives its endings, so `attack` reaches
+# `attacking` and `run` reaches `running`. Truncating to a fixed prefix was tried and
+# is wrong in both directions: `attack` and `attach` share four letters and are not
+# the same motion, and `run` is shorter than `running` is after truncation, so the
+# two never met. Endings rather than prefixes, and whole words compared.
+def root(word: str) -> str:
+    """One word with its inflection taken off."""
+    for ending in ("ing", "ed"):
+        if word.endswith(ending) and len(word) - len(ending) >= 3:
+            word = word[: -len(ending)]
+            # `running` loses the doubled consonant it grew for the ending.
+            if len(word) > 2 and word[-1] == word[-2]:
+                word = word[:-1]
+            break
+    else:
+        if word.endswith("s") and not word.endswith("ss") and len(word) > 3:
+            word = word[:-1]
+    # `stride` and `striding` meet at `strid`, which is a word in nothing but this
+    # comparison and does not have to be one.
+    return word[:-1] if word.endswith("e") and len(word) > 3 else word
 
 
 def motion_words(text: str) -> set[str]:
     """The words of a pose or an action that say which motion it is."""
     cleaned = "".join(character if character.isalnum() else " " for character in text.lower())
-    return {word[:STEM] for word in cleaned.split() if word not in FILLER and len(word) > 2}
+    return {root(word) for word in cleaned.split() if word not in FILLER and len(word) > 2}
 
 
 def suits(pose_text: str, action: str) -> bool:

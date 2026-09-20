@@ -182,3 +182,16 @@ class TestWhetherAPoseSuitsAMotion:
 
     def test_a_word_matches_across_its_endings(self):
         assert prompts.suits("an attack wind-up", "attacking with a sword")
+
+    def test_a_word_that_merely_starts_the_same_is_not_a_match(self):
+        """`attack` and `attach` share four letters and are not the same motion, which
+        is why this compares whole words with their endings off rather than prefixes."""
+        assert not prompts.suits("idle stance, cloak attached at the back", "attacking")
+
+    def test_a_doubled_consonant_still_matches(self):
+        """`run` is shorter than `running` is after any truncation, so the two never
+        met while this took a fixed prefix."""
+        assert prompts.suits("character mid-run, legs extended", "running")
+
+    def test_a_silent_e_still_matches(self):
+        assert prompts.suits("a long stride, weight forward", "striding forward")
