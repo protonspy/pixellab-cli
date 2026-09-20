@@ -2,8 +2,8 @@
 autonomy: auto
 ci: wait
 branch: feat/one-animation-many-directions
-delivery: in-progress
-pr: 68
+delivery: in-review
+pr: 78
 ---
 
 # Characters and animation — requirements

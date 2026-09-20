@@ -1,9 +1,9 @@
 ---
 autonomy: auto
 ci: wait
-branch: feat/the-subject-manifest
-delivery: merged
-pr: 60
+branch: feat/one-animation-many-directions
+delivery: in-review
+pr: 78
 ---
 
 # Asset workspace — requirements
