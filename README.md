@@ -131,7 +131,9 @@ pixellab-cli tiles terrain --lower grass --upper stone
 pixellab-cli tiles platform --material "stone bricks"
 pixellab-cli edit knight.png -p "give him a blue cape"
 pixellab-cli inpaint knight.png --mask mask.png -p "a horned helmet"
-pixellab-cli ui "wooden RPG panel with gold trim"
+pixellab-cli ui new "wooden RPG panel with gold trim"
+pixellab-cli ui list                    # every panel the account holds. Free.
+pixellab-cli ui show <ui_asset_id>      # write one out again. Free.
 pixellab-cli font "warm orange arcade font" --bold
 pixellab-cli art boxart "a knight at dawn over a burning keep"
 pixellab-cli image flip walk-east-*.png

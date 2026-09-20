@@ -20,7 +20,12 @@ from pixellab_cli.errors import (
     RateLimited,
     ValidationError,
 )
-from pixellab_cli.pixellab import PixelLabClient, _decode_images, _usage
+from pixellab_cli.pixellab import (
+    MAX_DOWNLOAD_BYTES,
+    PixelLabClient,
+    _decode_images,
+    _usage,
+)
 
 CREDENTIALS = Credentials(pixellab_secret="pl-test-token")
 
@@ -406,3 +411,142 @@ class TestAResponseThatSaysHowManyFramesItHas:
 
         assert usage is not None
         assert usage.seconds is None
+
+
+class TestAJobThatReturnsAnAddressRatherThanBytes:
+    """R4.9. `create-ui-asset` completes into `/ui-assets/{id}`, whose payload carries
+    `image_url` and no base64 at all — a real one, read off the account:
+
+        {"id": "43d70268-…", "status": "completed",
+         "image_url": "https://backblaze.pixellab.ai/file/…/full.png?v=1789936808"}
+
+    Thirty generations were charged for a panel that was never collected."""
+
+    PANEL_URL = "https://backblaze.pixellab.ai/file/pixellab-characters/ui/x/y/full.png?v=1"
+
+    def a_completed_panel(self):
+        respx.post(url("/create-ui-asset")).respond(
+            json={"ui_asset_id": "ui-1", "background_job_id": "job-1", "status": "processing"}
+        )
+        respx.get(url("/ui-assets/ui-1")).respond(
+            json={
+                "id": "ui-1",
+                "status": "completed",
+                "size": {"width": 192, "height": 192},
+                "image_url": self.PANEL_URL,
+            }
+        )
+
+    @respx.mock
+    def test_the_image_is_fetched_from_the_address(self, client):
+        self.a_completed_panel()
+        respx.get(self.PANEL_URL).respond(content=png_bytes())
+
+        result = client.call("create-ui-asset", description="a wooden panel")
+
+        assert result.images == [png_bytes()]
+
+    @respx.mock
+    def test_the_address_is_fetched_without_the_bearer_token(self, client):
+        """These links carry their own access in the identifier, like a rotation URL."""
+        self.a_completed_panel()
+        asset = respx.get(self.PANEL_URL).respond(content=png_bytes())
+
+        client.call("create-ui-asset", description="a wooden panel")
+
+        assert "authorization" not in asset.calls.last.request.headers
+
+    @respx.mock
+    def test_bytes_in_the_payload_are_still_preferred(self, client):
+        """A payload carrying both is not fetched twice: the bytes are already here."""
+        respx.post(url("/create-ui-asset")).respond(
+            json={"ui_asset_id": "ui-1", "background_job_id": "job-1", "status": "processing"}
+        )
+        respx.get(url("/ui-assets/ui-1")).respond(
+            json={"status": "completed", "images": [image_payload()], "image_url": self.PANEL_URL}
+        )
+        asset = respx.get(self.PANEL_URL).respond(content=png_bytes())
+
+        result = client.call("create-ui-asset", description="a wooden panel")
+
+        assert result.images == [png_bytes()]
+        assert not asset.called
+
+
+class TestCollectingAJobThatReturnsAnAddress:
+    """R4.9 through the resume path. `create-ui-asset` can time out, and what it tells
+    the caller to run is `pixellab-cli job show <id>` — which collects by id alone. A
+    charged panel must not be lost one hop later than the one this fix closed."""
+
+    PANEL_URL = "https://backblaze.pixellab.ai/file/pixellab-characters/ui/x/y/full.png?v=1"
+
+    @respx.mock
+    def test_the_image_is_fetched_from_the_address(self, client):
+        job = "5bf5ee44-06e1-4a6f-9e5a-1e0e5ef0a6d1"
+        respx.get(url(f"/background-jobs/{job}")).respond(
+            json={"status": "completed", "last_response": {"image_url": self.PANEL_URL}}
+        )
+        respx.get(self.PANEL_URL).respond(content=png_bytes())
+
+        result = client.collect(job)
+
+        assert result.images == [png_bytes()]
+
+
+class TestAnIdentifierThatWouldLeaveItsPath:
+    """A path parameter is interpolated into the URL, and the request carries the
+    bearer token — so a dot segment or a separator in one is a URL of somebody else's
+    choosing, reached with this caller's credential. `collect` already refuses it for a
+    job id; every path parameter is refused the same way, before anything is sent."""
+
+    @pytest.mark.parametrize(
+        "identifier",
+        ["../characters/char-9", "ui-1/../../balance", "a\\b", "..", "ui-1/extra"],
+    )
+    @respx.mock
+    def test_it_is_refused_before_the_request(self, client, identifier):
+        route = respx.get(url(f"/ui-assets/{identifier}"))
+
+        with pytest.raises(ValidationError):
+            client.call("ui-asset", ui_asset_id=identifier)
+
+        assert not route.called
+
+    @respx.mock
+    def test_an_ordinary_identifier_still_goes_through(self, client):
+        respx.get(url("/ui-assets/ui-1")).respond(json={"id": "ui-1", "status": "completed"})
+
+        result = client.call("ui-asset", ui_asset_id="ui-1")
+
+        assert result.raw["id"] == "ui-1"
+
+
+class TestWhatADownloadWillHold:
+    """The address is the provider's and is fetched without anybody asking, so how
+    much is read is not the provider's decision to make."""
+
+    ADDRESS = "https://backblaze.pixellab.ai/file/pixellab-characters/ui/x/y/full.png"
+
+    @respx.mock
+    def test_a_body_past_the_ceiling_is_refused(self, client):
+        respx.get(self.ADDRESS).respond(content=b"x" * (MAX_DOWNLOAD_BYTES + 1))
+
+        with pytest.raises(ProviderError) as refused:
+            client.download(self.ADDRESS)
+
+        assert "ceiling" in str(refused.value)
+
+    @respx.mock
+    def test_a_declared_length_past_the_ceiling_is_refused_as_well(self, client):
+        respx.get(self.ADDRESS).respond(
+            content=b"x", headers={"Content-Length": str(MAX_DOWNLOAD_BYTES + 1)}
+        )
+
+        with pytest.raises(ProviderError):
+            client.download(self.ADDRESS)
+
+    @respx.mock
+    def test_an_ordinary_asset_comes_through(self, client):
+        respx.get(self.ADDRESS).respond(content=png_bytes())
+
+        assert client.download(self.ADDRESS) == png_bytes()

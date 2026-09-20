@@ -936,3 +936,51 @@ class TestTheEnvironmentEscapeIsReadAsAValue:
         monkeypatch.setenv(ASSUME_YES_VAR, value)
 
         assert self._call(tmp_path).files
+
+
+class TestAgreementIsForACallThatCanCostSomething:
+    """R6.5. The gate is for a call that can cost money. A route whose price is known
+    to be zero — reading a spritesheet, writing out a panel the account already holds —
+    was asking for --yes to fetch a file."""
+
+    def runner_without_consent(self, tmp_path):
+        workspace = Workspace(tmp_path / "out")
+        return Runner(workspace=workspace, ledger=Ledger(workspace), approved=False)
+
+    def test_a_route_known_to_cost_nothing_needs_no_agreement(self, tmp_path, monkeypatch):
+        monkeypatch.delenv(ASSUME_YES_VAR, raising=False)
+        runner = self.runner_without_consent(tmp_path)
+
+        runner.approve("pixellab", "ui-asset", {}, Cost(generations=0.0, source="reported"))
+
+    def test_an_unknown_price_still_asks(self, tmp_path, monkeypatch):
+        """Not knowing a price is not the same as knowing it is nothing."""
+        monkeypatch.delenv(ASSUME_YES_VAR, raising=False)
+        runner = self.runner_without_consent(tmp_path)
+
+        with pytest.raises(ApprovalRequired):
+            runner.approve("pixellab", "create-ui-asset", {}, None)
+
+    def test_a_price_of_zero_that_is_only_an_estimate_still_asks(self, tmp_path, monkeypatch):
+        monkeypatch.delenv(ASSUME_YES_VAR, raising=False)
+        runner = self.runner_without_consent(tmp_path)
+
+        with pytest.raises(ApprovalRequired):
+            runner.approve("pixellab", "a-route", {}, Cost(generations=0.0, source="estimated"))
+
+    def test_a_reported_price_that_is_not_zero_still_asks(self, tmp_path, monkeypatch):
+        monkeypatch.delenv(ASSUME_YES_VAR, raising=False)
+        runner = self.runner_without_consent(tmp_path)
+
+        with pytest.raises(ApprovalRequired):
+            runner.approve("pixellab", "a-route", {}, Cost(generations=30.0, source="reported"))
+
+    def test_a_time_priced_route_reporting_no_generations_still_asks(self, tmp_path, monkeypatch):
+        """fal reports seconds and no generations; that is a price, not a zero."""
+        monkeypatch.delenv(ASSUME_YES_VAR, raising=False)
+        runner = self.runner_without_consent(tmp_path)
+
+        with pytest.raises(ApprovalRequired):
+            runner.approve(
+                "fal", "a-route", {}, Cost(generations=0.0, seconds=4.0, source="reported")
+            )

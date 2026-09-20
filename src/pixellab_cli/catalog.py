@@ -1166,6 +1166,28 @@ GET_OBJECT = Route(
 )
 
 
+LIST_UI_ASSETS = Route(
+    name="ui-assets",
+    method="GET",
+    path="/ui-assets",
+    kind=RouteKind.SYNCHRONOUS,
+    summary="Every UI panel on the account, newest first.",
+    estimated_generations=0.0,
+    params=(),
+)
+
+GET_UI_ASSET = Route(
+    name="ui-asset",
+    method="GET",
+    path="/ui-assets/{ui_asset_id}",
+    kind=RouteKind.SYNCHRONOUS,
+    summary="One UI panel: its address, its size, and how it was made.",
+    estimated_generations=0.0,
+    params=(Param("ui_asset_id", ParamKind.STRING, required=True),),
+    path_params=("ui_asset_id",),
+)
+
+
 ROUTES: tuple[Route, ...] = (
     CREATE_IMAGE_PIXFLUX,
     CREATE_IMAGE_PIXEN,
@@ -1208,6 +1230,8 @@ ROUTES: tuple[Route, ...] = (
     CHARACTER_SPRITESHEET,
     LIST_OBJECTS,
     GET_OBJECT,
+    LIST_UI_ASSETS,
+    GET_UI_ASSET,
 )
 
 BY_NAME: dict[str, Route] = {route.name: route for route in ROUTES}

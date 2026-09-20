@@ -109,3 +109,17 @@ of one character are gathered by the motion they animate, which is the name the 
 carried or the action it was made from, and the gathered animation holds every
 direction they covered and every file they wrote. An atlas built from one animation is
 then built from every direction of it, which is what `export atlas` is given.
+
+## Agreement is for a call that can cost something
+
+`approve` gated every call that reached the runner, including the ones whose price is
+known to be zero — reading a spritesheet, or writing out a UI panel the account already
+holds. R6.1 asks for agreement on *a call that can cost money*, so gating a free
+download was never what it said; it made `character sheet` ask for `--yes` to fetch a
+file, and the tests never saw it because the suite sets the assume-yes variable for
+every run.
+
+A free route is one whose estimate is present, reports zero, and is not a guess —
+`Cost(generations=0.0, source="reported")`, which is how the library routes already
+declare themselves. An absent estimate still gates: not knowing a price is not the same
+as knowing it is nothing, and it is the case the gate exists for.

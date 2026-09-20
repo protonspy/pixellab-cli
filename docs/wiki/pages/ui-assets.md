@@ -12,7 +12,7 @@ Both take a `color_palette` **in words** — `"brown and gold"` — where most o
 takes a palette as a `color_image`. Worth knowing before encoding a PNG nobody wanted.
 
 That is about the palette only; both routes do take an image for guidance.
-`create-ui-asset` has a `style_image`, which `pixellab-cli ui --style` already sends, and
+`create-ui-asset` has a `style_image`, which `pixellab-cli ui new --style` already sends, and
 `generate-ui-v2` has a `concept_image` for steering a single element's design.
 
 ## The panel route describes a shape, not just a subject

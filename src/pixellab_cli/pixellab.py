@@ -31,6 +31,10 @@ from pixellab_cli.validate import build_request
 # A synchronous generation route holds the connection open while it generates, so
 # its timeout is measured in minutes; everything else should answer at once.
 REQUEST_TIMEOUT = 30.0
+# How much of a provider-named URL is read before it is refused. Well above any
+# asset this tool makes, and well below what would hurt to hold in memory.
+MAX_DOWNLOAD_BYTES = 64 * 1024 * 1024
+
 GENERATION_TIMEOUT = 300.0
 
 DEFAULT_MAX_ATTEMPTS = 4
@@ -144,13 +148,43 @@ class PixelLabClient:
                 with httpx.Client(timeout=GENERATION_TIMEOUT) as client:
                     response = client.get(url, headers=headers)
             response.raise_for_status()
-            return response.content
+            return self._within_the_ceiling(response, url)
         except httpx.HTTPError as failure:
             raise ProviderError(
                 f"could not download from PixelLab: {failure}",
                 context={"url": url},
                 secrets=self._credentials.secrets,
             ) from failure
+
+    def _within_the_ceiling(self, response: httpx.Response, url: str) -> bytes:
+        """The body, refused rather than held where it is larger than any asset here.
+
+        The address comes from the provider's response and is fetched without anybody
+        asking, so how much is read must not be the provider's decision. The ceiling
+        is far above every asset this tool generates — a spritesheet ZIP of eight
+        directions is orders below it — so reaching it means something is wrong
+        rather than something is large.
+        """
+        declared = response.headers.get("Content-Length")
+        try:
+            if declared is not None and int(declared) > MAX_DOWNLOAD_BYTES:
+                raise ProviderError(
+                    f"refused a {int(declared)} byte download: nothing here is that "
+                    f"large, and the ceiling is {MAX_DOWNLOAD_BYTES}",
+                    context={"url": url, "bytes": int(declared)},
+                    secrets=self._credentials.secrets,
+                )
+        except ValueError:
+            pass
+        body = response.content
+        if len(body) > MAX_DOWNLOAD_BYTES:
+            raise ProviderError(
+                f"refused a {len(body)} byte download: nothing here is that large, "
+                f"and the ceiling is {MAX_DOWNLOAD_BYTES}",
+                context={"url": url, "bytes": len(body)},
+                secrets=self._credentials.secrets,
+            )
+        return body
 
     # ------------------------------------------------------------------ requests
 
@@ -251,7 +285,16 @@ class PixelLabClient:
                 secrets=self._credentials.secrets,
             )
         payload = self._poll(job_id, route.poll_path or "", route.name)
-        return _complete(route, payload, result)
+        result = _complete(route, payload, result)
+        if not result.images:
+            # `create-ui-asset` completes into `/ui-assets/{id}`, which carries the
+            # panel's address and no bytes anywhere — so the decoder found nothing and
+            # a call charged at thirty generations wrote no image. Fetched here rather
+            # than in the decoder, which is a function over a payload and has no
+            # client. Only `image_url`, and only because a real payload was seen
+            # holding it: the same rule the decoder states for `quantized_images`.
+            result.images = [self.download(address) for address in _image_urls(payload)]
+        return result
 
     def collect(self, job_id: str) -> Result:
         """Wait for a background job named by its id alone, and return what it made.
@@ -275,7 +318,13 @@ class PixelLabClient:
         payload = self._poll(job_id, catalog.BACKGROUND_JOBS_PATH, f"job {job_id}")
         body = payload.get("last_response") or payload
         result = Result(route="background-job", job_id=job_id, raw=payload)
-        result.images = _decode_images(body)
+        result.images = _decode_images(body) or [
+            # The same address the waited-for path fetches. This is the path a
+            # `create-ui-asset` that outran the wait is *told* to use, so a panel
+            # already charged for must not be lost one hop later.
+            self.download(address)
+            for address in _image_urls(body)
+        ]
         result.usage = _usage(payload) or _usage(body) or Usage(estimated=True)
         # The same provenance the ordinary path keeps. A collected job knowing less
         # about itself than a waited-for one is drift, not a decision.
@@ -343,6 +392,13 @@ def _complete(route: Route, payload: dict[str, Any], result: Result) -> Result:
     return result
 
 
+def _image_urls(payload: dict[str, Any]) -> list[str]:
+    """The addresses a completed job gives instead of bytes, if it gives any."""
+    body = payload.get("last_response") or payload
+    address = body.get("image_url")
+    return [address] if isinstance(address, str) and address else []
+
+
 def _decode_images(payload: dict[str, Any]) -> list[bytes]:
     """Every image in a response, whether it arrived as `image` or as `images`.
 
@@ -398,12 +454,28 @@ def _poll_id(route: Route, payload: dict[str, Any]) -> str | None:
     return None
 
 
+# What may not appear in a value that becomes part of a URL path. A separator opens a
+# segment of somebody else's choosing and a dot segment climbs out of the one this
+# route owns — either way the request still carries the bearer token, so the check is
+# here, at the one place every path parameter passes through, rather than at each
+# caller that remembers to make it.
+PATH_SEPARATORS = ("/", "\\")
+
+
 def _split_path(route: Route, body: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     """Move the path parameters out of the body and into the URL."""
     if not route.path_params:
         return route.path, body
     remaining = dict(body)
     values = {name: remaining.pop(name, "") for name in route.path_params}
+    for name, value in values.items():
+        text = str(value)
+        if any(mark in text for mark in PATH_SEPARATORS) or ".." in text:
+            raise ValidationError(
+                f"{name} is part of the address this is sent to, so it carries no "
+                f"path of its own: {value!r}",
+                context={"route": route.name, name: value},
+            )
     return route.path.format(**values), remaining
 
 

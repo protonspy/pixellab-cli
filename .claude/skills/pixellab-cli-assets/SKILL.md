@@ -103,7 +103,7 @@ file rather than the command.
 | A pose or state, any animation, a walk cycle, an attack, interpolation | `pixellab-cli-animation` | `pixellab-cli character state` |
 | A change to art that exists, a masked redraw, cleanup | `pixellab-cli-editing` | `pixellab-cli edit` · `pixellab-cli inpaint` |
 | Ground, terrain, tiles, props, objects | `pixellab-cli-scenes` | `pixellab-cli tiles` · `pixellab-cli object` |
-| A UI panel, a pixel font | `pixellab-cli-interface` | `pixellab-cli ui` · `pixellab-cli font` |
+| A UI panel, a pixel font | `pixellab-cli-interface` | `pixellab-cli ui new` · `pixellab-cli font` |
 
 Everything below is this skill's own: the money, the credentials, where files land,
 recovering a stopped run, and the free local tooling every category uses.
