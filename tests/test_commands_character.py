@@ -2100,3 +2100,173 @@ class TestNothingPaidRunsWithoutTheFlag:
 
         assert result.exit_code == 0
         assert not create.calls
+
+
+class TestAPoseBelongsToOneCharacter:
+    """Animating a knight from an orc's frame is accepted by the route, charged per
+    frame per direction, and comes back as a knight that turns into somebody else.
+
+    The record knows which character each pose was made from, so the mismatch is
+    readable here for nothing.
+    """
+
+    def a_subject(self, tmp_path, pose_of="char-9"):
+        home = tmp_path / "out" / "warrior"
+        for kind, version, payload in [
+            (
+                "rotations",
+                1,
+                {
+                    "ids": {"character_id": "char-9"},
+                    "links": {"directions": ["south"]},
+                    "arguments": {"description": "a knight"},
+                },
+            ),
+            (
+                "rotations",
+                2,
+                {
+                    "ids": {"character_id": "pose-1", "source_character_id": pose_of},
+                    "links": {"character_id": pose_of, "pose": "mid-stride"},
+                    "arguments": {},
+                },
+            ),
+            (
+                "rotations",
+                3,
+                {
+                    "ids": {"character_id": "char-other"},
+                    "links": {"directions": ["south"]},
+                    "arguments": {"description": "an orc"},
+                },
+            ),
+        ]:
+            directory = home / kind / f"v{version}"
+            directory.mkdir(parents=True, exist_ok=True)
+            run = f"warrior_{kind}_v{version}"
+            (directory / f"{run}.manifest.json").write_text(
+                json.dumps(
+                    {
+                        "schema": 1,
+                        "run": run,
+                        "provider": "pixellab",
+                        "route": "create-character-v3",
+                        "cost": {},
+                        "files": [],
+                        **payload,
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+    def mock_pose_and_animation(self):
+        respx.get(f"{PIXELLAB_BASE_URL}/characters/pose-1").respond(
+            json={"id": "pose-1", "rotation_urls": rotation_urls(["south"])}
+        )
+        respx.get(f"{PIXELLAB_BASE_URL}/characters/pose-from-elsewhere").respond(
+            json={"id": "pose-from-elsewhere", "rotation_urls": rotation_urls(["south"])}
+        )
+        respx.post(f"{PIXELLAB_BASE_URL}/characters/animations").respond(
+            json={"background_job_ids": ["job-2"], "status": "processing"}
+        )
+        respx.get(f"{PIXELLAB_BASE_URL}/background-jobs/job-2").respond(
+            json={"status": "completed", "last_response": {"images": [image_payload()]}}
+        )
+
+    @respx.mock
+    def test_a_pose_of_another_character_is_refused(self, tmp_path, monkeypatch):
+        animate = respx.post(f"{PIXELLAB_BASE_URL}/characters/animations")
+        mock_character()
+        self.a_subject(tmp_path, pose_of="char-other")
+
+        result = invoke(
+            [
+                "--subject",
+                "warrior",
+                "character",
+                "animate",
+                "char-9",
+                "-a",
+                "walking",
+                "--start-pose",
+                "pose-1",
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 2
+        assert "char-other" in result.output
+        assert not animate.calls
+
+    @respx.mock
+    def test_the_refusal_points_at_the_command_that_lists_the_poses(self, tmp_path, monkeypatch):
+        mock_character()
+        self.a_subject(tmp_path, pose_of="char-other")
+
+        result = invoke(
+            [
+                "--subject",
+                "warrior",
+                "character",
+                "animate",
+                "char-9",
+                "-a",
+                "walking",
+                "--start-pose",
+                "pose-1",
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert "inspect warrior" in result.output
+
+    @respx.mock
+    def test_a_pose_of_the_character_being_animated_is_fine(self, tmp_path, monkeypatch):
+        mock_character()
+        self.mock_pose_and_animation()
+        self.a_subject(tmp_path, pose_of="char-9")
+
+        result = invoke(
+            [
+                "--subject",
+                "warrior",
+                "character",
+                "animate",
+                "char-9",
+                "-a",
+                "walking",
+                "--start-pose",
+                "pose-1",
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 0
+
+    @respx.mock
+    def test_a_pose_this_subject_never_saw_is_not_refused(self, tmp_path, monkeypatch):
+        """Unknown is not a mismatch: a pose made in another subject is correct work."""
+        mock_character()
+        self.mock_pose_and_animation()
+        self.a_subject(tmp_path)
+
+        result = invoke(
+            [
+                "--subject",
+                "warrior",
+                "character",
+                "animate",
+                "char-9",
+                "-a",
+                "walking",
+                "--start-pose",
+                "pose-from-elsewhere",
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert "belongs" not in result.output

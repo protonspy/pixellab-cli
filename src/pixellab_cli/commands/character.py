@@ -17,6 +17,7 @@ from typing import Any
 import typer
 
 from pixellab_cli import catalog, images, output, pixels
+from pixellab_cli import subject as subjects
 from pixellab_cli.context import AppContext
 from pixellab_cli.errors import PixellabCliError, ProviderError, ValidationError
 from pixellab_cli.ledger import Cost
@@ -25,6 +26,7 @@ from pixellab_cli.reference import REFERENCE_DIR
 from pixellab_cli.routes import DETAIL, DIRECTION, OUTLINE, SHADING, VIEW
 from pixellab_cli.run import from_pixellab
 from pixellab_cli.validate import build_request
+from pixellab_cli.workspace import slugify
 
 app = typer.Typer(name="character", help="Characters: create, animate, list, export.")
 
@@ -73,6 +75,32 @@ def _require_character(app_context, character_id: str) -> None:
     payload = app_context.pixellab().call("character", character_id=character_id).raw
     if not payload:
         raise ValidationError(f"no character {character_id!r} on this account")
+
+
+def check_pose_belongs(app_context, character_id: str, pose: str | None, flag: str) -> None:
+    """Refuse a pose the subject's own record says belongs to another character.
+
+    The failure this catches is silent and expensive: animating a knight from an
+    orc's mid-stride frame is accepted by the route, charged per frame per direction,
+    and comes back as a knight that turns into somebody else. Nothing in the response
+    says so.
+
+    Only a contradiction refuses. A pose the record has never seen — made in another
+    subject, or before any of this was written down — is unknown rather than wrong,
+    and refusing on unknown would refuse correct work while teaching nobody anything.
+    """
+    if not pose or not app_context.subject:
+        return
+    known = subjects.load(app_context.workspace, slugify(app_context.subject)).owner_of(pose)
+    if known is None or known == character_id:
+        return
+    raise ValidationError(
+        f"{flag} {pose} is a pose of character {known}, and this animates {character_id}. "
+        f"Animating one character from another's frame is charged per frame per direction "
+        f"and comes back wrong. `pixellab-cli inspect {app_context.subject}` lists the poses "
+        f"each character has.",
+        context={"pose": pose, "belongs_to": known, "animating": character_id},
+    )
 
 
 def _frame_default(route) -> int:
@@ -332,6 +360,14 @@ def _new(
         estimate=estimate,
         name=name,
         roles=roles,
+        # `roles` is the same list the call fills, and the manifest is written after
+        # the call returns — so by the time this is recorded it holds the directions
+        # PixelLab actually sent, in the order the files were written.
+        links={
+            "reference": str(reference) if reference else None,
+            "description": description,
+            "directions": roles,
+        },
     )
     output.emit(
         output.run_payload(outcome),
@@ -428,6 +464,7 @@ def _state(context, character_id, edit, state_name, size, palette, seed) -> None
         estimate=estimate,
         name=state_name,
         roles=roles,
+        links={"character_id": character_id, "pose": edit, "directions": roles},
     )
     output.emit(
         output.run_payload(outcome),
@@ -608,6 +645,8 @@ def _animate(
         )
 
     _require_character(app_context, character_id)
+    check_pose_belongs(app_context, character_id, start_pose, "--start-pose")
+    check_pose_belongs(app_context, character_id, end_pose, "--end-pose")
 
     direction = wanted[0]
     start_frame = pose_frame(app_context, start_pose, direction) if start_pose else None
@@ -710,6 +749,17 @@ def _animate(
         translate=from_pixellab,
         estimate=estimate,
         name=animation_name or (action or template),
+        # The pose reaches the route as the bytes of a frame, so the request records a
+        # payload and loses which pose it was. These are what make "was this animated
+        # from the right pose" a question the record can answer — and what the next
+        # call is checked against.
+        links={
+            "character_id": character_id,
+            "start_pose": start_pose,
+            "end_pose": end_pose,
+            "directions": wanted,
+            "name": animation_name,
+        },
     )
     output.emit(
         output.run_payload(outcome),

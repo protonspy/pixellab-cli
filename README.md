@@ -141,6 +141,30 @@ pixellab-cli clean unzoom downloaded-sprite.png
 `pixellab-cli --help` lists everything; every command takes `--dry-run`, `--yes`,
 `--json` and `--workspace`.
 
+### What have I made, and which id is which
+
+```bash
+pixellab-cli inspect warrior
+```
+
+```
+warrior  1 character(s)  3 paid call(s)  32 generations  $0.3200
+
+character char-9  a knight in red armour
+  frames     rotations/v1  8 frame(s) by direction
+  pose       char-12  mid-stride walking pose
+             rotations/v2  8 frame(s) by direction
+  animation  walking  south  9 frame(s)
+             animations/v1  from pose char-12
+```
+
+Free, local, and no provider is called: it is built from the manifest each run already
+wrote, and written to `pixellab-out/warrior/manifest.json` after every run. It exists
+because a request that animates from a pose carries the pose's *pixels*, so nothing
+else records which pose it was — and animating one character from another's pose is
+accepted, charged per frame per direction, and comes back wrong. Where the record holds
+both, `character animate` refuses it.
+
 ### Recipes
 
 The point of one tool over two is the sequence across both providers:

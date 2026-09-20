@@ -23,6 +23,7 @@ from pixellab_cli.commands import (
     edit,
     export,
     image,
+    inspect_command,
     interface,
     job,
     motion,
@@ -51,6 +52,7 @@ app.add_typer(export.app)
 app.add_typer(job.app)
 app.add_typer(tiles.app)
 app.add_typer(recipe_command.app)
+inspect_command.register(app)
 setup.register(app)
 sprite.register(app)
 motion.register(app)
