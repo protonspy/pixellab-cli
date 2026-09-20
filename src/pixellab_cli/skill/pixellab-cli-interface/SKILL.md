@@ -1,6 +1,6 @@
 ---
 name: pixellab-cli-interface
-description: Make the parts of a game a player reads — a UI panel with `pixellab-cli ui` and a pixel font with a usable TTF via `pixellab-cli font`. Use it for a dialogue box, an inventory frame, a HUD, a health bar, buttons, menus, a title screen's lettering, or any interface asset.
+description: Make the parts of a game a player reads — a UI panel with `pixellab-cli ui new` and a pixel font with a usable TTF via `pixellab-cli font`. Use it for a dialogue box, an inventory frame, a HUD, a health bar, buttons, menus, a title screen's lettering, or any interface asset.
 ---
 
 What a player reads rather than what they move.
@@ -10,8 +10,10 @@ Read `pixellab-cli-assets` first for the spending rule and the credentials.
 ## A panel
 
 ```
-pixellab-cli ui <description> --size --element --piece --concept --route
-                              --palette --style --name --seed
+pixellab-cli ui new <description> --size --element --piece --concept --route
+                                  --palette --style --name --seed
+pixellab-cli ui list                  what the account holds. Free.
+pixellab-cli ui show <ui_asset_id>    write one panel to the workspace. Free.
 ```
 
 **Pro pricing**, twenty to forty generations. `--size` is 192 to 688 per axis, and the
@@ -23,7 +25,7 @@ no coordinates: `button`, `icon_button`, `toolbar`, `tab`, `panel`, `window`,
 `health_bar`, `avatar`, and the polygons `triangle`, `pentagon`, `hexagon`, `octagon`.
 
 ```bash
-pixellab-cli ui "deep charcoal slate framed by cool iron, hearth-fire orange accents" \
+pixellab-cli ui new "deep charcoal slate framed by cool iron, hearth-fire orange accents" \
   --element panel --element health_bar --element button --element button
 ```
 
@@ -36,7 +38,7 @@ takes `x, y, r`, `polygon` takes `x, y, r, sides, phase`, and each needs a uniqu
 and a `kind`. The shapes are validated server side.
 
 ```bash
-pixellab-cli ui "wooden RPG panel with gold trim" \
+pixellab-cli ui new "wooden RPG panel with gold trim" \
   --piece '{"id":"frame","kind":"rounded_rect","x":0,"y":0,"w":512,"h":320,"radius":12}' \
   --piece '{"id":"bar","kind":"rounded_rect","x":24,"y":24,"w":200,"h":20,"radius":6}'
 ```
@@ -64,8 +66,8 @@ a 48-pixel icon button, a 64-pixel HUD frame were previously impossible at any p
 because nothing else on this surface made UI.
 
 ```bash
-pixellab-cli ui "a rusted iron inventory slot" --size 48
-pixellab-cli ui "a health bar in this style" --concept mockup.png
+pixellab-cli ui new "a rusted iron inventory slot" --size 48
+pixellab-cli ui new "a health bar in this style" --concept mockup.png
 ```
 
 `--concept` steers *what the thing is*; `--style` steers *what it looks like*, and it
@@ -114,3 +116,17 @@ an engine and in a document.
 
 `--glyph-px` is the glyph size: 8, 16, 32 or 64. Pick it from where the text will be read —
 8 is a HUD label, 32 and 64 are a title screen.
+
+
+## The account keeps every panel
+
+A panel generated here is saved under the account, so the file on disk is a copy rather
+than the only one. `ui list` names what is there — identifier, name, size, status and
+the description it was made from — and `ui show <ui_asset_id>` writes one out again.
+Both are free: the panel was paid for when it was made.
+
+So a lost file is not thirty generations. Reach for `ui list` before generating a panel
+that sounds like one already made, and `ui show` rather than `ui new` to get it back.
+
+A panel still being generated reports how far along it is and writes nothing; run
+`ui show` again when it is done.

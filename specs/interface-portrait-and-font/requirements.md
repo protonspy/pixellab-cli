@@ -21,6 +21,9 @@ a feature of its own.
 - **R1.2** The interface commands shall say that a panel is priced as a Pro Tools route before calling it.
 - **R1.3** (ADDED) Where a concept image is given, or a size smaller than the panel route accepts, the interface commands shall generate one interface element rather than a panel, and shall say that it is priced as a Pro Tools route.
 - **R1.4** (ADDED) The interface commands shall accept a concept image to steer the design of one element.
+- **R1.5** (ADDED) The interface commands shall list the UI panels the account holds, reporting for each its identifier, its name, the description it was made from, its size and its status.
+- **R1.6** (ADDED) When asked to show one UI panel, the interface commands shall report it and shall write its image to the workspace, without calling a paid route.
+- **R1.7** (ADDED) While a UI panel is still being generated, the interface commands shall report that and shall write no image for it.
 
 ## R2 · Fonts
 

@@ -35,8 +35,17 @@ PORTRAIT_SIZES = (16, 32, 48, 64, 128, 160)
 GLYPH_SIZES = (8, 16, 32, 64)
 
 
+# `ui` is a group rather than one command because the account keeps every panel it
+# generates: `character` and `object` have the same shape for the same reason. The
+# generating form moved to `ui new` when the library arrived.
+ui_app = typer.Typer(name="ui", help="UI panels: generate one, or read what the account holds.")
+
+
 def register(app: typer.Typer) -> None:
-    app.command("ui")(ui)
+    ui_app.command("new")(ui)
+    ui_app.command("list")(list_panels)
+    ui_app.command("show")(show_panel)
+    app.add_typer(ui_app)
     app.command("font")(font)
     app.command("portrait")(portrait)
 
@@ -435,3 +444,110 @@ def _sized(path: Path) -> dict[str, Any]:
         "image": encoded.as_payload(),
         "size": {"width": encoded.width, "height": encoded.height},
     }
+
+
+def _panel_line(asset: dict[str, Any]) -> str:
+    """One panel, as a person reads it: the id first, because it is what gets copied."""
+    size = asset.get("size") or {}
+    measured = f"{size.get('width', '?')}x{size.get('height', '?')}"
+    name = asset.get("name") or "unnamed"
+    status = asset.get("status") or "unknown"
+    return (
+        f"{asset.get('id', '?')}  {name}  {measured}  {status}  {asset.get('prompt', '')}".rstrip()
+    )
+
+
+def list_panels(context: typer.Context) -> None:
+    """Every UI panel on the account, newest first. Free."""
+    try:
+        _list_panels(context)
+    except PixellabCliError as failure:
+        output.handle(failure)
+
+
+def _list_panels(context: typer.Context) -> None:
+    app_context: AppContext = context.obj
+    payload = app_context.pixellab().call("ui-assets").raw
+    assets = [asset for asset in payload.get("ui_assets") or [] if isinstance(asset, dict)]
+    if not assets:
+        output.emit(payload, ["no UI panels on this account"], as_json=app_context.as_json)
+        return
+
+    total = payload.get("total")
+    lines = [_panel_line(asset) for asset in assets]
+    # The route answers 50 at a time and says how many there are. Paging is not worth
+    # a flag yet; saying the listing is partial is worth a line.
+    if isinstance(total, int) and total > len(assets):
+        lines.append(f"{len(assets)} of {total}, newest first")
+    output.emit(payload, lines, as_json=app_context.as_json)
+
+
+def show_panel(
+    context: typer.Context,
+    ui_asset_id: str = typer.Argument(..., help="The panel to read."),
+    name: str = typer.Option(None, "--name", help="What to call the file."),
+) -> None:
+    """One UI panel, written to the workspace. Free: it was paid for when it was made."""
+    try:
+        _show_panel(context, ui_asset_id, name)
+    except PixellabCliError as failure:
+        output.handle(failure)
+
+
+def _show_panel(context: typer.Context, ui_asset_id: str, name: str | None) -> None:
+    app_context: AppContext = context.obj
+    route = catalog.route("ui-asset")
+    estimate = Cost(generations=0.0, source="reported")
+
+    if app_context.dry_run:
+        body = build_request(route, {"ui_asset_id": ui_asset_id})
+        output.emit(
+            output.dry_run_payload("pixellab", route.name, body, estimate),
+            output.describe_dry_run("pixellab", route.name, estimate),
+            as_json=app_context.as_json,
+        )
+        return
+
+    client = app_context.pixellab()
+    payload = client.call(route.name, ui_asset_id=ui_asset_id).raw
+    if not payload:
+        raise ValidationError(f"no UI panel {ui_asset_id!r} on this account")
+
+    address = payload.get("image_url")
+    if not isinstance(address, str) or not address:
+        # `image_url` is null until the panel is done, and the payload says how far
+        # along it is. Reported rather than refused: nothing is wrong, it is early.
+        progress = payload.get("progress_percent")
+        eta = payload.get("eta_seconds")
+        lines = [
+            f"{_panel_line(payload)}",
+            "no image yet"
+            + (f", {progress}% done" if progress is not None else "")
+            + (f", about {eta}s left" if eta is not None else ""),
+        ]
+        output.emit(payload, lines, as_json=app_context.as_json)
+        return
+
+    outcome = app_context.runner.run(
+        subject=app_context.subject,
+        kind="interface",
+        description=f"{ui_asset_id} panel",
+        provider="pixellab",
+        route=route.name,
+        arguments={"ui_asset_id": ui_asset_id},
+        call=lambda: Result(
+            route=route.name,
+            images=[client.download(address)],
+            raw=payload,
+            ids={"ui_asset_id": ui_asset_id},
+        ),
+        translate=from_pixellab,
+        estimate=estimate,
+        name=name or payload.get("name") or "ui-panel",
+        links={"ui_asset_id": ui_asset_id},
+    )
+    output.emit(
+        output.run_payload(outcome),
+        [_panel_line(payload), *output.describe_run(outcome)],
+        as_json=app_context.as_json,
+    )

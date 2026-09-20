@@ -24,3 +24,17 @@
 
 - [x] 4.1 (Unit) Report the route and the arguments under a dry run, sending nothing — R4.1
   _Depends 1.1_
+
+## 7 · The panel you already paid for
+
+- [x] 7.1 (Unit) Add the UI asset list and detail routes to the catalogue — R1.5, R1.6
+  _Reason the UI library routes were never reached and a lost panel meant paying again_
+- [x] 7.2 (Unit) Make ui a group with ui new, and list the account's panels — R1.5
+  _Depends 7.1_
+  _Reason the UI library routes were never reached and a lost panel meant paying again_
+- [x] 7.3 (Unit) Show one panel, write it, and say when it is not ready — R1.6, R1.7
+  _Depends 7.1_
+  _Reason the UI library routes were never reached and a lost panel meant paying again_
+- [x] 7.4 (Unit) Teach the skill and the README the ui group — R1.5, R1.6
+  _Depends 7.3_
+  _Reason the UI library routes were never reached and a lost panel meant paying again_

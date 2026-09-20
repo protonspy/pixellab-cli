@@ -62,3 +62,12 @@
   _Depends 1.2_
 - [x] 4.2 (Unit) Translate fal failures into the shared exception hierarchy, and return the tool's own estimate marked as an estimate — R2.5, R5.2
   _Depends 4.1_
+
+## 7 · An image that arrives as an address
+- [x] 7.1 (TDD) Download a completed job's image_url when it returns no bytes — R4.9
+  _Reason a UI panel charged at 30 generations wrote no image_
+- [x] 7.2 (TDD) Refuse a path parameter carrying a separator or a dot segment — R3.6
+  _Reason security review found ui show sending the id unvalidated_
+- [x] 7.3 (TDD) Refuse a download past the ceiling for a generated asset — R3.7
+  _Reason the address is now fetched unasked_
+

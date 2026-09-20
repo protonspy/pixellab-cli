@@ -46,7 +46,7 @@ class TestUiPanel:
             json={"status": "completed", "images": [image_payload()]}
         )
 
-        result = invoke(["ui", "wooden RPG panel"], tmp_path, monkeypatch)
+        result = invoke(["ui", "new", "wooden RPG panel"], tmp_path, monkeypatch)
 
         assert result.exit_code == 0
         assert list((tmp_path / "out").glob("*/*.png"))
@@ -60,7 +60,11 @@ class TestUiPanel:
             json={"status": "completed", "images": [image_payload()]}
         )
 
-        invoke(["ui", "a panel", "--element", "button", "--element", "tab"], tmp_path, monkeypatch)
+        invoke(
+            ["ui", "new", "a panel", "--element", "button", "--element", "tab"],
+            tmp_path,
+            monkeypatch,
+        )
 
         assert json.loads(route.calls.last.request.content)["elements"] == ["button", "tab"]
 
@@ -73,7 +77,7 @@ class TestUiPanel:
             json={"status": "completed", "images": [image_payload()]}
         )
 
-        result = invoke(["ui", "a panel"], tmp_path, monkeypatch)
+        result = invoke(["ui", "new", "a panel"], tmp_path, monkeypatch)
 
         assert "generations" in result.output
 
@@ -82,14 +86,14 @@ class TestUiPanel:
         # 64-pixel element could not be generated at all. It now reaches generate-ui-v2,
         # which is the point of adding that route.
         result = invoke(
-            ["--dry-run", "--json", "ui", "a button", "--size", "64"], tmp_path, monkeypatch
+            ["--dry-run", "--json", "ui", "new", "a button", "--size", "64"], tmp_path, monkeypatch
         )
 
         assert result.exit_code == 0
         assert json.loads(result.stdout)["route"] == "generate-ui-v2"
 
     def test_a_size_outside_both_routes_is_still_refused(self, tmp_path, monkeypatch):
-        result = invoke(["ui", "a panel", "--size", "900"], tmp_path, monkeypatch)
+        result = invoke(["ui", "new", "a panel", "--size", "900"], tmp_path, monkeypatch)
 
         assert result.exit_code == 2
 
@@ -237,7 +241,7 @@ class TestPortrait:
 
 class TestDryRun:
     def test_nothing_is_sent(self, tmp_path, monkeypatch):
-        result = invoke(["--dry-run", "ui", "a panel"], tmp_path, monkeypatch)
+        result = invoke(["--dry-run", "ui", "new", "a panel"], tmp_path, monkeypatch)
 
         assert result.exit_code == 0
         assert "create-ui-asset" in result.stdout
@@ -255,7 +259,7 @@ class TestAnExplicitPanelShape:
 
     def _sent(self, tmp_path, monkeypatch, *extra):
         result = invoke(
-            ["--dry-run", "--json", "ui", "wooden RPG panel", *extra], tmp_path, monkeypatch
+            ["--dry-run", "--json", "ui", "new", "wooden RPG panel", *extra], tmp_path, monkeypatch
         )
         return json.loads(result.stdout)["arguments"]
 
@@ -280,7 +284,7 @@ class TestAnExplicitPanelShape:
 
     def test_a_piece_that_is_not_json_is_refused_by_name(self, tmp_path, monkeypatch):
         result = invoke(
-            ["--dry-run", "ui", "wooden RPG panel", "--piece", "a rounded rectangle"],
+            ["--dry-run", "ui", "new", "wooden RPG panel", "--piece", "a rounded rectangle"],
             tmp_path,
             monkeypatch,
         )
@@ -290,7 +294,7 @@ class TestAnExplicitPanelShape:
 
     def test_a_piece_that_is_json_but_not_an_object_is_refused(self, tmp_path, monkeypatch):
         result = invoke(
-            ["--dry-run", "ui", "wooden RPG panel", "--piece", "[1, 2, 3]"],
+            ["--dry-run", "ui", "new", "wooden RPG panel", "--piece", "[1, 2, 3]"],
             tmp_path,
             monkeypatch,
         )
@@ -316,7 +320,7 @@ class TestOneElementRatherThanAPanel:
 
     def _route(self, tmp_path, monkeypatch, *extra):
         result = invoke(
-            ["--dry-run", "--json", "ui", "a medieval stone button", *extra],
+            ["--dry-run", "--json", "ui", "new", "a medieval stone button", *extra],
             tmp_path,
             monkeypatch,
         )
@@ -341,7 +345,7 @@ class TestOneElementRatherThanAPanel:
 
     def test_a_layout_below_the_floor_is_refused(self, tmp_path, monkeypatch):
         result = invoke(
-            ["--dry-run", "ui", "a panel", "--size", "48", "--element", "button"],
+            ["--dry-run", "ui", "new", "a panel", "--size", "48", "--element", "button"],
             tmp_path,
             monkeypatch,
         )
@@ -355,7 +359,16 @@ class TestOneElementRatherThanAPanel:
     def test_naming_the_element_route_with_a_layout_is_refused(self, tmp_path, monkeypatch):
         # Dropping --element silently is how a surprising image gets billed.
         result = invoke(
-            ["--dry-run", "ui", "a button", "--route", "generate-ui-v2", "--element", "button"],
+            [
+                "--dry-run",
+                "ui",
+                "new",
+                "a button",
+                "--route",
+                "generate-ui-v2",
+                "--element",
+                "button",
+            ],
             tmp_path,
             monkeypatch,
         )
@@ -365,7 +378,7 @@ class TestOneElementRatherThanAPanel:
 
     def test_an_unknown_route_is_refused_by_name(self, tmp_path, monkeypatch):
         result = invoke(
-            ["--dry-run", "ui", "a button", "--route", "nonsense"], tmp_path, monkeypatch
+            ["--dry-run", "ui", "new", "a button", "--route", "nonsense"], tmp_path, monkeypatch
         )
 
         assert result.exit_code != 0
@@ -378,6 +391,7 @@ class TestOneElementRatherThanAPanel:
             [
                 "--dry-run",
                 "ui",
+                "new",
                 "a panel",
                 "--concept",
                 self._concept(tmp_path),
@@ -393,7 +407,16 @@ class TestOneElementRatherThanAPanel:
 
     def test_a_style_image_on_the_element_route_is_refused(self, tmp_path, monkeypatch):
         result = invoke(
-            ["--dry-run", "ui", "a button", "--size", "48", "--style", self._concept(tmp_path)],
+            [
+                "--dry-run",
+                "ui",
+                "new",
+                "a button",
+                "--size",
+                "48",
+                "--style",
+                self._concept(tmp_path),
+            ],
             tmp_path,
             monkeypatch,
         )
@@ -403,7 +426,7 @@ class TestOneElementRatherThanAPanel:
 
     def test_the_concept_image_is_sent_with_its_size(self, tmp_path, monkeypatch):
         result = invoke(
-            ["--dry-run", "--json", "ui", "a button", "--concept", self._concept(tmp_path)],
+            ["--dry-run", "--json", "ui", "new", "a button", "--concept", self._concept(tmp_path)],
             tmp_path,
             monkeypatch,
         )
@@ -420,6 +443,7 @@ class TestOneElementRatherThanAPanel:
                 "--dry-run",
                 "--json",
                 "ui",
+                "new",
                 "a wide banner",
                 "--route",
                 "generate-ui-v2",
@@ -438,9 +462,131 @@ class TestOneElementRatherThanAPanel:
 
     def test_taller_than_the_element_route_allows_is_refused(self, tmp_path, monkeypatch):
         result = invoke(
-            ["--dry-run", "ui", "a tall banner", "--route", "generate-ui-v2", "--size", "300x750"],
+            [
+                "--dry-run",
+                "ui",
+                "new",
+                "a tall banner",
+                "--route",
+                "generate-ui-v2",
+                "--size",
+                "300x750",
+            ],
             tmp_path,
             monkeypatch,
         )
 
         assert result.exit_code != 0
+
+
+PANEL_URL = "https://backblaze.pixellab.ai/file/pixellab-characters/ui/x/y/full.png?v=1"
+
+
+def a_panel(asset_id="ui-1", status="completed", image_url=PANEL_URL, **extra):
+    """The shape `/ui-assets` really returns, read off a live account."""
+    return {
+        "id": asset_id,
+        "name": "probe-panel",
+        "prompt": "wooden RPG panel with gold trim",
+        "size": {"width": 192, "height": 192},
+        "image_url": image_url,
+        "status": status,
+        "created_at": "2026-09-20T20:40:08.011521+00:00",
+        **extra,
+    }
+
+
+class TestListingThePanelsTheAccountHolds:
+    """R1.5. Free, and the answer to 'what did I already pay for'."""
+
+    @respx.mock
+    def test_each_panel_is_named_with_what_it_takes_to_use_it(self, tmp_path, monkeypatch):
+        respx.get(f"{PIXELLAB_BASE_URL}/ui-assets").respond(
+            json={"ui_assets": [a_panel()], "total": 1}
+        )
+
+        result = invoke(["ui", "list"], tmp_path, monkeypatch)
+
+        assert result.exit_code == 0
+        assert "ui-1" in result.output
+        assert "probe-panel" in result.output
+        assert "192x192" in result.output
+        assert "completed" in result.output
+
+    @respx.mock
+    def test_an_empty_account_says_so(self, tmp_path, monkeypatch):
+        respx.get(f"{PIXELLAB_BASE_URL}/ui-assets").respond(json={"ui_assets": [], "total": 0})
+
+        result = invoke(["ui", "list"], tmp_path, monkeypatch)
+
+        assert "no UI panels" in result.output
+
+    @respx.mock
+    def test_a_listing_the_route_cut_short_says_it_is_partial(self, tmp_path, monkeypatch):
+        respx.get(f"{PIXELLAB_BASE_URL}/ui-assets").respond(
+            json={"ui_assets": [a_panel(), a_panel("ui-2")], "total": 120}
+        )
+
+        result = invoke(["ui", "list"], tmp_path, monkeypatch)
+
+        assert "2 of 120" in result.output
+
+    @respx.mock
+    def test_it_is_free(self, tmp_path, monkeypatch):
+        """No --yes, and the suite's assume-yes is not what carried it."""
+        monkeypatch.delenv("PIXELLAB_ASSUME_YES", raising=False)
+        respx.get(f"{PIXELLAB_BASE_URL}/ui-assets").respond(
+            json={"ui_assets": [a_panel()], "total": 1}
+        )
+
+        result = invoke(["ui", "list"], tmp_path, monkeypatch)
+
+        assert result.exit_code == 0
+
+
+class TestShowingOnePanel:
+    """R1.6, R1.7. The panel was paid for when it was made; reading it back is free."""
+
+    @respx.mock
+    def test_the_image_is_written_to_the_workspace(self, tmp_path, monkeypatch):
+        respx.get(f"{PIXELLAB_BASE_URL}/ui-assets/ui-1").respond(json=a_panel())
+        respx.get(PANEL_URL).respond(content=png_bytes(192, 192))
+
+        result = invoke(["ui", "show", "ui-1"], tmp_path, monkeypatch)
+
+        assert result.exit_code == 0
+        [written] = list((tmp_path / "out").glob("*/*.png"))
+        assert written.read_bytes() == png_bytes(192, 192)
+
+    @respx.mock
+    def test_it_costs_nothing_and_asks_for_no_agreement(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("PIXELLAB_ASSUME_YES", raising=False)
+        respx.get(f"{PIXELLAB_BASE_URL}/ui-assets/ui-1").respond(json=a_panel())
+        respx.get(PANEL_URL).respond(content=png_bytes(192, 192))
+
+        result = invoke(["ui", "show", "ui-1"], tmp_path, monkeypatch)
+
+        assert result.exit_code == 0
+        assert "0 generations" in result.output
+
+    @respx.mock
+    def test_a_panel_still_being_made_writes_nothing_and_says_so(self, tmp_path, monkeypatch):
+        respx.get(f"{PIXELLAB_BASE_URL}/ui-assets/ui-1").respond(
+            json=a_panel(status="processing", image_url=None, progress_percent=40, eta_seconds=12)
+        )
+
+        result = invoke(["ui", "show", "ui-1"], tmp_path, monkeypatch)
+
+        assert result.exit_code == 0
+        assert "no image yet" in result.output
+        assert "40%" in result.output
+        assert not list((tmp_path / "out").glob("*/*.png"))
+
+    @respx.mock
+    def test_a_dry_run_sends_nothing(self, tmp_path, monkeypatch):
+        route = respx.get(f"{PIXELLAB_BASE_URL}/ui-assets/ui-1")
+
+        result = invoke(["--dry-run", "ui", "show", "ui-1"], tmp_path, monkeypatch)
+
+        assert result.exit_code == 0
+        assert not route.called

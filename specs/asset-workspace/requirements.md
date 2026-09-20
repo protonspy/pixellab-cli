@@ -61,6 +61,7 @@ A file nobody can account for is worth less than the same file with a manifest.
 - **R6.2** Where the person's agreement has not been stated, the asset workspace shall send no request and shall write no ledger entry, because neither can have happened.
 - **R6.3** Where there is nobody present to state the agreement, the asset workspace shall take it from a named environment variable instead.
 - **R6.4** While a call is a dry run, the asset workspace shall require no agreement, because nothing is sent.
+- **R6.5** (ADDED) Where a route is known to cost nothing, the asset workspace shall require no agreement, because no charge can begin.
 
 ## R7 · The subject as an entity
 

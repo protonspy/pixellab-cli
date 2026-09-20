@@ -140,3 +140,44 @@ raise site added later would not remember.
 the CDN, call `subscribe`, download the returned URLs to disk. The tool's own estimate
 stands in for the usage fal does not report (R5.2). Its errors are translated into the
 same hierarchy, so a caller handles one set.
+
+## An image that arrives as an address
+
+`_decode_images` reads `image` and `images`, which is every base64 field the routes
+here return — and `POST /create-ui-asset` returns neither. Its job completes into
+`GET /v2/ui-assets/{ui_asset_id}`, whose payload carries `image_url`, a public CDN
+address, and no bytes at all:
+
+```json
+{"id": "43d70268-…", "status": "completed", "size": {"width": 192, "height": 192},
+ "image_url": "https://backblaze.pixellab.ai/file/…/full.png?v=1789936808"}
+```
+
+So a panel charged at thirty generations completed, wrote its manifest, and wrote no
+image — the command exited `0` and the asset was never collected. The tests did not
+catch it because they replied to the poll with `{"status": "completed", "images": […]}`,
+a shape that route has never returned.
+
+The fix is where the job is awaited rather than in the decoder: fetching needs the
+client, and `_decode_images` is a function over a payload. When a completed job yields
+no bytes, `image_url` is downloaded through the same unauthenticated `download` the
+rotation URLs already go through. Only `image_url`, and only because a real payload was
+seen holding it — the same rule the decoder states for `quantized_images`.
+
+## What a value reaching the address may be
+
+A path parameter is interpolated into the route's path, and the request that carries it
+carries the bearer token — so a separator or a dot segment in one is a URL of somebody
+else's choosing, reached with the caller's credential. `collect` already refused it for
+a job id and `character state` for a pose, each at its own call site; a third caller
+with the same shape is the point at which the check belongs at the one place every path
+parameter passes through instead. `_split_path` refuses it for every route, present and
+future, before anything is sent (R3.6).
+
+The address a completed job hands back is the provider's, and R4.9 now fetches it with
+nobody asking. How much of it is read is therefore not the provider's decision either:
+`_fetch` refuses a body past a ceiling far above any asset this tool makes, by the
+declared length where there is one and by what arrived where there is not (R3.7).
+Nothing narrower than a size limit is attempted — PixelLab serves assets from more than
+one host and a host list would fail closed on the day they add another, which for a
+tool whose whole job is to collect what was paid for is the more expensive failure.

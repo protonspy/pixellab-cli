@@ -70,3 +70,7 @@
 - [x] 7.1 (Unit) Gather one character's animation runs for a motion into one — R7.5
   _Reason the provider starts a new animation per call_
 
+## 8 · Agreement is for a call that can cost something
+
+- [x] 8.1 (Unit) Ask for no agreement where the route is known to cost nothing — R6.5
+  _Reason a free download asked for --yes, and the suite never saw it_

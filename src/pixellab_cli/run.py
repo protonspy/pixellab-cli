@@ -27,6 +27,12 @@ from pixellab_cli.workspace import Workspace, asset_filename, slugify
 
 MANIFEST_SCHEMA = 1
 
+
+def _costs_something(estimate: Cost) -> bool:
+    """Whether an estimate claims any price at all, in any of the units it carries."""
+    return bool(estimate.generations or estimate.usd or estimate.seconds)
+
+
 # What stands in for `--yes` where there is nobody to type it: a headless run, a CI
 # job, a script the person wrote themselves. Deliberately an environment variable and
 # not a setting in the credentials file — it is turned on once, outside the run, by
@@ -186,6 +192,12 @@ class Runner:
         reaches it and is never gated.
         """
         if self.approved or _assumed_yes():
+            return
+        # A route whose price is known to be zero is not a call that can cost money,
+        # which is all R6.1 asks agreement for. Known is the load-bearing word: an
+        # absent estimate still gates, because not knowing a price is not the same as
+        # knowing it is nothing, and that is the case the gate exists for.
+        if estimate is not None and estimate.source == REPORTED and not _costs_something(estimate):
             return
         generations = estimate.generations if estimate else 0.0
         cost = (

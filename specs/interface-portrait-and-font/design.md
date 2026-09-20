@@ -10,7 +10,7 @@ ci: wait
 One module, `commands/interface.py`, three commands:
 
 ```
-pixellab-cli ui "wooden RPG panel with gold trim"     create-ui-asset     (Pro)   R1.1
+pixellab-cli ui new "wooden RPG panel with gold trim"     create-ui-asset     (Pro)   R1.1
 pixellab-cli font "warm orange arcade font" --bold    generate-font-pro   (25)    R2.1
 pixellab-cli portrait knight.png                      portrait-character-pro (Pro) R3.1
 ```
@@ -56,8 +56,7 @@ route's floor and inside `generate-ui-v2`'s, which starts at 16.
 
 ## Choosing between them
 
-`pixellab-cli ui` keeps making a panel, so nothing that works today changes. It moves to
-the single-element route on either of the two signals that mean a panel was never
+`pixellab-cli ui new` makes a panel by default. It moves to the single-element route on either of the two signals that mean a panel was never
 possible or never intended (R1.3):
 
 | Given | Route |
@@ -82,3 +81,23 @@ they wrote.
 
 The last two are the ones worth writing down, because neither fails: without the refusal
 the argument is simply absent from the body that gets sent.
+
+## The panel you already paid for
+
+`POST /create-ui-asset` saves what it makes: the account keeps every panel, and
+`GET /v2/ui-assets` and `GET /v2/ui-assets/{ui_asset_id}` read them back, both free.
+Nothing here called either, so a panel whose file was lost was a panel to buy again at
+thirty generations — and until the fix in `specs/provider-core/` there was no file to
+lose, because the address the job completes with was never fetched.
+
+`ui` becomes a group to make room for them, the same shape `character` and `object`
+already have: `ui new "<description>"` generates, `ui list` names what the account
+holds, and `ui show <id>` reports one and writes its image. That renames the generating
+form — `ui "<description>"` was the whole command before — which the skill and the
+README are updated for in the same change.
+
+`ui show` writes through the same runner every other command writes through, at no cost:
+the download is a public CDN address, like a rotation URL, and the run is recorded with
+the panel's identifier so the file can be traced back to the call that paid for it. A
+panel still processing reports its progress and writes nothing, because `image_url` is
+null until it is done.
