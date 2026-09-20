@@ -82,6 +82,37 @@ mid-walk state asks only for the motion. See [[pixellab-asset-routing]] for
 `custom_start_frame`, the same idea for a pose that never became a state, and
 [[animation-frames]] for what the animation call then costs.
 
+### Animate the state, not the character it came from
+
+There are two ways to use a state as the start of a motion, and they are not equal.
+`custom_start_frame` names the pose beside the *source* character, so the call carries a
+neutral character and a frame of a different one and has to reconcile them. Animating
+the **state's own `character_id`** carries one character, already in the pose, and asks
+only for the motion. Same price either way.
+
+A character that came out right, read back off the account, is built the second way
+throughout. One group, one description, three states, one animation each:
+
+| State | The animation generated on it |
+|---|---|
+| `Idle` | "The character breathes with a…" |
+| `attack position, sword…` | "The warrior executes a powerful…" |
+| `mid-walk` | "The character strides forward" |
+
+Three things hold it together, and two of them are not about the routes at all:
+
+1. **The character's description is the same string in every call.** Not reworded per
+   state. It is what carries the breastplate, the greaves and the palette from the
+   anchor into every frame, and a state described afresh drifts.
+2. **Each state is animated as itself**, so no call ever has to hold two characters.
+3. **The pose and the motion are written from the same words** — `mid-walk` and "strides
+   forward", `attack position` and "executes a powerful…". An enriched description
+   written from a pose it does not match is the two halves pulling apart, which is the
+   [[animation-frames]] failure one level down.
+
+`custom_start_frame` keeps its place for a pose that is not a state: a frame drawn or
+edited by hand, which has no `character_id` to animate.
+
 ## Keeping track of what came back
 
 A cast is dozens of `character_id`s. `PATCH /v2/characters/{character_id}/tags` replaces a

@@ -14,24 +14,46 @@ the spending rule: every paid line below needs its own `--yes`.
 
 ## The order
 
+**One state per motion, and animate the state itself.** Not the base character with the
+pose named beside it — the state *is* a character, and animating it means the model
+continues a motion from a body already in that pose rather than reconciling a neutral
+character with a hint about one.
+
 ```
 0  inspect <subject>     which character, which poses it already has   free
-1  character state -p    the pose the motion starts on                 20-40 gen
-   ---- look at the pose before animating from it ----
+   ---- repeat 1-4 once per motion ----
+1  character state -p    the character, in the pose that motion needs  20-40 gen
+   ---- look at the pose before animating it ----
 2  character enrich      the motion, written from that pose            ~0.05 gen
    ---- read the description, edit it ----
-3  character animate     one direction per call                        1 gen per frame
+3  character animate <state-id>   one direction per call               1 gen per frame
    ---- look at the frames ----
-4  image flip            the west-facing half                          free
-5  image gif             watch the loop before building on it          free
+4  image gif             watch the loop before building on it          free
+5  image flip            a mirrored direction, where the set wants one free
 6  export atlas          what the engine loads                         free
 ```
+
+This is the shape of a character that came out right, read back off the account —
+`docs/wiki/pages/character-consistency.md` has the case. Three states off one
+character: `Idle`, `attack position`, `mid-walk`, each carrying its own animation,
+each animation's action written from the same words as the pose it belongs to.
+
+**The character's own description is reused verbatim, every time.** Not reworded per
+state. That one string is what holds the palette, the costume and the proportions
+together across every pose and every frame; a state described afresh drifts, and the
+drift is invisible until two of them play in sequence.
 
 **Step 0 is not optional and costs nothing.** `pixellab-cli inspect <subject>` lists
 every character, every pose made from it and **what each pose was made for**, plus which
 pose every existing animation started from. An identifier you did not receive in this
 session is an identifier to look up, because `char-12` says nothing about whether it is
 the idle or the attack wind-up — and the route accepts either.
+
+**How many directions is the game's question, not this tool's.** A top-down game that
+walks on four axes wants four; one that walks on eight wants eight. Each direction is
+its own job and its own charge, so the count is the bill — and where eight are wanted,
+east and west mirror each other for nothing, which makes it five paid rather than
+eight. Do not pass more than the person asked for.
 
 ## The pose is half the result
 
@@ -53,6 +75,22 @@ Two jobs:
 `--keep-palette` snaps the edit back onto the source character's colours. Without it a
 state drifts a few hues, which is invisible on its own sheet and obvious the moment two
 states play in sequence.
+
+### Animating the state, and animating from a pose
+
+Two ways in, and the first is the one to reach for:
+
+```bash
+# the state is the character, and it is what gets animated
+pixellab-cli --yes character animate <state-id> -a "<the motion>" -d south
+
+# a pose from somewhere else — a frame drawn by hand — named beside the character
+pixellab-cli --yes character animate <character-id> -a "<the motion>" --start-pose walk.png
+```
+
+`--start-pose` is for a frame that is not a state: something drawn or edited by hand.
+Where the pose is a state you made, animate the state. It is the same price and the
+model is given a body already in the pose rather than asked to put one there.
 
 ### One pose per motion, and the right one
 
