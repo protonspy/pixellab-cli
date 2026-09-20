@@ -1,9 +1,9 @@
 ---
 autonomy: auto
 ci: wait
-branch: feat/room-for-the-motion
-delivery: merged
-pr: 68
+branch: feat/one-animation-many-directions
+delivery: in-review
+pr: 78
 ---
 
 # Characters and animation — requirements
@@ -82,6 +82,9 @@ different endpoint family and no skeleton.
 - **R2.37** (ADDED) If no start pose is given and the subject's record holds no pose of that character made for the motion being animated, then the character commands shall refuse the call and say that the state the motion starts from is made first, before spending anything, unless the caller asks to animate from the character's rest frame.
 - **R2.38** (ADDED) The character commands shall offer a check that reports whether a motion and a character's poses go together, and shall complete it without calling a provider.
 
+- **R2.39** (ADDED) If a direction asked for is already animated on that character for the motion being animated, then the character commands shall refuse the call, name the animation and the directions it already holds, and say that the provider starts a new animation rather than adding a direction to one, before spending anything, unless the caller asks for it to be generated again.
+- **R2.40** (ADDED) Where a direction is animated for a motion the character already has, the character commands shall report that the frames join that motion in the workspace and not in the animation the provider holds.
+
 
 ## R3 · Rotating
 
@@ -93,6 +96,7 @@ different endpoint family and no skeleton.
 - **R4.2** The character commands shall show one character's rotations, animations and settings.
 - **R4.3** When asked for a spritesheet, the character commands shall download the sheet and its layout file and write both to the workspace.
 - **R4.4** Where a command names an asset that does not exist, the character commands shall say so rather than reporting an empty result.
+- **R4.5** (ADDED) When showing a character, the character commands shall present the animations it holds for one motion as a single animation over every direction they cover, and shall say how many the provider holds for it.
 
 ## Out of scope
 

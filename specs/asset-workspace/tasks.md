@@ -65,3 +65,8 @@
 - [x] 6.5 (Unit) Give each run of a kind its own version directory, numbering from the first free one and leaving loose files alone — R1.5, R1.10, R2.1
   _Depends 6.1_
   _Reason a second attempt at the same asset became a file called -2, which is a name rather than a history_
+
+## 7 · One animation over many directions
+- [x] 7.1 (Unit) Gather one character's animation runs for a motion into one — R7.5
+  _Reason the provider starts a new animation per call_
+

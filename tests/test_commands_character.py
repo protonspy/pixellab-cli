@@ -17,7 +17,10 @@ from pixellab_cli import images
 from pixellab_cli.cli import app
 from pixellab_cli.commands.character import (
     frame_for_reference,
+    gather_animations,
     known_templates,
+    motion_asked_for,
+    motion_of,
     ordered_rotations,
 )
 from pixellab_cli.config import PIXELLAB_BASE_URL, PIXELLAB_SECRET_VAR
@@ -3182,3 +3185,313 @@ class TestCheckingBeforePaying:
         )
 
         assert not (tmp_path / "out" / "ledger.jsonl").is_file()
+
+
+class TestWhatTheCharacterAlreadyHolds:
+    """R2.39 refuses a direction the character already has for this motion, so the
+    motion the call would be known by and the motions the character holds have to be
+    named the same way."""
+
+    def test_a_name_given_is_the_motion_the_call_carries(self):
+        assert motion_asked_for("walk", "The character strides forward", None) == "walk"
+
+    def test_without_a_name_an_action_carries_the_name_the_provider_derives(self):
+        action = "The character strides forward with a steady, even gait and swinging arms"
+        assert motion_asked_for(None, action, None) == "custom-The character strides forward"
+
+    def test_a_template_carries_its_own_name(self):
+        assert motion_asked_for(None, None, "walk") == "walk"
+
+    def test_a_display_name_names_the_motion_ahead_of_the_type(self):
+        assert motion_of({"display_name": "slash", "animation_type": "custom-The character"}) == (
+            "slash"
+        )
+
+    def test_an_animation_with_no_display_name_is_named_by_its_type(self):
+        assert motion_of({"display_name": None, "animation_type": "walk"}) == "walk"
+
+    def test_the_directions_of_one_motion_are_gathered_across_its_groups(self):
+        """Two calls, two groups on the provider, one animation here."""
+        payload = {
+            "animations": [
+                {
+                    "animation_type": "custom-The character strides",
+                    "animation_group_id": "group-1",
+                    "directions": [{"direction": "south"}, {"direction": "east"}],
+                },
+                {
+                    "animation_type": "custom-The character strides",
+                    "animation_group_id": "group-2",
+                    "directions": [{"direction": "north"}],
+                },
+            ]
+        }
+
+        gathered = gather_animations(payload)
+
+        assert gathered == [
+            {
+                "motion": "custom-The character strides",
+                "directions": ["south", "east", "north"],
+                "groups": 2,
+            }
+        ]
+
+    def test_a_direction_held_twice_is_named_once(self):
+        payload = {
+            "animations": [
+                {"animation_type": "walk", "directions": [{"direction": "south"}]},
+                {"animation_type": "walk", "directions": [{"direction": "south"}]},
+            ]
+        }
+
+        assert gather_animations(payload)[0]["directions"] == ["south"]
+
+    def test_motions_stay_apart(self):
+        payload = {
+            "animations": [
+                {"animation_type": "walk", "directions": [{"direction": "south"}]},
+                {"animation_type": "run", "directions": [{"direction": "north"}]},
+            ]
+        }
+
+        assert [entry["motion"] for entry in gather_animations(payload)] == ["walk", "run"]
+
+    def test_a_character_with_no_animations_holds_nothing(self):
+        assert gather_animations({"animations": None}) == []
+
+
+class TestADirectionThisMotionAlreadyHas:
+    """R2.39: a second call reaches the directions the first did not cover, so one it
+    did cover is a copy nobody asked for. R2.40: what it does reach joins the motion
+    here rather than in the animation PixelLab holds."""
+
+    def character(self, animations):
+        respx.get(f"{PIXELLAB_BASE_URL}/characters/char-9").respond(
+            json={
+                "id": "char-9",
+                "rotation_urls": rotation_urls(),
+                "animations": animations,
+            }
+        )
+
+    def walk(self, directions):
+        return [
+            {
+                "animation_type": "custom-a full walk cycle, legs altern",
+                "directions": [{"direction": name} for name in directions],
+            }
+        ]
+
+    def animate(self, tmp_path, monkeypatch, *extra):
+        return invoke(
+            ["character", "animate", "char-9", "-a", WALK_CYCLE, *extra],
+            tmp_path,
+            monkeypatch,
+        )
+
+    @respx.mock
+    def test_it_refuses_and_names_what_the_motion_already_holds(self, tmp_path, monkeypatch):
+        self.character(self.walk(["south", "east"]))
+        route = respx.post(f"{PIXELLAB_BASE_URL}/characters/animations")
+
+        result = self.animate(tmp_path, monkeypatch, "-d", "south")
+
+        assert result.exit_code != 0
+        assert "already animated" in result.output
+        assert "south, east" in result.output
+        assert not route.called
+
+    @respx.mock
+    def test_the_refusal_names_the_directions_the_motion_lacks(self, tmp_path, monkeypatch):
+        self.character(self.walk(["south", "east"]))
+
+        result = self.animate(tmp_path, monkeypatch, "-d", "south")
+
+        assert "north" in result.output
+        assert "--again" in result.output
+
+    @respx.mock
+    def test_a_direction_the_motion_lacks_is_animated(self, tmp_path, monkeypatch):
+        """The whole point: the second call covers what the first one did not."""
+        self.character(self.walk(["south"]))
+        route = respx.post(f"{PIXELLAB_BASE_URL}/characters/animations").respond(
+            json={"background_job_ids": ["job-2"], "status": "processing"}
+        )
+        respx.get(f"{PIXELLAB_BASE_URL}/background-jobs/job-2").respond(
+            json={"status": "completed", "last_response": {"images": [image_payload()]}}
+        )
+
+        result = self.animate(tmp_path, monkeypatch, "-d", "north")
+
+        assert result.exit_code == 0
+        assert json.loads(route.calls.last.request.content)["directions"] == ["north"]
+
+    @respx.mock
+    def test_animating_what_it_lacks_says_where_the_frames_join(self, tmp_path, monkeypatch):
+        self.character(self.walk(["south"]))
+        respx.post(f"{PIXELLAB_BASE_URL}/characters/animations").respond(
+            json={"background_job_ids": ["job-2"], "status": "processing"}
+        )
+        respx.get(f"{PIXELLAB_BASE_URL}/background-jobs/job-2").respond(
+            json={"status": "completed", "last_response": {"images": [image_payload()]}}
+        )
+
+        result = self.animate(tmp_path, monkeypatch, "-d", "north")
+
+        assert "already animated over south" in result.output
+        assert "animation of their own" in result.output
+
+    @respx.mock
+    def test_asked_again_it_generates_the_direction_a_second_time(self, tmp_path, monkeypatch):
+        self.character(self.walk(["south"]))
+        route = respx.post(f"{PIXELLAB_BASE_URL}/characters/animations").respond(
+            json={"background_job_ids": ["job-2"], "status": "processing"}
+        )
+        respx.get(f"{PIXELLAB_BASE_URL}/background-jobs/job-2").respond(
+            json={"status": "completed", "last_response": {"images": [image_payload()]}}
+        )
+
+        result = self.animate(tmp_path, monkeypatch, "-d", "south", "--again")
+
+        assert result.exit_code == 0
+        assert route.called
+
+    @respx.mock
+    def test_another_motion_is_not_this_one(self, tmp_path, monkeypatch):
+        """A character holding a walk over south is free to be attacked facing south."""
+        self.character(self.walk(["south"]))
+        route = respx.post(f"{PIXELLAB_BASE_URL}/characters/animations").respond(
+            json={"background_job_ids": ["job-2"], "status": "processing"}
+        )
+        respx.get(f"{PIXELLAB_BASE_URL}/background-jobs/job-2").respond(
+            json={"status": "completed", "last_response": {"images": [image_payload()]}}
+        )
+
+        result = invoke(
+            [
+                "character",
+                "animate",
+                "char-9",
+                "-a",
+                "the character swings a heavy blade downward, shoulders turning with the cut",
+                "-d",
+                "south",
+            ],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 0
+        assert route.called
+
+    @respx.mock
+    def test_a_name_given_is_what_the_motion_is_matched_by(self, tmp_path, monkeypatch):
+        self.character(
+            [
+                {
+                    "display_name": "walk",
+                    "directions": [{"direction": "south"}],
+                }
+            ]
+        )
+        route = respx.post(f"{PIXELLAB_BASE_URL}/characters/animations")
+
+        result = self.animate(tmp_path, monkeypatch, "-d", "south", "--name", "walk")
+
+        assert result.exit_code != 0
+        assert not route.called
+
+    @respx.mock
+    def test_a_dry_run_is_refused_too(self, tmp_path, monkeypatch):
+        """A preview of a call that would be refused is a preview of nothing."""
+        self.character(self.walk(["south"]))
+
+        result = invoke(
+            ["--dry-run", "character", "animate", "char-9", "-a", WALK_CYCLE, "-d", "south"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code != 0
+        assert "already animated" in result.output
+
+
+class TestShowingOneMotionHeldTwice:
+    """R4.5: PixelLab starts a new animation per call, so a motion generated over two
+    calls is two animations there and one motion here."""
+
+    def character(self, animations):
+        respx.get(f"{PIXELLAB_BASE_URL}/characters/char-9").respond(
+            json={
+                "id": "char-9",
+                "name": "a knight",
+                "status": "completed",
+                "rotation_urls": rotation_urls(),
+                "animations": animations,
+            }
+        )
+
+    @respx.mock
+    def test_the_directions_of_one_motion_are_shown_on_one_line(self, tmp_path, monkeypatch):
+        self.character(
+            [
+                {"animation_type": "walk", "directions": [{"direction": "south"}]},
+                {"animation_type": "walk", "directions": [{"direction": "north"}]},
+            ]
+        )
+
+        result = invoke(["character", "show", "char-9"], tmp_path, monkeypatch)
+
+        assert result.exit_code == 0
+        assert "walk  south, north" in result.output
+
+    @respx.mock
+    def test_it_says_how_many_the_provider_holds(self, tmp_path, monkeypatch):
+        self.character(
+            [
+                {"animation_type": "walk", "directions": [{"direction": "south"}]},
+                {"animation_type": "walk", "directions": [{"direction": "north"}]},
+            ]
+        )
+
+        result = invoke(["character", "show", "char-9"], tmp_path, monkeypatch)
+
+        assert "animations: 1 (2 on PixelLab)" in result.output
+        assert "[2 animations]" in result.output
+
+    @respx.mock
+    def test_one_call_per_motion_is_counted_plainly(self, tmp_path, monkeypatch):
+        self.character(
+            [
+                {"animation_type": "walk", "directions": [{"direction": "south"}]},
+                {"animation_type": "run", "directions": [{"direction": "south"}]},
+            ]
+        )
+
+        result = invoke(["character", "show", "char-9"], tmp_path, monkeypatch)
+
+        assert "animations: 2" in result.output
+        assert "on PixelLab" not in result.output
+
+
+class TestAProviderStringDoesNotRewriteTheTerminal:
+    """An animation's name is whatever was last typed into it, and it now reaches a
+    refusal and the terminal. The record already takes control characters out of a
+    manifest for this reason; a payload is the same boundary."""
+
+    ESCAPE = chr(27)
+    RETURN = chr(13)
+
+    def test_an_escape_sequence_in_a_name_is_taken_out(self):
+        animation = {"display_name": "walk" + self.ESCAPE + "[2Kpaid in full"}
+
+        assert motion_of(animation) == "walk[2Kpaid in full"
+
+    def test_a_direction_carrying_one_is_taken_out_too(self):
+        direction = "south" + self.RETURN + self.ESCAPE + "[A"
+        payload = {
+            "animations": [{"animation_type": "walk", "directions": [{"direction": direction}]}]
+        }
+
+        assert gather_animations(payload)[0]["directions"] == ["south[A"]

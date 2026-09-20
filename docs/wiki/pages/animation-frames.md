@@ -72,6 +72,37 @@ alone, which is also the only thing that makes an eight-frame test call cheap.
 eight frames that is two and a half to five times the price for one direction, which is
 why v3 is both PixelLab's recommendation and this tool's default.
 
+## One animation, or several
+
+The directions of one motion are an **animation group**, and PixelLab makes a new one
+for every call. `animation_group_id` is returned by `GET /v2/characters/{character_id}`
+and accepted on the way in only by the object routes — `AnimateObjectRequest` documents
+it as *"pass the animation_group_id of an existing animation on this object to add more
+directions to it"*. `POST /v2/characters/animations` refuses it outright:
+
+```json
+{"type": "extra_forbidden", "loc": ["body", "animation_group_id"],
+ "msg": "Extra inputs are not permitted"}
+```
+
+Nor is there an implicit join to fall back on. Repeating `animation_name`, or the same
+`template_animation_id`, makes a second group rather than extending the first — an
+account checked for this held `walk`, `jump` and `run` twice over on one character, and
+a `spell` over six directions beside a `spell 2` holding the two added later.
+
+So one group over eight directions comes from **one call naming eight directions**, and
+a posed animation can never be one at all: `custom_start_frame` is a single frame per
+call and the pose differs per direction ([[pixellab-asset-routing]]).
+
+`pixellab-cli` closes the split on this side rather than pretending it is closed.
+`character animate` refuses a direction the motion already holds before spending
+anything, `character show` reads the groups of one motion as one animation and says how
+many PixelLab holds, and the subject record gathers the runs the same way, so the atlas
+built from that animation carries every direction of it. PixelLab's own web app extends
+a group over `POST /animate-with-text-v3/character/background`, unprefixed and taking a
+singular `direction`; it answers `403 {"detail": "Invalid token"}` to an API key, which
+is why nothing here calls it.
+
 ## Mirroring is not a route
 
 There is no mirror or flip operation anywhere in REST v2. `mirror` does not occur in the

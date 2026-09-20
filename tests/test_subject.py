@@ -58,7 +58,9 @@ def a_state(home, version=2, state_id=POSE, of=CHARACTER, pose="mid-stride walki
     )
 
 
-def an_animation(home, version=1, of=CHARACTER, start_pose=POSE, name="walking"):
+def an_animation(
+    home, version=1, of=CHARACTER, start_pose=POSE, name="walking", directions=("south",)
+):
     return manifest(
         home,
         "animations",
@@ -69,7 +71,7 @@ def an_animation(home, version=1, of=CHARACTER, start_pose=POSE, name="walking")
             "links": {
                 "character_id": of,
                 "start_pose": start_pose,
-                "directions": ["south"],
+                "directions": list(directions),
                 "name": name,
             },
             "ids": {},
@@ -357,3 +359,63 @@ class TestAManifestThisToolDidNotWrite:
         built = subjects.build("warrior", Workspace(root=tmp_path))
 
         assert built.characters[0]["description"] == "a knight[2Kand a lie"
+
+
+class TestOneMotionAnimatedOverSeveralCalls:
+    """R7.5: PixelLab starts a new animation per call, so the directions of one motion
+    arrive as separate runs. The record holds one animation over all of them."""
+
+    def test_two_runs_of_one_motion_are_one_animation(self, tmp_path):
+        home = tmp_path / "warrior"
+        a_character(home)
+        an_animation(home, version=1, directions=("south",))
+        an_animation(home, version=2, directions=("north",))
+
+        subject = subjects.load(Workspace(tmp_path), "warrior")
+
+        animations = subject.characters[0]["animations"]
+        assert len(animations) == 1
+        assert animations[0]["directions"] == ["south", "north"]
+
+    def test_it_holds_every_file_both_runs_wrote(self, tmp_path):
+        home = tmp_path / "warrior"
+        a_character(home)
+        an_animation(home, version=1, directions=("south",))
+        an_animation(home, version=2, directions=("north",))
+
+        subject = subjects.load(Workspace(tmp_path), "warrior")
+
+        animation = subject.characters[0]["animations"][0]
+        assert len(animation["files"]) == 18
+        assert len(animation["runs"]) == 2
+
+    def test_each_run_keeps_the_directory_it_wrote_to(self, tmp_path):
+        home = tmp_path / "warrior"
+        a_character(home)
+        an_animation(home, version=1)
+        an_animation(home, version=2, directions=("north",))
+
+        subject = subjects.load(Workspace(tmp_path), "warrior")
+
+        directories = [run["directory"] for run in subject.characters[0]["animations"][0]["runs"]]
+        assert len(set(directories)) == 2
+
+    def test_another_motion_stays_its_own_animation(self, tmp_path):
+        home = tmp_path / "warrior"
+        a_character(home)
+        an_animation(home, version=1, name="walking")
+        an_animation(home, version=2, name="attacking")
+
+        subject = subjects.load(Workspace(tmp_path), "warrior")
+
+        assert len(subject.characters[0]["animations"]) == 2
+
+    def test_a_direction_animated_twice_is_named_once(self, tmp_path):
+        home = tmp_path / "warrior"
+        a_character(home)
+        an_animation(home, version=1)
+        an_animation(home, version=2)
+
+        subject = subjects.load(Workspace(tmp_path), "warrior")
+
+        assert subject.characters[0]["animations"][0]["directions"] == ["south"]

@@ -118,3 +118,18 @@
       R2.27
   _Depends 6.3_
   _Reason the interpolation tool was asked for after delivery_
+
+## 7 · One animation over many directions
+
+- [x] 7.1 (Unit) Read the directions each animation covers from the character — R2.39
+  _Reason the provider refuses animation_group_id for characters_
+- [x] 7.2 (Unit) Refuse a direction this motion already has, unless asked again — R2.39,
+      R2.40
+  _Depends 7.1_
+  _Reason the provider refuses animation_group_id for characters_
+- [x] 7.3 (Unit) Show the animations of one motion as one, over every direction — R4.5
+  _Depends 7.1_
+  _Reason the provider refuses animation_group_id for characters_
+- [x] 7.4 (Unit) Teach the skill that one call carries every direction — R2.40
+  _Depends 7.2_
+  _Reason the provider refuses animation_group_id for characters_
