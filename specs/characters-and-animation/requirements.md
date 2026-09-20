@@ -2,7 +2,7 @@
 autonomy: auto
 ci: wait
 branch: feat/no-thin-motion-description
-delivery: in-review
+delivery: abandoned
 pr: 61
 ---
 

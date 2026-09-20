@@ -2,7 +2,7 @@
 autonomy: auto
 ci: wait
 branch: feat/guard-the-character-flow
-delivery: in-review
+delivery: merged
 pr: 59
 ---
 
