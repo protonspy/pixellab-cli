@@ -1,9 +1,9 @@
 ---
 autonomy: auto
 ci: wait
-branch: feat/one-animation-many-directions
+branch: feat/the-ui-panel-you-paid-for
 delivery: in-review
-pr: 78
+pr: 79
 ---
 
 # Asset workspace — requirements

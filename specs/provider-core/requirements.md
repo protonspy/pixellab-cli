@@ -1,9 +1,9 @@
 ---
 autonomy: auto
 ci: wait
-branch: fix/paid-call-defects
-delivery: merged
-pr: 13
+branch: feat/the-ui-panel-you-paid-for
+delivery: in-review
+pr: 79
 ---
 
 # Provider core — requirements

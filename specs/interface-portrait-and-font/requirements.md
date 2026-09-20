@@ -1,9 +1,9 @@
 ---
 autonomy: auto
 ci: wait
-branch: feat/foundation
-delivery: merged
-pr: 52
+branch: feat/the-ui-panel-you-paid-for
+delivery: in-review
+pr: 79
 ---
 
 # Interface, portrait and font — requirements
