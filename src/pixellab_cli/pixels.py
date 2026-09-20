@@ -12,6 +12,8 @@ for nothing.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -29,6 +31,14 @@ MODE = "RGBA"
 OPAQUE = 255
 TRANSPARENT = 0
 
+# How far from an extreme a pixel may sit and still read as that extreme. A provider
+# does not have to land on 255: gpt-image-2.5 returns a solid subject at 250-252 and
+# never at 255, so a split that counts only 255 as opaque calls a whole image a halo
+# and sends the caller to buy a background removal it does not need. Seven steps is
+# under 3% of the range — wide enough for a provider's ceiling, too narrow to swallow
+# the gradient of a real soft edge.
+TOLERANCE = 7
+
 # What one composed image may reach. Past this the allocation fails as a
 # `MemoryError` with a traceback; a ceiling turns that into a sentence saying what
 # was asked for and what the limit is. Pillow's own decode guard does not apply
@@ -38,18 +48,33 @@ MAX_COMPOSED_PIXELS = 89_478_485
 
 @dataclass(frozen=True)
 class Report:
-    """What `inspect` found. The alpha split is the part worth having."""
+    """What `inspect` found. The alpha split is the part worth having.
+
+    Five bands rather than three, because `partial` answers two questions at once and
+    gets the important one wrong: a subject sitting a few steps below 255 lands in the
+    same bucket as the gradient of a soft edge, and only the gradient is a halo.
+    `partial` survives as the sum of the three middle bands, which is what it always
+    was.
+    """
 
     width: int
     height: int
     mode: str
     transparent: int
-    partial: int
+    near_transparent: int
+    soft: int
+    near_opaque: int
     opaque: int
+    ceiling: int
 
     @property
     def pixels(self) -> int:
         return self.width * self.height
+
+    @property
+    def partial(self) -> int:
+        """Every pixel that is neither fully transparent nor fully opaque."""
+        return self.near_transparent + self.soft + self.near_opaque
 
     def as_json(self) -> dict[str, Any]:
         return {
@@ -59,34 +84,59 @@ class Report:
                 "transparent": self.transparent,
                 "partial": self.partial,
                 "opaque": self.opaque,
+                "near_transparent": self.near_transparent,
+                "soft": self.soft,
+                "near_opaque": self.near_opaque,
+                "ceiling": self.ceiling,
             },
         }
 
 
-def load(path: Path) -> Image.Image:
-    """Open an image, or say which file was not one.
+@contextmanager
+def _refusing(path: Path) -> Iterator[None]:
+    """Say which file was not an image, however Pillow chose to say it.
 
     Pillow raises several different exceptions for "not an image", and one of them is
     `OSError` from the filesystem. They are the same answer to the caller.
 
     `DecompressionBombError` is in the list because it is not an `OSError`: a file
-    declaring enormous dimensions would otherwise leave this function as an unhandled
-    exception and reach the operator as a traceback rather than as a refusal.
+    declaring enormous dimensions would otherwise leave as an unhandled exception and
+    reach the operator as a traceback rather than as a refusal.
+
+    Every read of a file this module does goes through here, which is what R1.3 asks
+    for: a caller that opens the file itself gets Pillow's exception instead.
     """
     if not path.is_file():
         raise ValidationError(f"{path} is not a file", context={"path": str(path)})
     try:
-        opened = Image.open(path)
-        opened.load()
+        yield
     except (OSError, ValueError, Image.DecompressionBombError) as failure:
         raise ValidationError(
             f"{path} is not an image this tool can read: {failure}",
             context={"path": str(path)},
         ) from failure
+
+
+def load(path: Path) -> Image.Image:
+    """Open an image, or say which file was not one."""
+    with _refusing(path):
+        opened = Image.open(path)
+        opened.load()
     # A photo from a camera stores its pixels unrotated and an orientation tag beside
     # them. Every viewer honours the tag; a geometry operation that does not would
     # crop a different image from the one the caller is looking at.
     return ImageOps.exif_transpose(opened).convert(MODE)
+
+
+def mode_on_disk(path: Path) -> str:
+    """The mode the file carries, before `load` converts it to RGBA.
+
+    Worth reporting because it is what a route will be handed: a `P` or an `RGB` on
+    disk has no alpha at all, and the split `inspect` prints is of the alpha `load`
+    invented for it.
+    """
+    with _refusing(path), Image.open(path) as opened:
+        return opened.mode
 
 
 def free_path(path: Path) -> Path:
@@ -284,8 +334,13 @@ def split(image: Image.Image, columns: int, rows: int) -> list[Image.Image]:
 def inspect(image: Image.Image, mode: str) -> Report:
     """Size, the mode as it was on disk, and how alpha is distributed.
 
-    The middle bucket is the one worth printing: a soft edge is read as a halo by the
-    rotation routes, and nothing says so until the art comes back.
+    `soft` is the bucket worth printing: a soft edge is read as a halo by the rotation
+    routes, and nothing says so until the art comes back. The two bands beside it are
+    what a provider's own ceiling lands in — pixels that render as background and as
+    subject, and would otherwise be counted as the halo they are not.
+
+    `ceiling` is the highest alpha present, and it is the number that explains a count
+    of zero opaque pixels: an image whose ceiling is 251 has no halo, it has an offset.
     """
     histogram = image.getchannel("A").histogram()
     return Report(
@@ -293,8 +348,11 @@ def inspect(image: Image.Image, mode: str) -> Report:
         height=image.height,
         mode=mode,
         transparent=histogram[TRANSPARENT],
-        partial=sum(histogram[TRANSPARENT + 1 : OPAQUE]),
+        near_transparent=sum(histogram[TRANSPARENT + 1 : TRANSPARENT + TOLERANCE + 1]),
+        soft=sum(histogram[TRANSPARENT + TOLERANCE + 1 : OPAQUE - TOLERANCE]),
+        near_opaque=sum(histogram[OPAQUE - TOLERANCE : OPAQUE]),
         opaque=histogram[OPAQUE],
+        ceiling=max((value for value, count in enumerate(histogram) if count), default=TRANSPARENT),
     )
 
 

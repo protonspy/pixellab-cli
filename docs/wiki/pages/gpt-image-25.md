@@ -48,6 +48,19 @@ URLs on the fal CDN, or data URIs under `sync_mode`. The CLI downloads them and 
 them to the workspace; nothing downstream consumes a fal URL directly, because PixelLab
 takes base64 only.
 
+### `background: transparent` never reaches alpha 255
+
+A subject the model draws as solid comes back at alpha 250-252, and a returned image
+can hold no fully opaque pixel at all. It is a flat offset across the whole image, not
+a soft edge, and it renders as solid everywhere it matters.
+
+It is worth knowing because the tell for a halo — the thing a PixelLab rotation route
+reads off a reference and bakes into eight frames — is partial alpha, so this offset
+looks exactly like a halo over the entire canvas and invites a background removal that
+is paid for and changes nothing. `pixellab-cli image inspect` splits the bands for that
+reason: `soft` is the halo, `near_opaque` is this, and `ceiling` is the highest alpha
+present. Reading `partial` alone is what gets it wrong — see n-0037.
+
 ## Why these and not a pixel-art model
 
 They do not make pixel art and are not asked to. Their job is a clean, well-composed,

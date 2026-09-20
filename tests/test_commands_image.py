@@ -84,6 +84,26 @@ class TestRefusingWhatItCannotRead:
         assert "notes.txt" in result.output
         assert "Traceback" not in result.output
 
+    def test_inspect_refuses_a_file_that_is_not_an_image(self, tmp_path):
+        """`inspect` read the mode with its own `Image.open`, outside the guard the rest
+        of the group goes through, so a file that was not an image reached the operator
+        as a Pillow traceback."""
+        source = tmp_path / "notes.txt"
+        source.write_text("not an image", encoding="utf-8")
+
+        result = invoke(["image", "inspect", str(source)])
+
+        assert result.exit_code == 2
+        assert "notes.txt" in result.output
+        assert "Traceback" not in result.output
+
+    def test_inspect_refuses_a_file_that_is_not_there(self, tmp_path):
+        result = invoke(["image", "inspect", str(tmp_path / "absent.png")])
+
+        assert result.exit_code == 2
+        assert "absent.png" in result.output
+        assert "Traceback" not in result.output
+
     def test_nothing_is_written_when_it_refuses(self, tmp_path):
         source = tmp_path / "notes.txt"
         source.write_text("not an image", encoding="utf-8")
@@ -418,6 +438,59 @@ class TestInspect:
         assert payload["size"] == {"width": 16, "height": 16}
         assert payload["alpha"]["opaque"] == 256
         assert payload["alpha"]["partial"] == 0
+
+    def test_a_subject_just_below_full_opacity_is_not_a_halo(self, tmp_path):
+        """gpt-image-2.5 returns a solid subject at 250-252 and never at 255. Counting
+        only 255 as opaque called every one of those images a halo, and the answer to a
+        halo is a paid background removal."""
+        source = write_image(tmp_path / "solid.png", 16, 16, alpha=251)
+
+        result = invoke(["image", "inspect", str(source)])
+
+        assert result.exit_code == 0
+        assert "soft: none" in result.output
+        assert "the highest alpha is 251" in result.output
+
+    def test_dust_just_above_transparent_is_not_a_halo(self, tmp_path):
+        source = write_image(tmp_path / "dust.png", 16, 16, alpha=3)
+
+        result = invoke(["image", "inspect", str(source)])
+
+        assert "soft: none" in result.output
+        assert "256 at 1-7" in result.output
+        assert "248-254" not in result.output
+
+    def test_a_soft_edge_is_still_reported_as_soft(self, tmp_path):
+        source = write_image(tmp_path / "soft.png", 16, 16, alpha=128)
+
+        result = invoke(["image", "inspect", str(source)])
+
+        assert "soft: 256" in result.output
+        assert "100.00%" in result.output
+
+    def test_json_carries_the_bands_and_the_ceiling(self, tmp_path):
+        source = write_image(tmp_path / "mixed.png", 4, 4, alpha=251)
+
+        result = invoke(["--json", "image", "inspect", str(source)])
+
+        alpha = json.loads(result.stdout)["alpha"]
+        assert alpha == {
+            "transparent": 0,
+            "partial": 16,
+            "opaque": 0,
+            "near_transparent": 0,
+            "soft": 0,
+            "near_opaque": 16,
+            "ceiling": 251,
+        }
+
+    def test_an_empty_image_says_it_carries_nothing(self, tmp_path):
+        source = write_image(tmp_path / "empty.png", 8, 8, alpha=0)
+
+        result = invoke(["image", "inspect", str(source)])
+
+        assert result.exit_code == 0
+        assert "carries nothing" in result.output
 
 
 @pytest.mark.parametrize(

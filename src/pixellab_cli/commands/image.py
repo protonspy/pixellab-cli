@@ -315,27 +315,43 @@ def inspect(
 ) -> None:
     """Size, mode, and how alpha is distributed.
 
-    The partial count is the one worth reading: a soft edge is a halo to the rotation
-    routes, and nothing says so until the art has been paid for.
+    The soft count is the one worth reading: a soft edge is a halo to the rotation
+    routes, and nothing says so until the art has been paid for. It is not the partial
+    count, which also holds every pixel a provider left a few steps short of an extreme.
     """
     try:
         app_context: AppContext = context.obj
-        from PIL import Image
-
-        with Image.open(file) as opened:
-            on_disk = opened.mode
+        on_disk = pixels.mode_on_disk(file)
         image = pixels.load(file)
         report = pixels.inspect(image, on_disk)
-        share = 100.0 * report.partial / report.pixels if report.pixels else 0.0
-        output.emit(
-            report.as_json(),
-            [
-                f"{file}  {report.width}x{report.height}  {report.mode}",
-                f"alpha: {report.transparent} transparent, "
-                f"{report.partial} partial, {report.opaque} opaque",
-                f"partial is {share:.2f}% — anything above zero is a soft edge",
-            ],
-            as_json=app_context.as_json,
-        )
+        share = 100.0 * report.soft / report.pixels if report.pixels else 0.0
+        lines = [
+            f"{file}  {report.width}x{report.height}  {report.mode}",
+            f"alpha: {report.transparent} transparent, "
+            f"{report.partial} partial, {report.opaque} opaque",
+            f"soft: {report.soft}, {share:.2f}% — this is the halo a rotation route reads"
+            if report.soft
+            else "soft: none — no edge for a rotation route to read as a halo",
+        ]
+        near = []
+        if report.near_transparent:
+            near.append(f"{report.near_transparent} at 1-{pixels.TRANSPARENT + pixels.TOLERANCE}")
+        if report.near_opaque:
+            near.append(
+                f"{report.near_opaque} at {pixels.OPAQUE - pixels.TOLERANCE}-{pixels.OPAQUE - 1}"
+            )
+        if near:
+            lines.append(
+                f"near the extremes: {', '.join(near)} — these render as background and "
+                f"as subject, and are not a halo"
+            )
+        if report.ceiling == pixels.TRANSPARENT:
+            lines.append("every pixel is fully transparent — the image carries nothing")
+        elif report.ceiling < pixels.OPAQUE:
+            lines.append(
+                f"no pixel is fully opaque: the highest alpha is {report.ceiling}, so the "
+                f"whole image sits below {pixels.OPAQUE} — an offset, not a soft edge"
+            )
+        output.emit(report.as_json(), lines, as_json=app_context.as_json)
     except PixellabCliError as failure:
         output.handle(failure)
