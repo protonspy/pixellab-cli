@@ -54,7 +54,7 @@ With neither `--element` nor `--piece` the result is one full-canvas rounded pan
 
 ## A panel, or one element
 
-`ui` makes a **panel** by default, and moves to the single-element route
+`ui new` makes a **panel** by default, and moves to the single-element route
 (`generate-ui-v2`) on either of the two signals that mean a panel was never possible or
 never intended:
 

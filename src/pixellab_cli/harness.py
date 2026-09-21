@@ -290,7 +290,7 @@ is free and local: every character, every pose made from it, which pose each ani
 started from, and what the subject has cost. A `--start-pose` from the wrong character
 is accepted by the route, charged per frame per direction, and comes back wrong.
 
-- **Pro Tools cost twenty to forty generations a call:** `object new`, `ui`, `inpaint`,
+- **Pro Tools cost twenty to forty generations a call:** `object new`, `ui new`, `inpaint`,
   `tiles variants`, `character state`, `outfit`, `sprite` with more than one `--style`,
   and `edit` with more than one image.
 - **A failed generation is charged.** `pixellab-cli ledger` lists what was spent, and

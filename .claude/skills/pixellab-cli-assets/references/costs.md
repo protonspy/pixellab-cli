@@ -16,7 +16,7 @@ public pricing; the tool records what each call actually reported.
 | Base | ~1 | `sprite`, `animate`, `character animate` (per direction), `edit` with one image, `tiles isometric`, `tiles prop` |
 | Character | ~3–4 | `character new`, `rotate` |
 | Tilesets | ~3 | `tiles terrain`, `tiles platform` |
-| Pro Tools | 20–40 | `object new`, `ui`, `inpaint`, `tiles variants`, `character state`, `outfit`, `portrait`, `interpolate`, `sprite` with several `--style`, `edit` with several images or `--match` |
+| Pro Tools | 20–40 | `object new`, `ui new`, `inpaint`, `tiles variants`, `character state`, `outfit`, `portrait`, `interpolate`, `sprite` with several `--style`, `edit` with several images or `--match` |
 | Fonts | 25 fixed | `font` |
 | By generation time | 1–6 | `animate` above sixteen frames, which is `animate-pixminimax`: beta, tier 1 and above, and the one route whose estimate here is rough |
 | fal | unpriced | `art concept`, `art anchor`, `art boxart`, `art edit` — fal reports no usage and publishes no price, so the ledger records these as unknown rather than as a number nobody checked |
@@ -70,7 +70,7 @@ Interpolate knows both ends and fills the middle, on a Pro route, at most 128 pe
 and picks the count itself. If they described where the motion ends as concretely as where
 it starts — shut to open, car to robot — it is interpolate.
 
-**`ui` against `sprite --style`.** A panel is one picture holding a whole layout, for Pro
+**`ui new` against `sprite --style`.** A panel is one picture holding a whole layout, for Pro
 pricing. Several small repeated pieces — inventory slots, icon buttons — come back as
 separate sprites from a style reference, which is usually what was actually wanted.
 
@@ -103,5 +103,5 @@ conversion. `pixellab-cli-images` carries the full decision.
 - `animate` and `character animate`: at most 256 per side, and width times height times
   frames may not exceed 524,288 — so 256x256 stops at eight frames.
 - `inpaint`: 32 to 512 per side.
-- `ui`: 192 to 688 per axis, the maximum depending on the aspect.
+- `ui new`: 192 to 688 per axis, the maximum depending on the aspect.
 - `sprite` with several `--style`: no size at all — it is read off the style images.
