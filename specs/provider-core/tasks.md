@@ -71,3 +71,12 @@
 - [x] 7.3 (TDD) Refuse a download past the ceiling for a generated asset — R3.7
   _Reason the address is now fetched unasked_
 
+
+## 8 · Job identifiers inside a list of objects
+- [x] 8.1 (Unit) Poll the first job id when the list holds objects — R4.10
+  _Reason the object animation route returns submissions_
+- [x] 8.2 (Unit) Check each item of an enumerated list, not the list itself — R3.3
+  _Reason the first list parameter with choices refused every value_
+- [x] 8.3 (Unit) Guard the job id a response chose, not only a typed one — R3.6
+  _Reason it reached the poll path unchecked_
+

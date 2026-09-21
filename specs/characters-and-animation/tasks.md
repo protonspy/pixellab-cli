@@ -133,3 +133,19 @@
 - [x] 7.4 (Unit) Teach the skill that one call carries every direction — R2.40
   _Depends 7.2_
   _Reason the provider refuses animation_group_id for characters_
+
+## 8 · Animating an object
+- [x] 8.1 (Unit) Add the object animation route to the catalogue — R2.41
+  _Reason the object route is the one that lets an animation take more directions_
+- [x] 8.2 (Unit) Show an object's rotations and animations with their group ids — R4.6
+  _Reason the object route is the one that lets an animation take more directions_
+- [x] 8.3 (Unit) Animate an object, naming directions and cost — R2.41, R2.43
+  _Depends 8.1_
+  _Reason the object route is the one that lets an animation take more directions_
+- [x] 8.4 (Unit) Add the directions an animation lacks — R2.42, R2.44
+  _Depends 8.3_
+  _Reason the object route lets an animation take more directions_
+- [x] 8.5 (Unit) Teach the scenes skill to animate an object and extend it — R2.42
+  _Depends 8.4_
+  _Reason the object route lets an animation take more directions_
+

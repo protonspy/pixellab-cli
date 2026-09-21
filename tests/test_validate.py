@@ -435,3 +435,23 @@ class TestAStyleImageMatchesTheOutput:
         body = self.request(EncodedImage(base64="ZmFrZQ=="))
 
         assert body["style_image"]["base64"] == "ZmFrZQ=="
+
+
+class TestAnEnumeratedListChecksEachItem:
+    """R3.3. A list parameter enumerates what each item may be, not what the whole
+    list may be — `directions=["north"]` is one allowed value, not an unknown one."""
+
+    def test_a_list_of_allowed_values_passes(self):
+        route = catalog.route("object-animations")
+
+        body = build_request(route, {"object_id": "obj-1", "directions": ["north", "south"]})
+
+        assert body["directions"] == ["north", "south"]
+
+    def test_one_item_outside_the_set_is_refused_and_named(self):
+        route = catalog.route("object-animations")
+
+        with pytest.raises(ValidationError) as refused:
+            build_request(route, {"object_id": "obj-1", "directions": ["north", "sideways"]})
+
+        assert "sideways" in str(refused.value)

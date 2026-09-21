@@ -181,3 +181,27 @@ declared length where there is one and by what arrived where there is not (R3.7)
 Nothing narrower than a size limit is attempted — PixelLab serves assets from more than
 one host and a host list would fail closed on the day they add another, which for a
 tool whose whole job is to collect what was paid for is the more expensive failure.
+
+## Job identifiers inside a list of objects
+
+`characters/animations` returns `background_job_ids`, a flat list, and `_poll_id` takes
+the first. `objects/{object_id}/animations` returns `submissions`: one object per
+direction, each carrying its own `background_job_id` and `status`. The rule is the same
+— follow the first, and the rest stay in the raw payload where the record keeps them —
+so `_poll_id` reads the identifier out of the first entry when the list holds objects
+rather than strings (R4.10). A route's own shape is the provider's business; which of
+the identifiers is followed is not, and it is one rule for both.
+
+## The identifier a response chose is still part of a URL
+
+`_split_path` refuses a path parameter that carries a separator or a dot segment,
+because the request built from it carries the bearer token. The job identifier a route
+hands back is interpolated into the poll path by the very next request, which carries
+the same token — so it is the same problem with the value arriving from the other
+direction, and `collect` already said so for the one a caller types.
+
+One helper now guards both, and the poll loop calls it before every attempt: a
+`background_job_id` of `../../v2/characters` is refused rather than followed. That
+covers `submissions`, where the object route puts its identifiers, and the flat
+`background_job_ids` a character animation returns, which had the same gap one layer
+shallower.

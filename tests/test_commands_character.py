@@ -3495,3 +3495,315 @@ class TestAProviderStringDoesNotRewriteTheTerminal:
         }
 
         assert gather_animations(payload)[0]["directions"] == ["south[A"]
+
+
+def an_object(object_id="obj-1", animations=None, directions=DIRECTIONS):
+    """The shape `GET /objects/{id}` returns, per `ObjectDetail` in the schema."""
+    return {
+        "id": object_id,
+        "name": "a wooden barrel",
+        "prompt": "a wooden barrel",
+        "size": {"width": 64, "height": 64},
+        "directions": len(directions),
+        "created_at": "2026-09-20T20:40:08Z",
+        "rotation_urls": rotation_urls(directions),
+        "animations": animations or [],
+    }
+
+
+def an_object_animation(group="group-1", name="it rocks", directions=("south",), frames=9):
+    return {
+        "animation_group_id": group,
+        "description": name,
+        "display_name": None,
+        "frame_count": frames,
+        "directions": [
+            {"direction": d, "created_at": "2026-09-20T20:40:08Z", "storage_urls": []}
+            for d in directions
+        ],
+    }
+
+
+class TestShowingAnObject:
+    """R4.6. The group identifier is issued by the provider and reported nowhere else,
+    so without this there is no way to name the animation that gets more directions."""
+
+    @respx.mock
+    def test_the_rotations_and_the_animations_are_named(self, tmp_path, monkeypatch):
+        respx.get(f"{PIXELLAB_BASE_URL}/objects/obj-1").respond(
+            json=an_object(animations=[an_object_animation(directions=("south", "east"))])
+        )
+
+        result = invoke(["object", "show", "obj-1"], tmp_path, monkeypatch)
+
+        assert result.exit_code == 0
+        assert "south, east" in result.output
+        assert "it rocks" in result.output
+
+    @respx.mock
+    def test_the_group_identifier_is_what_gets_printed(self, tmp_path, monkeypatch):
+        respx.get(f"{PIXELLAB_BASE_URL}/objects/obj-1").respond(
+            json=an_object(animations=[an_object_animation(group="a0d7cc33")])
+        )
+
+        result = invoke(["object", "show", "obj-1"], tmp_path, monkeypatch)
+
+        assert "a0d7cc33" in result.output
+
+    @respx.mock
+    def test_an_object_with_no_animations_says_none(self, tmp_path, monkeypatch):
+        respx.get(f"{PIXELLAB_BASE_URL}/objects/obj-1").respond(json=an_object())
+
+        result = invoke(["object", "show", "obj-1"], tmp_path, monkeypatch)
+
+        assert "animations: 0" in result.output
+
+    @respx.mock
+    def test_an_object_that_is_not_there_is_said_so(self, tmp_path, monkeypatch):
+        respx.get(f"{PIXELLAB_BASE_URL}/objects/obj-1").respond(json={})
+
+        result = invoke(["object", "show", "obj-1"], tmp_path, monkeypatch)
+
+        assert result.exit_code != 0
+        assert "no object" in result.output
+
+
+ROCKING = "the barrel rocks on its base, tipping a little and settling back"
+
+
+def object_animation_response(group="group-1", directions=("south",)):
+    """`AnimateObjectResponse`: one submission per direction, each with its own job."""
+    return {
+        "animation_group_id": group,
+        "object_id": "obj-1",
+        "description": ROCKING,
+        "mode": "v3",
+        "frame_count": 8,
+        "submissions": [
+            {"direction": name, "status": "processing", "background_job_id": f"job-{name}"}
+            for name in directions
+        ],
+    }
+
+
+def mock_object_animation(directions=("south",), group="group-1"):
+    route = respx.post(f"{PIXELLAB_BASE_URL}/objects/obj-1/animations").respond(
+        json=object_animation_response(group=group, directions=directions)
+    )
+    for name in directions:
+        respx.get(f"{PIXELLAB_BASE_URL}/background-jobs/job-{name}").respond(
+            json={"status": "completed", "last_response": {"images": [image_payload()]}}
+        )
+    return route
+
+
+class TestAnimatingAnObject:
+    """R2.41 and R2.43. Eight frames over eight directions is sixty-four generations,
+    so which directions and what they cost are said before the call, not after."""
+
+    @respx.mock
+    def test_the_action_and_the_direction_reach_the_route(self, tmp_path, monkeypatch):
+        respx.get(f"{PIXELLAB_BASE_URL}/objects/obj-1").respond(json=an_object())
+        route = mock_object_animation()
+
+        result = invoke(["object", "animate", "obj-1", "-a", ROCKING], tmp_path, monkeypatch)
+
+        assert result.exit_code == 0
+        sent = json.loads(route.calls.last.request.content)
+        assert sent["animation_description"] == ROCKING
+        assert sent["directions"] == ["south"]
+
+    @respx.mock
+    def test_the_directions_and_the_cost_are_named_before_the_call(self, tmp_path, monkeypatch):
+        respx.get(f"{PIXELLAB_BASE_URL}/objects/obj-1").respond(json=an_object())
+        mock_object_animation(directions=("south", "east"))
+
+        result = invoke(
+            ["object", "animate", "obj-1", "-a", ROCKING, "-d", "south", "-d", "east"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert "south, east" in result.output
+        assert "16 generations" in result.output
+
+    @respx.mock
+    def test_neither_an_action_nor_an_animation_is_refused(self, tmp_path, monkeypatch):
+        result = invoke(["object", "animate", "obj-1"], tmp_path, monkeypatch)
+
+        assert result.exit_code == 2
+        assert "--action" in result.output
+
+    @respx.mock
+    def test_a_one_direction_object_sends_no_directions(self, tmp_path, monkeypatch):
+        """The route answers 400 to a `directions` on a one-direction object."""
+        respx.get(f"{PIXELLAB_BASE_URL}/objects/obj-1").respond(
+            json=an_object(directions=("south",)) | {"directions": 1}
+        )
+        route = mock_object_animation()
+
+        result = invoke(["object", "animate", "obj-1", "-a", ROCKING], tmp_path, monkeypatch)
+
+        assert result.exit_code == 0
+        assert "directions" not in json.loads(route.calls.last.request.content)
+
+    @respx.mock
+    def test_a_direction_on_a_one_direction_object_is_refused(self, tmp_path, monkeypatch):
+        respx.get(f"{PIXELLAB_BASE_URL}/objects/obj-1").respond(
+            json=an_object(directions=("south",)) | {"directions": 1}
+        )
+        route = respx.post(f"{PIXELLAB_BASE_URL}/objects/obj-1/animations")
+
+        result = invoke(
+            ["object", "animate", "obj-1", "-a", ROCKING, "-d", "east"], tmp_path, monkeypatch
+        )
+
+        assert result.exit_code == 2
+        assert not route.called
+
+    @respx.mock
+    def test_a_direction_that_is_not_one_is_refused(self, tmp_path, monkeypatch):
+        respx.get(f"{PIXELLAB_BASE_URL}/objects/obj-1").respond(json=an_object())
+
+        result = invoke(
+            ["object", "animate", "obj-1", "-a", ROCKING, "-d", "sideways"], tmp_path, monkeypatch
+        )
+
+        assert result.exit_code == 2
+        assert "north-east" in result.output
+
+
+class TestAddingDirectionsToAnObjectAnimation:
+    """R2.42 and R2.44. This is the route that lets an animation take more directions,
+    which is what the character route refuses outright."""
+
+    def barrel(self, covered=("south", "east")):
+        respx.get(f"{PIXELLAB_BASE_URL}/objects/obj-1").respond(
+            json=an_object(animations=[an_object_animation(directions=covered)])
+        )
+
+    @respx.mock
+    def test_the_group_is_sent_and_the_description_is_not_repeated(self, tmp_path, monkeypatch):
+        """The route inherits the description of the animation being extended."""
+        self.barrel()
+        route = mock_object_animation(directions=("north",))
+
+        result = invoke(
+            ["object", "animate", "obj-1", "--into", "group-1", "-d", "north"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 0
+        sent = json.loads(route.calls.last.request.content)
+        assert sent["animation_group_id"] == "group-1"
+        assert "animation_description" not in sent
+
+    @respx.mock
+    def test_without_directions_it_animates_what_the_animation_lacks(self, tmp_path, monkeypatch):
+        self.barrel(covered=("south", "east"))
+        route = mock_object_animation(
+            directions=("south-east", "north-east", "north", "north-west", "west", "south-west")
+        )
+
+        result = invoke(["object", "animate", "obj-1", "--into", "group-1"], tmp_path, monkeypatch)
+
+        assert result.exit_code == 0
+        sent = json.loads(route.calls.last.request.content)
+        assert "south" not in sent["directions"]
+        assert "east" not in sent["directions"]
+        assert set(sent["directions"]) == {
+            "south-east",
+            "north-east",
+            "north",
+            "north-west",
+            "west",
+            "south-west",
+        }
+
+    @respx.mock
+    def test_a_direction_it_already_holds_is_refused(self, tmp_path, monkeypatch):
+        self.barrel()
+        route = respx.post(f"{PIXELLAB_BASE_URL}/objects/obj-1/animations")
+
+        result = invoke(
+            ["object", "animate", "obj-1", "--into", "group-1", "-d", "south"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 2
+        assert "already animated" in result.output
+        assert not route.called
+
+    @respx.mock
+    def test_asked_again_it_is_sent_with_replace_existing(self, tmp_path, monkeypatch):
+        self.barrel()
+        route = mock_object_animation()
+
+        result = invoke(
+            ["object", "animate", "obj-1", "--into", "group-1", "-d", "south", "--again"],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code == 0
+        assert json.loads(route.calls.last.request.content)["replace_existing"] is True
+
+    @respx.mock
+    def test_an_animation_covering_everything_is_refused_rather_than_sent(
+        self, tmp_path, monkeypatch
+    ):
+        self.barrel(covered=DIRECTIONS)
+        route = respx.post(f"{PIXELLAB_BASE_URL}/objects/obj-1/animations")
+
+        result = invoke(["object", "animate", "obj-1", "--into", "group-1"], tmp_path, monkeypatch)
+
+        assert result.exit_code == 2
+        assert "every direction" in result.output
+        assert not route.called
+
+    @respx.mock
+    def test_an_animation_this_object_does_not_have_names_the_ones_it_does(
+        self, tmp_path, monkeypatch
+    ):
+        self.barrel()
+
+        result = invoke(["object", "animate", "obj-1", "--into", "nope"], tmp_path, monkeypatch)
+
+        assert result.exit_code == 2
+        assert "group-1" in result.output
+
+
+class TestAOneDirectionObjectThatIsAlreadyAnimated:
+    """A prop with one direction has nothing left to add once an animation covers it,
+    so the refusal the eight-direction path gives applies here too — the route says
+    the same thing, one round trip later."""
+
+    def barrel(self, animations):
+        respx.get(f"{PIXELLAB_BASE_URL}/objects/obj-1").respond(
+            json=an_object(animations=animations, directions=("south",)) | {"directions": 1}
+        )
+
+    @respx.mock
+    def test_adding_to_an_animation_that_covers_it_is_refused(self, tmp_path, monkeypatch):
+        self.barrel([an_object_animation(directions=("south",))])
+        route = respx.post(f"{PIXELLAB_BASE_URL}/objects/obj-1/animations")
+
+        result = invoke(["object", "animate", "obj-1", "--into", "group-1"], tmp_path, monkeypatch)
+
+        assert result.exit_code == 2
+        assert "only direction" in result.output
+        assert not route.called
+
+    @respx.mock
+    def test_asked_again_it_is_sent(self, tmp_path, monkeypatch):
+        self.barrel([an_object_animation(directions=("south",))])
+        route = mock_object_animation()
+
+        result = invoke(
+            ["object", "animate", "obj-1", "--into", "group-1", "--again"], tmp_path, monkeypatch
+        )
+
+        assert result.exit_code == 0
+        assert json.loads(route.calls.last.request.content)["replace_existing"] is True

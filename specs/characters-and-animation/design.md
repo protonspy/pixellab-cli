@@ -375,3 +375,37 @@ holds behind it, and the subject record folds the runs the same way, so an anima
 built over two calls reaches `inspect` — and the atlas built from it — as one animation
 over every direction it covers. The grouping the provider refuses is real everywhere a
 game engine can see it.
+
+## An object animation is the one the provider lets you extend
+
+Everything the character route refuses, the object route offers. `POST
+/v2/objects/{object_id}/animations` takes `animation_group_id` — *"pass the
+animation_group_id of an existing animation on this object to add more directions to
+it"* — returns it on the first call, inherits the description when extending, and
+refuses a direction it already holds with `409` unless `replace_existing` says
+otherwise. It even computes the missing set: with a group and no `directions`, the
+server fills in the cardinals that are not there yet.
+
+So `object animate` is the shape `character animate` could not be. `--into
+<animation_group_id>` adds to an animation that exists; without it a new one starts and
+its identifier is reported, because that identifier is what the next call extends.
+`--again` is `replace_existing`, the same word the character side uses for the same
+idea.
+
+The CLI still reads the object first, and that read is free. It is what turns "omit the
+directions and let the server decide" into a cost said out loud: `GET /v2/objects/{id}`
+names every direction each animation already covers, so the directions this call will
+actually generate are known before it is made, and so is the bill — one generation per
+frame per direction, which for a default eight-frame animation over eight directions is
+sixty-four. Nobody should meet that number on the invoice (R2.43). The same read is what
+refuses a direction already animated before the provider's `409` costs a round trip
+(R2.44).
+
+`object show` exists for the same reason (R4.6): the identifier `--into` takes is issued
+by the provider and reported nowhere else, so without it the extending flow has no way
+to start. It lists the rotations, then each animation with its group identifier, its
+description and the directions it holds.
+
+Only `mode='v3'` is reachable. `pro` is twenty to forty generations *per direction* —
+up to three hundred and twenty for eight — and nothing here needs its different look
+enough to put that behind a flag that could be typed by accident.

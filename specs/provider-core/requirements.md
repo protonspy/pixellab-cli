@@ -1,9 +1,9 @@
 ---
 autonomy: auto
 ci: wait
-branch: feat/the-ui-panel-you-paid-for
+branch: feat/an-object-animation-takes-more-directions
 delivery: in-review
-pr: 79
+pr: 82
 ---
 
 # Provider core — requirements
@@ -47,7 +47,7 @@ looks like have to be decided once.
 - **R3.3** If a caller supplies a parameter the route does not accept, a value outside an enumerated parameter's set, or a size the route rejects, then the provider core shall fail before the request is sent, naming the parameter and the values or bounds that are allowed.
 - **R3.4** The route table shall be derived from the vendored provider schemas under `reference/`, and a route whose shape contradicts those schemas shall be reported by the suite rather than at call time.
 - **R3.5** (ADDED) Where a route requires an image to match one of its size parameters, if the image given does not match it, then the provider core shall fail before the request is sent, naming both sizes.
-- **R3.6** (ADDED) If a value that becomes part of a route's address carries a path separator or a dot segment, then the provider core shall refuse the call before anything is sent, because the request that would carry it carries the account's credential.
+- **R3.6** (MODIFIED) If a value that becomes part of a route's address carries a path separator or a dot segment, then the provider core shall refuse the call before anything is sent, whether that value came from the caller or from a provider's own response, because the request that would carry it carries the account's credential.
 - **R3.7** (ADDED) If a download named by a provider's response is larger than the ceiling this tool holds for a generated asset, then the provider core shall refuse it rather than read it.
 
 ## R4 · Background jobs
@@ -61,6 +61,7 @@ looks like have to be decided once.
 - **R4.8** (ADDED) If polling stops before a job resolves, then the provider core shall record that call as still running and shall record no cost for it, because a call that has not finished has not reported one.
 - **R4.7** (MODIFIED) Where a response declares how many images it holds and fewer were found, the provider core shall take them from a field it has seen carry them, and shall leave the count alone otherwise.
 - **R4.9** (ADDED) Where a completed job reports the address of the image it made rather than its bytes, the provider core shall fetch that address and return the image, because the call has been charged and its result is otherwise never collected.
+- **R4.10** (ADDED) Where a route reports its job identifiers inside a list of objects, one per direction, the provider core shall poll the first of them.
 
 ## R5 · Results and cost
 

@@ -7,6 +7,7 @@ parameter renamed upstream fails here instead of on a call somebody paid for.
 """
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -64,8 +65,15 @@ class TestAgainstTheVendoredSchema:
         properties, _ = request_properties(subject.path, subject.method)
         if not properties:
             pytest.skip("no request body")
-        unknown = sorted(subject.param_names - set(properties))
+        # A path parameter is declared like any other and then taken back out of the
+        # body to build the URL, so it is not a property of the request and must not
+        # be looked for among them.
+        unknown = sorted(subject.param_names - set(properties) - set(subject.path_params))
         assert not unknown, f"{subject.name}: not on the endpoint: {unknown}"
+
+    def test_every_path_parameter_is_one_the_path_names(self, subject):
+        named = set(re.findall(r"{([^}]+)}", subject.path))
+        assert set(subject.path_params) <= named, f"{subject.name}: not in the path"
 
     def test_every_required_parameter_of_the_endpoint_is_required_here(self, subject):
         properties, required = request_properties(subject.path, subject.method)

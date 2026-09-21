@@ -550,3 +550,96 @@ class TestWhatADownloadWillHold:
         respx.get(self.ADDRESS).respond(content=png_bytes())
 
         assert client.download(self.ADDRESS) == png_bytes()
+
+
+class TestAJobIdInsideAListOfObjects:
+    """R4.10. `objects/{id}/animations` answers with `submissions`: one object per
+    direction, each carrying its own job. The first is followed, exactly as the flat
+    list of a character animation is."""
+
+    def a_submission(self, direction, job):
+        return {"direction": direction, "status": "processing", "background_job_id": job}
+
+    @respx.mock
+    def test_the_first_submission_is_the_job_that_is_polled(self, client):
+        respx.post(url("/objects/obj-1/animations")).respond(
+            json={
+                "animation_group_id": "group-1",
+                "object_id": "obj-1",
+                "description": "it turns on the spot",
+                "mode": "v3",
+                "frame_count": 8,
+                "submissions": [
+                    self.a_submission("south", "job-south"),
+                    self.a_submission("east", "job-east"),
+                ],
+            }
+        )
+        polled = respx.get(url("/background-jobs/job-south")).respond(
+            json={"status": "completed", "last_response": {"images": [image_payload()]}}
+        )
+
+        result = client.call(
+            "object-animations", object_id="obj-1", animation_description="it turns"
+        )
+
+        assert polled.called
+        assert result.images == [png_bytes()]
+
+    @respx.mock
+    def test_a_submission_with_no_job_is_not_polled_as_one(self, client):
+        """`background_job_id` is nullable, and a dictionary is not a job id."""
+        respx.post(url("/objects/obj-1/animations")).respond(
+            json={
+                "animation_group_id": "group-1",
+                "object_id": "obj-1",
+                "description": "it turns",
+                "mode": "v3",
+                "frame_count": 8,
+                "submissions": [{"direction": "south", "status": "failed"}],
+            }
+        )
+
+        with pytest.raises(ProviderError):
+            client.call("object-animations", object_id="obj-1", animation_description="it turns")
+
+
+class TestAJobIdTheProviderChose:
+    """R3.6 on the other half of the same problem. The identifier a response hands
+    back is interpolated into the poll path, and the request that follows carries the
+    bearer token — a response is not more trustworthy than an argument here."""
+
+    @respx.mock
+    def test_a_job_id_carrying_a_path_is_refused_before_it_is_polled(self, client):
+        respx.post(url("/objects/obj-1/animations")).respond(
+            json={
+                "animation_group_id": "group-1",
+                "object_id": "obj-1",
+                "description": "it turns",
+                "mode": "v3",
+                "frame_count": 8,
+                "submissions": [
+                    {
+                        "direction": "south",
+                        "status": "processing",
+                        "background_job_id": "../../v2/characters",
+                    }
+                ],
+            }
+        )
+        elsewhere = respx.get(url("/characters"))
+
+        with pytest.raises(ValidationError):
+            client.call("object-animations", object_id="obj-1", animation_description="it turns")
+
+        assert not elsewhere.called
+
+    @respx.mock
+    def test_the_flat_list_of_a_character_animation_is_guarded_too(self, client):
+        """`characters/animations` returns its ids one layer shallower; one rule."""
+        respx.post(url("/characters/animations")).respond(
+            json={"background_job_ids": ["../../v2/balance"], "status": "processing"}
+        )
+
+        with pytest.raises(ValidationError):
+            client.call("characters-animations", character_id="char-9", action_description="walk")

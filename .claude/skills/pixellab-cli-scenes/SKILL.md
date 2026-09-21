@@ -86,11 +86,48 @@ so it does not read as pasted from another game.
 ```
 pixellab-cli object new <description> --directions --size --view --style --reference --name
 pixellab-cli object list
+pixellab-cli object show <object_id>
 ```
 
 **Pro pricing.** A managed prop with its own id, in one direction or eight. Reach for it
 when the prop has to be seen from several angles or referred to later; a prop that only
 has to look right from one angle is `pixellab-cli sprite` for about one generation.
+
+`object show` is free and prints, for each animation the prop has, the identifier that
+adds directions to it.
+
+## A prop that moves, one direction at a time
+
+```
+pixellab-cli object animate <object_id> --action/-a --direction/-d --into --frames
+                                        --name --enhance --drop-first-frame --again
+```
+
+**A generation per frame per direction.** The default is eight frames, so one direction
+is about eight generations and all eight are about sixty-four. The command names the
+directions and the total before it calls; read that line rather than the flags.
+
+**This is the one animation you can come back to.** A character's animation cannot take
+another direction — the provider refuses the field — but an object's can:
+
+```bash
+pixellab-cli --yes object animate <id> -a "the barrel rocks on its base and settles back"
+pixellab-cli object show <id>            # the animation_group_id is on the line
+pixellab-cli --yes object animate <id> --into <animation_group_id>
+```
+
+The second call adds **only the directions that animation does not have yet**, inherits
+its description, and needs no `--action`. Naming none is the usual way to run it: the
+missing set is worked out from the object, and the cost of exactly those directions is
+said before anything is sent. `--again` regenerates one it already holds, which is the
+only way past the refusal.
+
+Animate one direction first and look at it. A rocking barrel that reads wrong in south
+reads wrong in eight directions, and finding that out costs eight generations instead of
+sixty-four.
+
+A one-direction object animates the direction it has; `--direction` on one is refused,
+because the route answers `400` to it.
 
 ## Assembling a map is not a generation problem
 

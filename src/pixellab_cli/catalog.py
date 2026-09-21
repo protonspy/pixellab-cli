@@ -1166,6 +1166,35 @@ GET_OBJECT = Route(
 )
 
 
+ANIMATE_OBJECT = Route(
+    name="object-animations",
+    method="POST",
+    path="/objects/{object_id}/animations",
+    kind=RouteKind.BACKGROUND_JOB,
+    summary="Animate an object, or add directions to an animation it already has.",
+    estimated_generations=1.0,
+    result_id_field="submissions",
+    poll_path=BACKGROUND_JOBS_PATH,
+    asset_id_field="animation_group_id",
+    params=(
+        Param("object_id", ParamKind.STRING, required=True),
+        Param("animation_description", ParamKind.STRING, help="The motion, described."),
+        Param(
+            "animation_group_id",
+            ParamKind.STRING,
+            help="An animation of this object to add directions to.",
+        ),
+        Param("directions", ParamKind.STRING_LIST, choices=DIRECTION),
+        Param("display_name", ParamKind.STRING),
+        Param("frame_count", ParamKind.INTEGER, minimum=4, maximum=16, default=8),
+        Param("mode", ParamKind.STRING, choices=("v3", "pro"), default="v3"),
+        Param("enhance_prompt", ParamKind.BOOLEAN, default=False),
+        Param("keep_first_frame", ParamKind.BOOLEAN, default=True),
+        Param("replace_existing", ParamKind.BOOLEAN, default=False),
+    ),
+    path_params=("object_id",),
+)
+
 LIST_UI_ASSETS = Route(
     name="ui-assets",
     method="GET",
@@ -1230,11 +1259,25 @@ ROUTES: tuple[Route, ...] = (
     CHARACTER_SPRITESHEET,
     LIST_OBJECTS,
     GET_OBJECT,
+    ANIMATE_OBJECT,
     LIST_UI_ASSETS,
     GET_UI_ASSET,
 )
 
 BY_NAME: dict[str, Route] = {route.name: route for route in ROUTES}
+
+
+def frame_default(route: Route) -> int:
+    """How many frames a route draws when nobody says.
+
+    Read off the route's own `frame_count` rather than repeated per command: every
+    animating command multiplies this by the number of directions to estimate what a
+    call will cost, and two copies of it drift the day one route's default changes.
+    """
+    for param in route.params:
+        if param.name == "frame_count":
+            return int(param.default or 8)
+    return 8
 
 
 def route(name: str) -> Route:
