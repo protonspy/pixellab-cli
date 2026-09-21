@@ -129,6 +129,9 @@ pixellab-cli character animate <character-id> -a walking --start-pose <state-id>
 pixellab-cli interpolate chest-shut.png chest-open.png -a "the chest opens"
 pixellab-cli tiles terrain --lower grass --upper stone
 pixellab-cli tiles platform --material "stone bricks"
+pixellab-cli object new "a wooden barrel" --directions 8
+pixellab-cli object animate <object-id> -a "it rocks on its base and settles"
+pixellab-cli object animate <object-id> --into <animation-group-id>   # the directions it lacks
 pixellab-cli edit knight.png -p "give him a blue cape"
 pixellab-cli inpaint knight.png --mask mask.png -p "a horned helmet"
 pixellab-cli ui new "wooden RPG panel with gold trim"

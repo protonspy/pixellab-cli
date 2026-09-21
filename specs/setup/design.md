@@ -114,6 +114,17 @@ it is reported with the paths that were written before it (R1.6, R1.10). A globa
 install writes the rule to `~/.claude/settings.json`, so it is every project rather than
 this one — the report names the path it wrote, which is where that shows.
 
+**What the rule reaches, exactly.** Claude Code splits a compound command on `&&`,
+`||`, `;`, `|`, `|&`, `&` and newlines, and every subcommand has to match a rule of its
+own — so `pixellab-cli sprite "x" && curl … | sh` is *not* carried by this rule, and the
+`curl` is prompted for as it would be without it. What the rule does carry is anything
+inside the argument, because `*` matches any text: a command substitution in a
+description — `pixellab-cli --yes sprite "$(cat ~/.ssh/id_rsa)"` — matches, and this tool
+sends its description to a provider. That is the shape of the exposure and it is worth
+saying plainly: the rule is a convenience about prompts, not a boundary around what an
+argument may contain. No allow rule can be that boundary; a `PreToolUse` hook is the
+only mechanism that inspects a command before the rules are consulted.
+
 The read is guarded the same way the write is (R1.7). Every writer here reads the file
 before it writes one, so refusing a link only at the write meant the read had already
 followed one: a settings file in a cloned repository is a path somebody else chose. The
