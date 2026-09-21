@@ -1,9 +1,9 @@
 ---
 autonomy: auto
 ci: wait
-branch: feat/an-object-animation-takes-more-directions
+branch: feat/balance-says-both-providers
 delivery: in-review
-pr: 82
+pr: 85
 ---
 
 # Provider core — requirements
