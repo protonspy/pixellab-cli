@@ -2,8 +2,8 @@
 autonomy: auto
 ci: wait
 branch: feat/character-animation-refuses-a-group-id
-delivery: in-progress
-pr: 82
+delivery: in-review
+pr: 86
 ---
 
 # Characters and animation — requirements
