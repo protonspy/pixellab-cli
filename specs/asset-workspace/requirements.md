@@ -70,6 +70,7 @@ A file nobody can account for is worth less than the same file with a manifest.
 - **R7.3** Where a call is made from an identifier an earlier call produced, the asset workspace shall record that identifier beside the request, because a request carrying a frame does not say which pose the frame came from.
 - **R7.4** When asked to describe a subject, the asset workspace shall report it without calling a provider, and shall report the subjects it holds where none is named.
 - **R7.5** (ADDED) The asset workspace shall gather the animation runs of one character made for one motion into a single animation holding every direction they cover and every file they wrote.
+- **R7.6** (ADDED) Where a state was made from another state, the asset workspace shall record it under the character that state belongs to, so that every pose of one character is reported together however it was made.
 
 ## Out of scope
 

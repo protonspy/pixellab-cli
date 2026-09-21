@@ -98,3 +98,4 @@ over this file answers with the example above as well as with the notes. -->
 - n-0058 2026-09-20 #gotcha @src/pixellab_cli/pixellab.py — a path parameter is refused in _split_path when it holds a separator or a dot segment, so no route has to remember the check
 - n-0059 2026-09-20 #gotcha @tests/test_skill.py — the skill tests walk a hand-written CATEGORY_SKILLS tuple, so a packaged skill missing from it is tested by nothing; TestNothingShipsUntested binds it to harness.packaged_skills
 - n-0060 2026-09-20 #gotcha @src/pixellab_cli/catalog.py — frame_default lives in catalog.py and reads the route's own frame_count, because every animating command multiplies it by the directions to estimate a call
+- n-0061 2026-09-20 #gotcha @src/pixellab_cli/subject.py — a state can be made from another state, so the subject record walks the source chain to the root character; a pose filed under nothing is a guardrail that stops seeing it

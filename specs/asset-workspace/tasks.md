@@ -74,3 +74,8 @@
 
 - [x] 8.1 (Unit) Ask for no agreement where the route is known to cost nothing — R6.5
   _Reason a free download asked for --yes, and the suite never saw it_
+
+## 9 · A pose made from a pose
+- [x] 9.1 (TDD) File a state made from a state under its root character — R7.6
+  _Reason the skill now chains poses off the idle_
+

@@ -419,3 +419,60 @@ class TestOneMotionAnimatedOverSeveralCalls:
         subject = subjects.load(Workspace(tmp_path), "warrior")
 
         assert subject.characters[0]["animations"][0]["directions"] == ["south"]
+
+
+class TestAPoseMadeFromAPose:
+    """R7.6. A state is a character with its own id, so a pose is made from the idle
+    rather than from the neutral rotation nobody plays. Everything that guards a paid
+    call reads this structure, so a pose the record cannot place is a guard that
+    silently stops seeing it."""
+
+    IDLE = "char-knight-idle"
+
+    def a_chain(self, tmp_path):
+        home = tmp_path / "warrior"
+        a_character(home)
+        a_state(home, version=2, state_id=self.IDLE, of=CHARACTER, pose="idle, at rest")
+        a_state(home, version=3, state_id=POSE, of=self.IDLE, pose="mid-stride walking pose")
+        return subjects.load(Workspace(tmp_path), "warrior")
+
+    def test_the_chained_pose_is_filed_under_the_character(self, tmp_path):
+        subject = self.a_chain(tmp_path)
+
+        assert [state["id"] for state in subject.characters[0]["states"]] == [self.IDLE, POSE]
+
+    def test_it_is_not_left_loose(self, tmp_path):
+        subject = self.a_chain(tmp_path)
+
+        assert subject.loose == []
+
+    def test_the_character_owns_the_pose(self, tmp_path):
+        """`check_pose_belongs` refuses a pose of another character on this one."""
+        subject = self.a_chain(tmp_path)
+
+        assert subject.owner_of(POSE) == CHARACTER
+
+    def test_every_pose_is_offered_for_the_motion(self, tmp_path):
+        """`check_a_pose_was_made_for_it` names these before a paid animation."""
+        subject = self.a_chain(tmp_path)
+
+        assert [name for name, _ in subject.poses_of(CHARACTER)] == [self.IDLE, POSE]
+
+    def test_the_state_still_says_what_it_was_made_from(self, tmp_path):
+        """Filed under the character it descends from; `of` is still what happened."""
+        subject = self.a_chain(tmp_path)
+
+        chained = next(s for s in subject.characters[0]["states"] if s["id"] == POSE)
+        assert chained["of"] == self.IDLE
+
+    def test_a_chain_that_eats_itself_is_not_followed_forever(self, tmp_path):
+        """Two states naming each other is not a character; it is loose work."""
+        home = tmp_path / "warrior"
+        a_character(home)
+        a_state(home, version=2, state_id="a-state", of="b-state", pose="one")
+        a_state(home, version=3, state_id="b-state", of="a-state", pose="two")
+
+        subject = subjects.load(Workspace(tmp_path), "warrior")
+
+        assert subject.characters[0]["states"] == []
+        assert len(subject.loose) == 2

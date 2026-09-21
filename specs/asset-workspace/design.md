@@ -123,3 +123,25 @@ A free route is one whose estimate is present, reports zero, and is not a guess 
 `Cost(generations=0.0, source="reported")`, which is how the library routes already
 declare themselves. An absent estimate still gates: not knowing a price is not the same
 as knowing it is nothing, and it is the case the gate exists for.
+
+## A pose made from a pose belongs to the same character
+
+A state is a character with its own identifier, so a state can be made from one — and
+it should be: a pose continues the idle rather than the neutral rotation nobody plays.
+The record did not follow that. `_state` keeps the identifier the call was made
+against, `build` only makes a top-level entry for a character's own rotations, and a
+state whose source is another state therefore resolved to nothing and fell into
+`loose`. Reproduced before fixing: a base character, an idle off it, a walk off the
+idle, and `poses_of` naming only the idle while `owner_of` answered `None` for the walk.
+
+Everything that protects a paid call reads that structure — `poses_of`,
+`check_pose_belongs`, `check_a_pose_was_made_for_it`, `inspect`, `character check` —
+so the effect was that the guardrails quietly stopped seeing every pose after the
+first, which is the shape of failure this record exists to prevent.
+
+The source chain is walked to the character at its root, and the state is recorded
+there (R7.6). `of` still names what the state was actually made from, because that is
+what happened; where it is *filed* is the character all of it descends from. The walk
+is computed from every state run before any is attached, so it does not depend on the
+order the runs are read in, and a cycle is stopped by the set of identifiers already
+visited rather than trusted not to exist.

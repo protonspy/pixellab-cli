@@ -322,6 +322,29 @@ def _join(animations: list[dict[str, Any]], animation: dict[str, Any]) -> None:
     held["runs"] = held["runs"] + animation["runs"]
 
 
+def _root_of(state_id: str | None, sources: dict[str, str]) -> str | None:
+    """The character a state descends from, however many states are in between.
+
+    A state is a character with its own identifier, so a pose is made from the idle
+    rather than from the neutral rotation nobody plays — and then its source is not a
+    character this subject holds, it is another state. Walking the chain is what keeps
+    every pose of one character filed together, which is what `poses_of` and the
+    refusals built on it read.
+
+    Computed from every state run before any of them is attached, so the answer does
+    not depend on the order the runs were read in. A chain that comes back to
+    something already seen is not a character and is left alone rather than followed.
+    """
+    seen: set[str] = set()
+    current = state_id
+    while current in sources:
+        if current in seen:
+            return None
+        seen.add(current)
+        current = sources[current]
+    return current
+
+
 def build(name: str, workspace: Workspace) -> Subject:
     """Assemble one subject from the runs under it.
 
@@ -345,12 +368,24 @@ def build(name: str, workspace: Workspace) -> Subject:
         if run.kind == ROTATIONS and run.character_id and not run.is_state:
             subject.characters.append(_character(run))
 
+    # Every state's source, before any of them is placed: a state made from a state
+    # has to reach the character at the root of the chain, and the run that made its
+    # source may be read after it.
+    sources = {
+        str(run.ids.get("character_id")): str(
+            run.ids.get(SOURCE_ID) or run.links.get("character_id")
+        )
+        for run in runs
+        if run.is_state and run.ids.get("character_id")
+    }
+
     for run in runs:
         if run.kind == ROTATIONS and run.character_id and not run.is_state:
             continue
         if run.is_state:
             state = _state(run)
-            owner = subject.character(str(state["of"])) if state["of"] else None
+            root = _root_of(str(state["of"]), sources) if state["of"] else None
+            owner = subject.character(root) if root else None
             if owner is not None:
                 owner["states"].append(state)
                 continue
