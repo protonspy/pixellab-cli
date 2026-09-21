@@ -12,6 +12,10 @@ arrives, paid for, and looks off.
 `pixellab-cli-characters`; this skill starts after that. Read `pixellab-cli-assets` for
 the spending rule: every paid line below needs its own `--yes`.
 
+The options below are what this page knows. `pixellab-cli <command> --help` is what
+the installed version accepts, it is free, and it is the list to check before you
+name an option or say there is none.
+
 ## The order
 
 **One state per motion, and animate the state itself.** Not the base character with the

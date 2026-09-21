@@ -8,6 +8,10 @@ help: the work is seam geometry, which a picture of grass has no opinion about.
 
 Read `pixellab-cli-assets` first for the spending rule and the credentials.
 
+The options below are what this page knows. `pixellab-cli <command> --help` is what
+the installed version accepts, it is free, and it is the list to check before you
+name an option or say there is none.
+
 ## Terrain that connects
 
 ```

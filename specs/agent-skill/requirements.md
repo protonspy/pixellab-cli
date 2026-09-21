@@ -1,9 +1,9 @@
 ---
 autonomy: auto
 ci: wait
-branch: feat/the-pose-must-suit-the-action
-delivery: merged
-pr: 66
+branch: docs/the-help-is-the-current-list
+delivery: in-review
+pr: 80
 ---
 
 # Agent skill — requirements
@@ -54,6 +54,8 @@ the person did not agree to.
 - **R5.10** (ADDED) The entry skill shall state that a paid call needs the person's agreement on that call, and shall forbid treating an earlier agreement as covering a later call.
 
 - **R5.11** (ADDED) The agent skill shall give animating a character that exists its own category skill, separate from creating one, carrying the order its steps are taken in.
+
+- **R5.12** (ADDED) The agent skill shall direct an agent to read a command's own help before naming that command's options, and shall state that the help costs nothing and is what the installed version accepts.
 
 ## Out of scope
 

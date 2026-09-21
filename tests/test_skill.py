@@ -25,9 +25,13 @@ REFERENCES = ENTRY_DIR / "references"
 
 PACKAGED = Path(__file__).resolve().parents[1] / "src" / "pixellab_cli" / "skill"
 
+# Every category skill `harness.packaged_skills` ships, and the list is checked against
+# it below: one missing from here is a skill nothing in this file tests, which is how
+# the animation skill went five releases without being checked at all.
 CATEGORY_SKILLS = (
     "pixellab-cli-images",
     "pixellab-cli-characters",
+    "pixellab-cli-animation",
     "pixellab-cli-editing",
     "pixellab-cli-scenes",
     "pixellab-cli-interface",
@@ -239,3 +243,40 @@ class TestTheInstalledCopyMatchesThePackagedOne:
         }
 
         assert installed == packaged
+
+
+class TestTheHelpIsTheCurrentList:
+    """R5.12. A skill is written once and read for as long as it is installed, so the
+    options it names are a version behind from the first release after it. The help is
+    free, local and current — `art concept --transparent` was in the tool long before
+    anybody read it off a page."""
+
+    def test_the_entry_sends_the_agent_to_the_help(self):
+        body = entry_text()
+
+        assert "--help" in body
+        assert "free" in body.lower()
+
+    @pytest.mark.parametrize("name", CATEGORY_SKILLS)
+    def test_every_category_skill_names_the_help(self, name):
+        """A category skill is where the options are listed, which is where the
+        reminder has to be: an agent that loaded only this one still gets it."""
+        assert "--help" in skill_body(name)
+
+    def test_the_harness_block_carries_it_too(self):
+        """An agent whose harness loads a skill only when it judges it relevant reads
+        this block every session and may never load a skill at all."""
+        from pixellab_cli.harness import block_body
+
+        assert "--help" in block_body(None)
+
+
+class TestNothingShipsUntested:
+    """The animation skill was packaged and installed for five releases while every
+    test in this file walked past it, because the list above is written by hand and
+    the shipped set is not. One missing name is a whole skill nobody checks."""
+
+    def test_every_packaged_skill_is_named_here(self):
+        from pixellab_cli.harness import packaged_skills
+
+        assert set(packaged_skills()) == set(ALL_SKILLS)
