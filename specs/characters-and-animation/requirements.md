@@ -1,8 +1,8 @@
 ---
 autonomy: auto
 ci: wait
-branch: feat/an-object-animation-takes-more-directions
-delivery: in-review
+branch: feat/character-animation-refuses-a-group-id
+delivery: in-progress
 pr: 82
 ---
 
@@ -89,6 +89,7 @@ different endpoint family and no skeleton.
 - **R2.42** (ADDED) Where an animation of that object is named, the character commands shall add to that animation the directions it does not yet hold, rather than starting a second one.
 - **R2.43** (ADDED) The character commands shall report, before an object is animated, which directions the call will cover and what they are estimated to cost.
 - **R2.44** (ADDED) If a direction asked for is already animated in the animation named, then the character commands shall refuse the call before spending anything, unless the caller asks for it to be generated again.
+- **R2.45** (ADDED) If an animation group is named when animating a character, then the character commands shall refuse the call before spending anything, shall say that a character animation does not take an animation group, and shall name what reaches the directions the motion lacks instead.
 
 
 ## R3 · Rotating

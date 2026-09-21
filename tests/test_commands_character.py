@@ -22,6 +22,7 @@ from pixellab_cli.commands.character import (
     motion_asked_for,
     motion_of,
     ordered_rotations,
+    refuse_an_animation_group,
 )
 from pixellab_cli.config import PIXELLAB_BASE_URL, PIXELLAB_SECRET_VAR
 from pixellab_cli.errors import ValidationError
@@ -3259,6 +3260,55 @@ class TestWhatTheCharacterAlreadyHolds:
 
     def test_a_character_with_no_animations_holds_nothing(self):
         assert gather_animations({"animations": None}) == []
+
+
+class TestAnAnimationGroupOnACharacter:
+    """R2.45: `object animate --into` is supported and `/characters/animations` forbids
+    the field, so the flag has to be answered here rather than by the provider."""
+
+    def test_nothing_is_refused_when_no_group_is_named(self):
+        assert refuse_an_animation_group(None) is None
+        assert refuse_an_animation_group("") is None
+
+    def test_a_group_named_is_refused_and_the_field_is_named(self):
+        with pytest.raises(ValidationError) as refusal:
+            refuse_an_animation_group("group-1")
+
+        assert "animation_group_id is not allowed for a character" in str(refusal.value)
+        assert refusal.value.context == {"animation_group_id": "group-1"}
+
+    def test_the_refusal_says_what_to_do_instead(self):
+        with pytest.raises(ValidationError) as refusal:
+            refuse_an_animation_group("group-1")
+
+        assert "-d" in str(refusal.value)
+        assert "object animate" in str(refusal.value)
+
+    @respx.mock
+    def test_a_group_is_refused_before_the_character_is_read(self, tmp_path, monkeypatch):
+        """Ahead of --action, so the answer is about the group and not about the action."""
+        character = respx.get(f"{PIXELLAB_BASE_URL}/characters/char-9")
+        route = respx.post(f"{PIXELLAB_BASE_URL}/characters/animations")
+
+        result = invoke(
+            ["character", "animate", "char-9", "--into", "group-1"], tmp_path, monkeypatch
+        )
+
+        assert result.exit_code != 0
+        assert "not allowed for a character" in result.output
+        assert not character.called
+        assert not route.called
+
+    @respx.mock
+    def test_the_field_itself_is_refused_under_its_own_name(self, tmp_path, monkeypatch):
+        result = invoke(
+            ["character", "animate", "char-9", "--animation-group-id", "group-1", "-a", WALK_CYCLE],
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert result.exit_code != 0
+        assert "not allowed for a character" in result.output
 
 
 class TestADirectionThisMotionAlreadyHas:
