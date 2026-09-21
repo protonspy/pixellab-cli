@@ -1,9 +1,9 @@
 ---
 autonomy: auto
 ci: wait
-branch: feat/the-ui-panel-you-paid-for
+branch: docs/every-pose-comes-off-the-idle
 delivery: in-review
-pr: 79
+pr: 84
 ---
 
 # Asset workspace — requirements
