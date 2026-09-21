@@ -80,3 +80,11 @@
 - [x] 8.3 (Unit) Guard the job id a response chose, not only a typed one — R3.6
   _Reason it reached the poll path unchecked_
 
+
+## 9 · What is left to spend, on both providers
+- [x] 9.1 (Unit) Ask fal what is left, with the key this tool already holds — R5.4
+  _Reason balance asked only PixelLab_
+- [x] 9.2 (Unit) Report both providers, and a silent one as unreported — R5.4, R5.5
+  _Depends 9.1_
+  _Reason balance asked only PixelLab_
+

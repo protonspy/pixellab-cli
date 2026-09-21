@@ -1,9 +1,9 @@
 ---
 autonomy: auto
 ci: wait
-branch: feat/an-object-animation-takes-more-directions
+branch: feat/balance-says-both-providers
 delivery: in-review
-pr: 82
+pr: 85
 ---
 
 # Provider core — requirements
@@ -68,6 +68,8 @@ looks like have to be decided once.
 - **R5.1** The provider core shall return, for every call, the decoded images, the identifiers the provider assigned, and the usage the provider reported.
 - **R5.2** Where a provider reports no usage, the provider core shall return the tool's own estimate marked as an estimate, and shall report the cost as unknown where it has no estimate for that route.
 - **R5.3** (ADDED) Where a provider reports how long a call took, the provider core shall return that alongside what it cost.
+- **R5.4** (ADDED) The provider core shall report what is left to spend on every provider whose credentials are configured, and shall leave out a provider that has none rather than failing.
+- **R5.5** (ADDED) If a provider cannot say what is left, then the provider core shall report that for that provider and shall still report the others.
 
 ## Out of scope
 

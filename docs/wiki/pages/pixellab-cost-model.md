@@ -71,5 +71,6 @@ batches rather than asserting a limit it cannot read.
 
 ## fal is priced separately
 
-fal bills per image and per quality tier, on its own account, with no shared balance.
-See [[fal-platform]].
+fal bills per image and per quality tier, on its own account, with no shared balance —
+two accounts, two balances, and `pixellab-cli balance` reports both where fal is
+configured. See [[fal-platform]].

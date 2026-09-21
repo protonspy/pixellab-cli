@@ -65,3 +65,20 @@ fal bills per image on its own account, per quality tier, with no shared balance
 `usage` object on the response. Costs are recorded in the ledger from the tool's own
 route table rather than read back from the provider — which means a fal price change goes
 unnoticed until someone updates the table, and the ledger says the figure is an estimate.
+
+### What is left on the account
+
+`pixellab-cli balance` reports fal's credits beside PixelLab's, where a fal key is
+configured. Not from the documented route: `GET https://api.fal.ai/v1/account/billing?expand=credits`
+answers `403 authorization_error` to an API-scope key, and billing is admin scope. The
+one fal's own dashboard reads takes the key this tool already holds and answers with a
+bare number of USD:
+
+```
+GET https://rest.alpha.fal.ai/billing/user_balance   Authorization: Key <FAL_KEY>
+→ 200  7.3747928
+```
+
+Undocumented, and the host says `alpha`, so it is a ceiling rather than a contract. A
+failure there prints `fal: not reported` and never costs the PixelLab half of the
+answer, which is the one that command has always given.

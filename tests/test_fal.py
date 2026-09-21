@@ -6,7 +6,7 @@ import respx
 
 from pixellab_cli.config import Credentials
 from pixellab_cli.errors import ConfigurationError, ProviderError, ValidationError
-from pixellab_cli.fal import ALIASES, MODELS, FalClient, model
+from pixellab_cli.fal import ALIASES, FAL_BALANCE_URL, MODELS, FalClient, model
 
 CREDENTIALS = Credentials(fal_key="fal-test-key")
 
@@ -357,3 +357,29 @@ class TestTheTimeIsReadOffTheFinishedJob:
 
         assert client.generate("concept", prompt="a castle").seconds is None
         assert asked == []
+
+
+class TestABalanceThatIsNotANumber:
+    """`float` accepts `inf` and `nan`. A balance printed as `$nan` reads as a figure
+    the account holds, which is worse than not printing one."""
+
+    @respx.mock
+    def test_an_infinite_balance_is_not_reported(self):
+        respx.get(FAL_BALANCE_URL).respond(text="inf")
+
+        assert FalClient(Credentials(fal_key="k")).balance() is None
+
+    @respx.mock
+    def test_a_nan_balance_is_not_reported(self):
+        respx.get(FAL_BALANCE_URL).respond(text="nan")
+
+        assert FalClient(Credentials(fal_key="k")).balance() is None
+
+    @respx.mock
+    def test_an_ordinary_balance_comes_through(self):
+        respx.get(FAL_BALANCE_URL).respond(text="7.3747928")
+
+        assert FalClient(Credentials(fal_key="k")).balance() == 7.3747928
+
+    def test_no_key_asks_nothing(self):
+        assert FalClient(Credentials()).balance() is None

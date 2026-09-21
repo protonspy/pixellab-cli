@@ -110,7 +110,9 @@ recovering a stopped run, and the free local tooling every category uses.
 
 ## Money
 
-- Free or cheap, reach for them freely: `balance`, `ledger`, `character list|show|sheet`,
+- Free or cheap, reach for them freely: `balance` (PixelLab's generations and
+  credits, and fal's credits where a fal key is configured), `ledger`,
+  `character list|show|sheet`,
   `object list`, `recipe list`, every `image` command, every `export` command,
   `config show|path`.
 - **Pro Tools, twenty to forty generations a call:** `object new`, `ui new`, `inpaint`,

@@ -205,3 +205,32 @@ One helper now guards both, and the poll loop calls it before every attempt: a
 covers `submissions`, where the object route puts its identifiers, and the flat
 `background_job_ids` a character animation returns, which had the same gap one layer
 shallower.
+
+## What is left to spend, on both providers
+
+`balance` asked PixelLab and stopped there, which was the whole answer while PixelLab
+was the only provider that could say. fal can say too, and the question a person asks
+before a paid run is about the account they are about to spend from — so it answers for
+whichever providers are configured (R5.4).
+
+fal's documented route is `GET https://api.fal.ai/v1/account/billing?expand=credits`.
+It answers `403 authorization_error` to the key this tool holds: that key is API scope,
+and billing is admin scope. Minting a second, wider key so a free line can be printed is
+a worse trade than not printing it. What the fal dashboard itself calls answers with the
+same key this tool already has:
+
+```
+GET https://rest.alpha.fal.ai/billing/user_balance   Authorization: Key <FAL_KEY>
+→ 200  7.3747928
+```
+
+A bare number, in USD. It is undocumented and the host says `alpha`, so it is a ceiling
+rather than a contract, and the code treats it as one: a failure there reports that fal
+did not say and never turns `balance` into an error (R5.5). The PixelLab half is the
+answer this command has always given, and it must not be lost because a second provider
+was unreachable.
+
+A provider with no credentials is left out entirely rather than reported as a failure.
+Not configuring fal is the ordinary case — it is optional
+(`adr:0010-fal-is-optional-and-pixellab-is-the-fallback`) — and "fal: not reported" for
+an account that has no fal is noise that reads as a fault.
