@@ -25,16 +25,17 @@ character with a hint about one.
 
 ```
 0  inspect <subject>     which character, which poses it already has   free
-   ---- repeat 1-4 once per motion ----
-1  character state -p    the character, in the pose that motion needs  20-40 gen
+1  character state -p    the idle, once, off the base character        20-40 gen
+   ---- repeat 2-5 once per motion; step 2 is what takes the idle's id ----
+2  character state <idle-state-id> -p   the pose that motion needs     20-40 gen
    ---- look at the pose before animating it ----
-2  character enrich      the motion, written from that pose            ~0.05 gen
+3  character enrich      the motion, written from that pose            ~0.05 gen
    ---- read the description, edit it ----
-3  character animate <state-id>   one direction per call               1 gen per frame
+4  character animate <state-id>   one direction per call               1 gen per frame
    ---- look at the frames ----
-4  image gif             watch the loop before building on it          free
-5  image flip            a mirrored direction, where the set wants one free
-6  export atlas          what the engine loads                         free
+5  image gif             watch the loop before building on it          free
+6  image flip            a mirrored direction, where the set wants one free
+7  export atlas          what the engine loads                         free
 ```
 
 This is the shape of a character that came out right, read back off the account —
@@ -75,6 +76,28 @@ Two jobs:
   good animation starts, and it is the single highest-value habit in this pipeline.
 - **A variant.** `-p "the same goblin in a red outfit"` — armour, a wound, a Christmas
   hat, a powered-up form. Same face, same proportions, across every direction.
+
+**Every pose is made from the idle, not from the base character.** Make the idle
+first, off the character; make every other pose off the **idle state's id**. A state is
+a character with its own id, so it is a valid source, and the colours come across from
+whatever it was made from — which is the point. The base character is a neutral
+rotation nobody plays; the idle is the character as it stands in the game, and one
+ancestor for every pose is what makes two of them match when they play in sequence. A
+pose off the base and the next off a state is two ancestors and two slightly different
+characters: invisible on one sheet, obvious in motion, and each one a Pro call that
+cannot be undone.
+
+```bash
+pixellab-cli --yes character state <character-id> -p "idle, standing at rest"
+pixellab-cli --yes character state <idle-state-id> -p "mid-stride walking pose"
+pixellab-cli --yes character state <idle-state-id> -p "attack windup, blade raised"
+```
+
+A costume variant is the one case where the source is a judgement rather than a rule:
+off the idle if it is going to be animated, off the base character if it is a sheet of
+what the outfit looks like. Either way the record files it under the character all of
+it descends from, so `inspect` and `character check` see every pose whichever way it
+was made.
 
 **The colours come from the character, and that is the default.** A state drifts a few
 hues otherwise, which is invisible on its own sheet and obvious the moment two states

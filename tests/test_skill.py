@@ -320,3 +320,21 @@ class TestAPriceNamesACommand:
         for where, body in self.sources().items():
             for name in sorted(self.priced_names(body)):
                 assert name in commands, f"{where} prices {name!r}, which is not a command"
+
+
+class TestAPoseIsMadeFromTheIdle:
+    """A state is a character with its own id, so which one a pose is made *from* is a
+    choice nobody was told how to make: the idle, so every pose has one ancestor and
+    one palette carried forward from the same frame."""
+
+    def body(self) -> str:
+        return skill_body("pixellab-cli-animation")
+
+    def test_the_skill_says_the_pose_comes_off_the_idle(self):
+        assert "idle-state-id" in self.body()
+
+    def test_the_order_makes_the_idle_before_the_poses(self):
+        body = self.body()
+        idle = body.index("the idle, once, off the base character")
+        pose = body.index("the pose that motion needs")
+        assert idle < pose
