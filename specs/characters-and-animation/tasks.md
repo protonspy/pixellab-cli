@@ -133,6 +133,8 @@
 - [x] 7.4 (Unit) Teach the skill that one call carries every direction — R2.40
   _Depends 7.2_
   _Reason the provider refuses animation_group_id for characters_
+- [x] 7.5 (Unit) Refuse an animation group named on a character animation — R2.45
+  _Reason the provider forbids animation_group_id on character animations, so the option has to be answered here rather than by a 422_
 
 ## 8 · Animating an object
 - [x] 8.1 (Unit) Add the object animation route to the catalogue — R2.41

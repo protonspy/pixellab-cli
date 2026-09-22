@@ -128,6 +128,28 @@ def motion_of(animation: dict[str, Any]) -> str:
     )
 
 
+def refuse_an_animation_group(into: str | None) -> None:
+    """Answer `--into` on a character rather than letting the provider answer it.
+
+    `object animate --into` is real — `AnimateObjectRequest.animation_group_id` is
+    documented and supported — so the flag is the obvious thing to reach for here
+    too, and `/characters/animations` forbids the field outright: the body is
+    `extra="forbid"`, and it answers `{"type": "extra_forbidden", "loc": ["body",
+    "animation_group_id"]}` (see `n-0054`). Refused here, with the field named, so a
+    caller reads what to do instead of a 422 naming a field they never typed.
+    """
+    if not into:
+        return
+    raise ValidationError(
+        "animation_group_id is not allowed for a character: PixelLab forbids the field "
+        "on /characters/animations and starts a new animation for every call, so there "
+        "is no group to add a direction to. Name every direction in one call with -d, "
+        "and `character show` reads the groups back as one animation. --into belongs to "
+        "`object animate`.",
+        context={"animation_group_id": into},
+    )
+
+
 def check_the_directions_are_new(
     payload: dict[str, Any], motion: str, wanted: list[str], again: bool
 ) -> dict[str, Any] | None:
@@ -874,6 +896,14 @@ def animate(
     again: bool = typer.Option(
         False, "--again", help="Animate a direction this motion already has, a second time."
     ),
+    into: str = typer.Option(
+        None,
+        "--into",
+        "--group",
+        "--animation-group-id",
+        hidden=True,
+        help="Refused: `object animate` takes an animation group, a character does not.",
+    ),
     seed: int = typer.Option(None, "--seed", help="Repeat a previous generation."),
 ) -> None:
     """Animate a character. Every direction is a separate job and a separate charge."""
@@ -893,6 +923,7 @@ def animate(
             terse,
             any_pose,
             again,
+            into,
             seed,
         )
     except PixellabCliError as failure:
@@ -914,10 +945,15 @@ def _animate(
     terse,
     any_pose,
     again,
+    into,
     seed,
 ) -> None:
     app_context: AppContext = context.obj
     route = catalog.route("characters-animations")
+
+    # Before --action, so a call that only names a group is told about the group
+    # rather than about the action it is also missing.
+    refuse_an_animation_group(into)
 
     if not action and not template:
         raise ValidationError("give either --action or --template")
