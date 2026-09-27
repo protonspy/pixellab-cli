@@ -21,7 +21,7 @@ app = typer.Typer(help="Balance and spending.")
 
 @app.command()
 def balance(context: typer.Context) -> None:
-    """Subscription generations remaining, and USD credits."""
+    """What is left to spend, on every provider that is configured. Free."""
     app_context: AppContext = context.obj
     try:
         result = app_context.pixellab().call("balance")
@@ -45,6 +45,18 @@ def balance(context: typer.Context) -> None:
         lines.append(f"credits: ${credits_usd}")
     if not lines:
         lines.append("PixelLab reported no balance")
+
+    # fal is optional, so an account without it is not missing anything: no line at
+    # all, rather than one that reads as a fault. The key is read from the
+    # credentials rather than by attempting a call, which is what tells "not
+    # configured" from "configured and did not answer".
+    if app_context.credentials.fal_key:
+        held = app_context.fal().balance()
+        lines.append(f"fal credits: ${held:.2f}" if held is not None else "fal: not reported")
+        # Under the PixelLab payload rather than merged into it: the keys at the top
+        # of this document are PixelLab's, and something reading them by name should
+        # not start finding another provider's among them.
+        payload = {**payload, "fal": {"credits_usd": held}}
 
     output.emit(payload, lines, as_json=app_context.as_json)
 

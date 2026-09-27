@@ -210,7 +210,7 @@ names the route, the parameters, the seed and the identifiers PixelLab assigned.
 ledger records every call, before it is made and again when it resolves.
 
 ```bash
-pixellab-cli balance   # what is left to spend
+pixellab-cli balance   # what is left to spend, on both providers
 pixellab-cli ledger    # what has been spent, by route, and what never resolved
 ```
 

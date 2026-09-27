@@ -4,7 +4,8 @@ import respx
 from typer.testing import CliRunner
 
 from pixellab_cli.cli import app
-from pixellab_cli.config import PIXELLAB_BASE_URL, PIXELLAB_SECRET_VAR
+from pixellab_cli.config import FAL_KEY_VAR, PIXELLAB_BASE_URL, PIXELLAB_SECRET_VAR
+from pixellab_cli.fal import FAL_BALANCE_URL
 from pixellab_cli.ledger import Cost, Ledger
 
 runner = CliRunner()
@@ -151,3 +152,104 @@ class TestGlobalOptions:
 
     def test_bare_invocation_shows_help(self):
         assert "Usage" in runner.invoke(app, []).stdout
+
+
+class TestTheBalanceOfBothProviders:
+    """R5.4 and R5.5. The question before a paid run is about the account being spent
+    from, and there are two of them. fal is optional, so an account without it is not
+    missing anything."""
+
+    def a_pixellab_balance(self):
+        respx.get(f"{PIXELLAB_BASE_URL}/balance").respond(
+            json={"credits": {"usd": 5.25}, "subscription": {"generations": 120, "total": 500}}
+        )
+
+    @respx.mock
+    def test_fal_is_reported_when_it_is_configured(self, tmp_path, monkeypatch):
+        monkeypatch.setenv(FAL_KEY_VAR, "fal-test-key")
+        self.a_pixellab_balance()
+        respx.get(FAL_BALANCE_URL).respond(text="7.3747928")
+
+        result = invoke(["balance"], tmp_path, monkeypatch)
+
+        assert result.exit_code == 0
+        assert "fal credits: $7.37" in result.stdout
+        assert "120 of 500" in result.stdout
+
+    @respx.mock
+    def test_the_key_goes_in_the_header_fal_expects(self, tmp_path, monkeypatch):
+        monkeypatch.setenv(FAL_KEY_VAR, "fal-test-key")
+        self.a_pixellab_balance()
+        asked = respx.get(FAL_BALANCE_URL).respond(text="7.37")
+
+        invoke(["balance"], tmp_path, monkeypatch)
+
+        assert asked.calls.last.request.headers["authorization"] == "Key fal-test-key"
+
+    @respx.mock
+    def test_an_account_with_no_fal_key_says_nothing_about_fal(self, tmp_path, monkeypatch):
+        """Not configuring fal is the ordinary case; a line about it would read as a
+        fault where there is none."""
+        monkeypatch.delenv(FAL_KEY_VAR, raising=False)
+        self.a_pixellab_balance()
+        asked = respx.get(FAL_BALANCE_URL)
+
+        result = invoke(["balance"], tmp_path, monkeypatch)
+
+        assert "fal" not in result.stdout.lower()
+        assert not asked.called
+
+    @respx.mock
+    def test_a_fal_that_will_not_answer_does_not_lose_the_other_half(self, tmp_path, monkeypatch):
+        """The route is undocumented and says `alpha`; PixelLab's answer is the one
+        this command has always given."""
+        monkeypatch.setenv(FAL_KEY_VAR, "fal-test-key")
+        self.a_pixellab_balance()
+        respx.get(FAL_BALANCE_URL).respond(403, json={"error": "nope"})
+
+        result = invoke(["balance"], tmp_path, monkeypatch)
+
+        assert result.exit_code == 0
+        assert "fal: not reported" in result.stdout
+        assert "120 of 500" in result.stdout
+
+    @respx.mock
+    def test_an_answer_that_is_not_a_number_is_not_reported(self, tmp_path, monkeypatch):
+        monkeypatch.setenv(FAL_KEY_VAR, "fal-test-key")
+        self.a_pixellab_balance()
+        respx.get(FAL_BALANCE_URL).respond(text="<html>maintenance</html>")
+
+        result = invoke(["balance"], tmp_path, monkeypatch)
+
+        assert result.exit_code == 0
+        assert "fal: not reported" in result.stdout
+
+    @respx.mock
+    def test_the_json_keeps_pixellab_at_the_top_and_fal_beside_it(self, tmp_path, monkeypatch):
+        """Something reading the PixelLab keys by name must not start finding
+        another provider's among them."""
+        monkeypatch.setenv(FAL_KEY_VAR, "fal-test-key")
+        self.a_pixellab_balance()
+        respx.get(FAL_BALANCE_URL).respond(text="7.37")
+
+        result = invoke(["--json", "balance"], tmp_path, monkeypatch)
+
+        payload = json.loads(result.stdout)
+        assert payload["subscription"]["generations"] == 120
+        assert payload["fal"] == {"credits_usd": 7.37}
+
+    @respx.mock
+    def test_the_json_says_fal_did_not_answer_rather_than_leaving_it_out(
+        self, tmp_path, monkeypatch
+    ):
+        """Configured and silent is not the same as absent, and a parser reading
+        this has to be able to tell them apart."""
+        monkeypatch.setenv(FAL_KEY_VAR, "fal-test-key")
+        self.a_pixellab_balance()
+        respx.get(FAL_BALANCE_URL).respond(503, text="down")
+
+        result = invoke(["--json", "balance"], tmp_path, monkeypatch)
+
+        payload = json.loads(result.stdout)
+        assert payload["fal"] == {"credits_usd": None}
+        assert payload["subscription"]["generations"] == 120

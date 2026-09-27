@@ -13,6 +13,7 @@ them lands on disk in between — which is also where the person can look at it.
 from __future__ import annotations
 
 import base64
+import math
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -55,6 +56,13 @@ BACKGROUND = ("auto", "transparent", "opaque")
 OUTPUT_FORMAT = ("jpeg", "png", "webp")
 
 DOWNLOAD_TIMEOUT = 120.0
+
+# What fal's own dashboard reads for the figure it shows. See `FalClient.balance`
+# for why the documented billing route is not the one called.
+FAL_BALANCE_URL = "https://rest.alpha.fal.ai/billing/user_balance"
+# Short on purpose: this is a line beside an answer the command already has, and
+# nobody should wait on it.
+BALANCE_TIMEOUT = 15.0
 
 # Shared by all four GPT Image 2.5 endpoints; the two `edit` ones add image_urls
 # and mask_url. See docs/wiki/pages/gpt-image-25.md.
@@ -201,6 +209,42 @@ class FalClient:
             seconds=self._seconds(route.path, request_id, key),
             raw=payload,
         )
+
+    def balance(self) -> float | None:
+        """What fal says is left on the account, in USD, or None if it will not say.
+
+        The documented route is `GET /v1/account/billing?expand=credits` on
+        `api.fal.ai`, and it answers `403 authorization_error` to the key this tool
+        holds: that key is API scope and billing is admin scope. Asking someone to
+        mint a second, wider key so a free line can be printed is the worse trade.
+        What fal's own dashboard calls takes the key we already have and answers with
+        a bare number.
+
+        Undocumented, and the host says `alpha`, so this is a ceiling rather than a
+        contract — `None` on anything unexpected, and the caller says fal did not
+        report rather than failing. The balance of the other provider is the answer
+        this command has always given and must not be lost to this one.
+        """
+        key = self._credentials.fal_key
+        if not key:
+            return None
+        try:
+            if self._http is not None:
+                response = self._http.get(
+                    FAL_BALANCE_URL,
+                    headers={"Authorization": f"Key {key}"},
+                    timeout=BALANCE_TIMEOUT,
+                )
+            else:
+                with httpx.Client(timeout=BALANCE_TIMEOUT) as client:
+                    response = client.get(FAL_BALANCE_URL, headers={"Authorization": f"Key {key}"})
+            response.raise_for_status()
+            held = float(response.text.strip())
+        except (httpx.HTTPError, ValueError):
+            return None
+        # `inf` and `nan` parse, and a balance printed as `$nan` is worse than one
+        # not printed: it reads as a number the account actually holds.
+        return held if math.isfinite(held) else None
 
     def _seconds(self, application: str, request_id: str | None, key: str) -> float | None:
         """How long fal says the finished job took, or None if it will not say.
